@@ -17,28 +17,47 @@ export function LoginForm() {
   const [password, setPassword] = useState("123456")
   const [userType, setUserType] = useState("admin") // Nuevo estado para el tipo de usuario
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
+
+    // Validar que los campos no estén vacíos
+    if (!username.trim() || !password.trim()) {
+      setError("Por favor ingresa un usuario y contraseña")
+      setIsLoading(false)
+      return
+    }
 
     // Simulamos una verificación de credenciales
     setTimeout(() => {
-      // En un caso real, aquí verificarías las credenciales con tu backend
-      if (username.length > 0 && password.length > 0) {
-        // Guardar el tipo de usuario en localStorage para mantener la sesión
-        localStorage.setItem("userType", userType)
-
-        // Redirigir al usuario según su tipo
-        if (userType === "admin") {
-          router.push("/admin")
+      // Validar credenciales según el tipo de usuario
+      if (userType === "admin") {
+        // Credenciales para administrador
+        if (username === "admin" && password === "123456") {
+          // Guardar el tipo de usuario en localStorage para mantener la sesión
+          localStorage.setItem("userType", userType)
+          router.push("/home")
         } else {
-          router.push("/vendor")
+          setError("Credenciales de administrador incorrectas")
+          setIsLoading(false)
+        }
+      } else if (userType === "vendor") {
+        // Credenciales para vendedor
+        if (username === "vendedor" && password === "123456") {
+          // Guardar el tipo de usuario en localStorage para mantener la sesión
+          localStorage.setItem("userType", userType)
+          router.push("/home")
+        } else {
+          setError("Credenciales de vendedor incorrectas")
+          setIsLoading(false)
         }
       } else {
+        setError("Tipo de usuario no válido")
         setIsLoading(false)
-        alert("Por favor ingresa un usuario y contraseña")
       }
     }, 1000)
   }
@@ -53,6 +72,12 @@ export function LoginForm() {
         </div>
 
         <div className="p-6 space-y-5">
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
+
           <div className="space-y-3">
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary h-5 w-5" />
@@ -159,4 +184,3 @@ export function LoginForm() {
     </form>
   )
 }
-

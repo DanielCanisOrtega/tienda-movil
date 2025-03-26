@@ -10,12 +10,12 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   const router = useRouter()
   const pathname = usePathname()
 
-  // Asegurarse de que el vendedor vuelva a su panel cuando presiona atrás
+  // Asegurarse de que el vendedor vuelva a la página de inicio cuando presiona atrás
   useEffect(() => {
     const handleBackButton = (e: PopStateEvent) => {
-      // Si el vendedor está en una página que no es su panel, redirigirlo a su panel
-      if (pathname !== "/vendor" && localStorage.getItem("userType") === "vendor") {
-        router.push("/vendor")
+      // Si el usuario está en una página que no es la de inicio, redirigirlo a inicio
+      if (pathname !== "/home" && localStorage.getItem("userType")) {
+        router.push("/home")
       }
     }
 
@@ -33,4 +33,3 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     </div>
   )
 }
-

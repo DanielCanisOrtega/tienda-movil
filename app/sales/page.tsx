@@ -13,7 +13,7 @@ export default function SalesPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
       <div className="bg-white p-4 flex items-center">
-        <Link href="/admin" className="mr-4">
+        <Link href="/home" className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
         <h1 className="text-xl font-semibold">Ventas</h1>
@@ -118,4 +118,3 @@ export default function SalesPage() {
     </main>
   )
 }
-

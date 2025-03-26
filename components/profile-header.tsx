@@ -4,7 +4,7 @@ import Link from "next/link"
 export function ProfileHeader() {
   return (
     <div className="bg-primary text-white p-4 relative">
-      <Link href="/search" className="absolute top-4 left-4">
+      <Link href="/home" className="absolute top-4 left-4">
         <ChevronLeft className="h-6 w-6" />
       </Link>
       <div className="flex flex-col items-center justify-center pt-6">
@@ -17,4 +17,3 @@ export function ProfileHeader() {
     </div>
   )
 }
-

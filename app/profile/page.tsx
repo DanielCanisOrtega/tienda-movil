@@ -24,7 +24,7 @@ export default function ProfilePage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
       <div className="bg-primary text-white p-4 pt-8 relative">
-        <Link href="/search" className="absolute top-8 left-4">
+        <Link href="/home" className="absolute top-8 left-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
         <div className="flex flex-col items-center justify-center pt-6">
@@ -68,4 +68,3 @@ export default function ProfilePage() {
     </main>
   )
 }
-

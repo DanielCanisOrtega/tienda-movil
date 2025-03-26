@@ -8,7 +8,7 @@ export default function AddProductPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-white p-4 flex items-center">
-        <Link href="/search" className="mr-4">
+        <Link href="/home" className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
         <h1 className="text-xl font-semibold">Añadir un producto</h1>
@@ -77,4 +77,3 @@ export default function AddProductPage() {
     </main>
   )
 }
-

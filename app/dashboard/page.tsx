@@ -18,7 +18,7 @@ export default function DashboardPage() {
   return (
     <main className="flex min-h-screen flex-col bg-primary android-safe-top">
       <div className="p-4 text-white flex items-center">
-        <Link href="/admin" className="mr-4">
+        <Link href="/home" className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
         <h1 className="text-xl font-semibold">Balances</h1>
@@ -90,4 +90,3 @@ export default function DashboardPage() {
     </main>
   )
 }
-
