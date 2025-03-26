@@ -1,15 +1,16 @@
 Tienda Móvil
 
-Este es un proyecto de e-commerce desarrollado con React, Next.js y Node.js.
+Este es un proyecto de  desarrollado con React, Next.js y Node.js.
 
 Instalación y Configuración
 
-Clonar el repositorio
+1.Clonar el repositorio
 
 git clone https://github.com/DanielCanisOrtega/tienda-movil.git
+
 cd tienda-movil
 
-Instalar dependencias
+2.Instalar dependencias
 
 Asegúrate de tener Node.js y npm o yarn instalados. Luego, ejecuta:
 
@@ -19,7 +20,7 @@ o si usas yarn
 
 yarn install
 
-Ejecutar el proyecto en modo desarrollo
+3.Ejecutar el proyecto en modo desarrollo
 
 npm run dev
 o
