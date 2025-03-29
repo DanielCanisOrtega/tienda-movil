@@ -3,7 +3,7 @@
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import Link from "next/link"
-import { ShoppingBag, Package, Users, BarChart2 } from "lucide-react"
+import { ShoppingBag, Package, Users, BarChart2, ShoppingCart } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function HomePage() {
@@ -27,9 +27,16 @@ export default function HomePage() {
       <div className="container max-w-md mx-auto p-4">
         <div className="grid grid-cols-2 gap-4">
           <MenuCard
+            icon={<ShoppingCart className="h-8 w-8 text-primary" />}
+            title="Nueva Venta"
+            description="Registrar venta"
+            href="/cart"
+          />
+
+          <MenuCard
             icon={<ShoppingBag className="h-8 w-8 text-primary" />}
-            title="Ventas"
-            description="Gestionar ventas"
+            title="Historial"
+            description="Ver ventas"
             href="/sales"
           />
 
