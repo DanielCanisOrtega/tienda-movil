@@ -3,7 +3,7 @@
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import Link from "next/link"
-import { ShoppingBag, Package, Users, BarChart2, ShoppingCart } from "lucide-react"
+import { ShoppingBag, Package, Users, BarChart2, ShoppingCart, DollarSign } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function HomePage() {
@@ -14,6 +14,45 @@ export default function HomePage() {
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
   }, [])
+
+  const createSampleExpenses = () => {
+    const categories = ["Pedidos", "Servicios", "Nómina", "Alquiler", "Impuestos", "Otros"]
+    const paymentMethods = ["Efectivo", "Transferencia", "Tarjeta de Débito", "Tarjeta de Crédito"]
+    const descriptions = [
+      "Factura de luz",
+      "Factura de agua",
+      "Pedido de frutas",
+      "Pedido de verduras",
+      "Pago de empleados",
+      "Alquiler del local",
+      "Impuestos municipales",
+      "Mantenimiento",
+    ]
+
+    const sampleExpenses = []
+    const today = new Date()
+
+    // Crear 20 gastos de ejemplo en los últimos 30 días
+    for (let i = 0; i < 20; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - Math.floor(Math.random() * 30)) // Hasta 30 días atrás
+
+      const expense = {
+        id: crypto.randomUUID(),
+        description: descriptions[Math.floor(Math.random() * descriptions.length)],
+        amount: Math.floor(Math.random() * 500000) + 50000, // Entre 50,000 y 550,000
+        date: date.toISOString().split("T")[0], // Formato YYYY-MM-DD
+        category: categories[Math.floor(Math.random() * categories.length)],
+        paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
+        notes: Math.random() > 0.5 ? "Nota de ejemplo" : "",
+      }
+
+      sampleExpenses.push(expense)
+    }
+
+    localStorage.setItem("expenses", JSON.stringify(sampleExpenses))
+    alert(`Se han creado ${sampleExpenses.length} gastos de ejemplo`)
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
@@ -42,9 +81,16 @@ export default function HomePage() {
 
           <MenuCard
             icon={<Package className="h-8 w-8 text-primary" />}
-            title="Productos"
-            description="Ver inventario"
-            href="/search"
+            title="Inventario"
+            description="Ver productos"
+            href="/products"
+          />
+
+          <MenuCard
+            icon={<DollarSign className="h-8 w-8 text-primary" />}
+            title="Gastos"
+            description="Gestionar gastos"
+            href="/expenses"
           />
 
           {/* Solo mostrar Vendedores y Reportes si es administrador */}
@@ -64,6 +110,14 @@ export default function HomePage() {
                 href="/dashboard"
               />
             </>
+          )}
+
+          {userType === "admin" && (
+            <div className="mt-6">
+              <button onClick={createSampleExpenses} className="text-sm text-primary underline">
+                Crear datos de ejemplo para gastos
+              </button>
+            </div>
           )}
         </div>
       </div>

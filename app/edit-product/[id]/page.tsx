@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ChevronLeft, ImageIcon } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Definir la interfaz para el producto
@@ -22,9 +22,13 @@ interface Product {
   stock: number
 }
 
-export default function AddProductPage() {
+export default function EditProductPage() {
   const router = useRouter()
+  const params = useParams()
+  const productId = params.id as string
+
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [productNotFound, setProductNotFound] = useState(false)
   const [categories, setCategories] = useState<string[]>([
     "Frutas",
     "Verduras",
@@ -36,7 +40,8 @@ export default function AddProductPage() {
     "Otros",
   ])
 
-  const [formData, setFormData] = useState<Omit<Product, "id">>({
+  const [formData, setFormData] = useState<Product>({
+    id: Number.parseInt(productId),
     name: "",
     price: 0,
     description: "",
@@ -50,6 +55,23 @@ export default function AddProductPage() {
     price: "",
     category: "",
   })
+
+  // Cargar datos del producto
+  useEffect(() => {
+    const storedProducts = localStorage.getItem("products")
+    if (storedProducts) {
+      const products: Product[] = JSON.parse(storedProducts)
+      const product = products.find((p) => p.id === Number.parseInt(productId))
+
+      if (product) {
+        setFormData(product)
+      } else {
+        setProductNotFound(true)
+      }
+    } else {
+      setProductNotFound(true)
+    }
+  }, [productId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -118,30 +140,45 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     // Obtener productos existentes del localStorage
-    const existingProducts = localStorage.getItem("products")
-    const products: Product[] = existingProducts ? JSON.parse(existingProducts) : []
+    const storedProducts = localStorage.getItem("products")
+    if (storedProducts) {
+      const products: Product[] = JSON.parse(storedProducts)
 
-    // Generar un nuevo ID (el más alto + 1)
-    const newId = products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1
+      // Actualizar el producto
+      const updatedProducts = products.map((product) => (product.id === formData.id ? formData : product))
 
-    // Crear el nuevo producto
-    const newProduct: Product = {
-      id: newId,
-      ...formData,
+      // Guardar en localStorage
+      localStorage.setItem("products", JSON.stringify(updatedProducts))
+
+      // Simular tiempo de procesamiento
+      setTimeout(() => {
+        setIsSubmitting(false)
+        alert("Producto actualizado con éxito")
+        router.push("/products")
+      }, 1000)
     }
+  }
 
-    // Agregar el nuevo producto a la lista
-    products.push(newProduct)
+  if (productNotFound) {
+    return (
+      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
+        <div className="bg-white p-4 flex items-center">
+          <Link href="/products" className="mr-4">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <h1 className="text-xl font-semibold">Editar producto</h1>
+        </div>
 
-    // Guardar en localStorage
-    localStorage.setItem("products", JSON.stringify(products))
-
-    // Simular tiempo de procesamiento
-    setTimeout(() => {
-      setIsSubmitting(false)
-      alert("Producto agregado con éxito")
-      router.push("/products")
-    }, 1000)
+        <div className="container max-w-md mx-auto p-4 text-center">
+          <div className="bg-white rounded-lg p-8">
+            <p className="text-text-secondary mb-4">Producto no encontrado</p>
+            <Button onClick={() => router.push("/products")} className="bg-primary hover:bg-primary-dark">
+              Volver al inventario
+            </Button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -150,7 +187,7 @@ export default function AddProductPage() {
         <Link href="/products" className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
-        <h1 className="text-xl font-semibold">Añadir un producto</h1>
+        <h1 className="text-xl font-semibold">Editar producto</h1>
       </div>
 
       <div className="container max-w-md mx-auto p-4">
@@ -231,7 +268,7 @@ export default function AddProductPage() {
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <ImageIcon className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-base text-text-secondary">Añadir foto</p>
+            <p className="text-base text-text-secondary">Cambiar foto</p>
             <p className="text-xs text-text-secondary mt-1">(Funcionalidad no disponible en esta versión)</p>
           </div>
 
@@ -254,7 +291,7 @@ export default function AddProductPage() {
             className="w-full h-14 text-base bg-primary hover:bg-primary-dark mt-6 android-ripple"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Guardando..." : "Guardar Producto"}
+            {isSubmitting ? "Guardando..." : "Actualizar Producto"}
           </Button>
         </form>
       </div>

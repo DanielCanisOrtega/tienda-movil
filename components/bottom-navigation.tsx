@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, Search, User } from "lucide-react"
+import { Home, Package, User } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -18,9 +18,9 @@ export function BottomNavigation() {
         <span className="text-xs mt-1">Inicio</span>
       </Link>
 
-      <Link href="/search" className={`bottom-nav-item android-ripple ${isActive("/search") ? "active" : ""}`}>
-        <Search size={24} />
-        <span className="text-xs mt-1">Buscar</span>
+      <Link href="/products" className={`bottom-nav-item android-ripple ${isActive("/products") ? "active" : ""}`}>
+        <Package size={24} />
+        <span className="text-xs mt-1">Inventario</span>
       </Link>
 
       <Link href="/profile" className={`bottom-nav-item android-ripple ${isActive("/profile") ? "active" : ""}`}>
@@ -32,3 +32,4 @@ export function BottomNavigation() {
 }
 
 export default BottomNavigation
+

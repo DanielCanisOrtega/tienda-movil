@@ -1,27 +1,21 @@
-import { ChevronLeft } from "lucide-react"
-import Link from "next/link"
-import { SearchHeader } from "@/components/search-header"
-import { SearchResults } from "@/components/search-results"
-import { BottomNavigation } from "@/components/bottom-navigation"
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 export default function SearchPage() {
+  const router = useRouter()
+
+  // Redirigir directamente a la página de productos
+  useEffect(() => {
+    router.replace("/products")
+  }, [router])
+
+  // Página de carga mientras se redirige
   return (
-    <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
-      <div className="bg-white p-4 flex items-center">
-        <Link href="/home" className="mr-4">
-          <ChevronLeft className="h-6 w-6" />
-        </Link>
-        <h1 className="text-xl font-semibold">Productos</h1>
-      </div>
-
-      <SearchHeader />
-
-      <div className="container max-w-md mx-auto p-4">
-        <SearchResults />
-      </div>
-
-      <BottomNavigation />
-    </main>
+    <div className="flex min-h-screen items-center justify-center bg-background-light">
+      <p className="text-text-secondary">Redirigiendo...</p>
+    </div>
   )
 }
 
