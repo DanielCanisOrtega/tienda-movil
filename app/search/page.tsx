@@ -1,8 +1,8 @@
-import { SearchResults } from "@/components/search-results"
-import { SearchHeader } from "@/components/search-header"
-import { BottomNavigation } from "@/components/bottom-navigation"
-import { ChevronLeft, Plus } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
+import { SearchHeader } from "@/components/search-header"
+import { SearchResults } from "@/components/search-results"
+import { BottomNavigation } from "@/components/bottom-navigation"
 
 export default function SearchPage() {
   return (
@@ -21,10 +21,7 @@ export default function SearchPage() {
       </div>
 
       <BottomNavigation />
-
-      <Link href="/add-product" className="fab">
-        <Plus size={24} />
-      </Link>
     </main>
   )
 }
+

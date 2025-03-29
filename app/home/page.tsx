@@ -3,7 +3,7 @@
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import Link from "next/link"
-import { ShoppingBag, Package, Users, BarChart2, Plus } from "lucide-react"
+import { ShoppingBag, Package, Users, BarChart2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function HomePage() {
@@ -47,7 +47,7 @@ export default function HomePage() {
                 icon={<Users className="h-8 w-8 text-primary" />}
                 title="Vendedores"
                 description="Gestionar equipo"
-                href="/profile"
+                href="/vendors"
               />
 
               <MenuCard
@@ -60,10 +60,6 @@ export default function HomePage() {
           )}
         </div>
       </div>
-
-      <Link href="/add-product" className="fab">
-        <Plus size={24} />
-      </Link>
 
       <BottomNavigation />
     </main>
@@ -91,3 +87,4 @@ function MenuCard({
     </Link>
   )
 }
+

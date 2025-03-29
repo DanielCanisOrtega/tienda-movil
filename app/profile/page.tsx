@@ -5,11 +5,28 @@ import { ChevronLeft, LogOut } from "lucide-react"
 import Link from "next/link"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+
+export interface Vendor {
+  id: string
+  name: string
+  phone: string
+  email: string
+  password: string
+  photo?: string
+}
 
 export default function ProfilePage() {
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [userType, setUserType] = useState<string | null>(null)
+  const [userPhone, setUserPhone] = useState("+57 3124567890")
+
+  useEffect(() => {
+    // Obtener el tipo de usuario del localStorage
+    const storedUserType = localStorage.getItem("userType")
+    setUserType(storedUserType)
+  }, [])
 
   const handleLogout = () => {
     setIsLoggingOut(true)
@@ -17,6 +34,7 @@ export default function ProfilePage() {
     // Simulamos el proceso de cierre de sesión
     setTimeout(() => {
       // En un caso real, aquí limpiarías tokens, cookies, etc.
+      localStorage.removeItem("userType")
       router.push("/")
     }, 1000)
   }
@@ -31,32 +49,33 @@ export default function ProfilePage() {
           <div className="w-20 h-20 rounded-full bg-white/20 mb-3 overflow-hidden">
             <img src="/placeholder.svg?height=80&width=80" alt="Profile" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-xl font-medium">Daniel Guaticancas</h1>
-          <p className="text-sm opacity-80 mt-1">Vendedor • Comprador</p>
+          <h1 className="text-xl font-medium">{userType === "admin" ? "Administrador" : "Vendedor"}</h1>
+          <p className="text-sm opacity-80 mt-1">{userType === "admin" ? "Panel de gestión" : "Panel de vendedor"}</p>
         </div>
       </div>
 
       <div className="container max-w-md mx-auto p-4">
         <div className="bg-white rounded-lg p-5 mb-4">
           <h2 className="font-medium mb-2">Teléfono</h2>
-          <p className="text-base text-text-secondary">+57 3124567890</p>
+          <p className="text-base text-text-secondary">{userPhone}</p>
         </div>
 
-        <div className="space-y-4">
-          <Link href="/add-vendor">
-            <Button className="w-full h-12 text-base bg-primary hover:bg-primary-dark android-ripple">
-              Añadir Vendedor
-            </Button>
-          </Link>
-          <Button className="w-full h-12 text-base bg-white text-primary border border-primary hover:bg-primary/10 android-ripple">
-            Eliminar Vendedor
-          </Button>
+        {userType === "admin" && (
+          <div className="space-y-4 mb-4">
+            <Link href="/vendors">
+              <Button className="w-full h-12 text-base bg-primary hover:bg-primary-dark android-ripple">
+                Gestionar Vendedores
+              </Button>
+            </Link>
+          </div>
+        )}
 
-          {/* Botón de cierre de sesión */}
+        <div className="bg-white rounded-lg p-5 mb-4">
+          <h2 className="font-medium mb-4">Configuración de Cuenta</h2>
           <Button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full h-12 text-base bg-white text-danger border border-danger hover:bg-danger/10 android-ripple mt-8 flex items-center justify-center"
+            className="w-full h-12 text-base bg-white text-danger border border-danger hover:bg-danger/10 android-ripple flex items-center justify-center"
           >
             <LogOut className="mr-2 h-5 w-5" />
             {isLoggingOut ? "Cerrando sesión..." : "Cerrar Sesión"}
