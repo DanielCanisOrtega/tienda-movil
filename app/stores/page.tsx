@@ -3,11 +3,12 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Edit, Plus, Search, Store, Trash2 } from "lucide-react"
+import { Edit, Plus, Search, Store, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { fetchWithAuth } from "@/services/auth-service"
+import { useState, useEffect } from "react"
+import { fetchWithAuth, loginToBackend } from "@/services/auth-service"
+import { AuthStatus } from "@/components/auth-status"
 
 // Definir la interfaz para las tiendas
 interface StoreType {
@@ -28,6 +29,28 @@ export default function StoresPage() {
   const [userType, setUserType] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
+
+  // Intentar autenticarse al cargar la página
+  useEffect(() => {
+    const authenticate = async () => {
+      setIsAuthenticating(true)
+      try {
+        // Verificar si ya tenemos un token
+        const token = localStorage.getItem("backendToken")
+        if (!token) {
+          // Si no hay token, intentar iniciar sesión
+          await loginToBackend()
+        }
+      } catch (err) {
+        console.error("Error al autenticar:", err)
+      } finally {
+        setIsAuthenticating(false)
+      }
+    }
+
+    authenticate()
+  }, [])
 
   // Cargar tiendas de la API
   useEffect(() => {
@@ -43,39 +66,36 @@ export default function StoresPage() {
 
     // Función para cargar las tiendas
     const fetchStores = async () => {
+      // No cargar tiendas si estamos autenticando
+      if (isAuthenticating) return
+
       setIsLoading(true)
       setError(null)
 
       try {
-        console.log("Intentando conectar a:", "https://tienda-backend-p9ms.onrender.com/api/tiendas/")
-
-        const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/", {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          credentials: "omit",
-        })
-
-        console.log("Respuesta recibida:", response.status, response.statusText)
+        const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/")
 
         if (!response.ok) {
           throw new Error(`Error: ${response.status} - ${response.statusText}`)
         }
 
         const data = await response.json()
-        console.log("Datos recibidos:", data)
         setStores(data)
       } catch (err) {
-        console.error("Error detallado al cargar las tiendas:", err)
-        setError(`No se pudieron cargar las tiendas: ${err instanceof Error ? err.message : 'Error desconocido'}. Por favor, intenta de nuevo más tarde.`)      } finally {
+        console.error("Error al cargar las tiendas:", err)
+        setError(
+          `No se pudieron cargar las tiendas: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+        )
+      } finally {
         setIsLoading(false)
       }
     }
 
-    fetchStores()
-  }, [router])
+    // Solo cargar tiendas si no estamos autenticando
+    if (!isAuthenticating) {
+      fetchStores()
+    }
+  }, [router, isAuthenticating])
 
   // Filtrar tiendas según búsqueda
   useEffect(() => {
@@ -151,6 +171,10 @@ export default function StoresPage() {
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
         <div className="bg-white p-4 rounded-lg shadow-sm">
+          <AuthStatus />
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary h-5 w-5" />
             <Input
@@ -169,9 +193,17 @@ export default function StoresPage() {
           </Button>
         </Link>
 
-        {isLoading ? (
+        {isAuthenticating ? (
           <Card>
             <CardContent className="p-6 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+              <p className="text-text-secondary">Autenticando con el backend...</p>
+            </CardContent>
+          </Card>
+        ) : isLoading ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
               <p className="text-text-secondary">Cargando tiendas...</p>
             </CardContent>
           </Card>

@@ -110,14 +110,17 @@ export default function AddStorePage() {
       })
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        const errorText = await response.text()
+        throw new Error(`Error: ${response.status} - ${response.statusText} - ${errorText}`)
       }
 
       alert("Tienda creada con éxito")
       router.push("/stores")
     } catch (err) {
       console.error("Error al crear la tienda:", err)
-      alert("No se pudo crear la tienda. Por favor, intenta de nuevo más tarde.")
+      alert(
+        `No se pudo crear la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+      )
     } finally {
       setIsSubmitting(false)
     }

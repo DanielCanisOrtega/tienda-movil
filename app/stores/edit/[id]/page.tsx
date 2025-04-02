@@ -8,33 +8,23 @@ import { Label } from "@/components/ui/label"
 import { ChevronLeft, Store } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchWithAuth } from "@/services/auth-service"
 
-interface StoreData {
-  id: string
+interface StoreFormData {
   nombre: string
   direccion: string
   telefono: string
   descripcion: string
-  imagen?: string
-  fecha_creacion?: string
 }
 
-export default function EditStorePage() {
+export default function AddStorePage() {
   const router = useRouter()
-  const params = useParams()
-  const storeId = params.id as string
-
   const [userType, setUserType] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [storeNotFound, setStoreNotFound] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState<StoreData>({
-    id: storeId,
+  const [formData, setFormData] = useState<StoreFormData>({
     nombre: "",
     direccion: "",
     telefono: "",
@@ -47,7 +37,7 @@ export default function EditStorePage() {
     telefono: "",
   })
 
-  // Verificar si el usuario es administrador y cargar datos de la tienda
+  // Verificar si el usuario es administrador
   useEffect(() => {
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
@@ -55,37 +45,8 @@ export default function EditStorePage() {
     if (storedUserType !== "admin") {
       // Redirigir a la página de inicio si no es administrador
       router.push("/")
-      return
     }
-
-    // Función para cargar los datos de la tienda
-    const fetchStore = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/`)
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setStoreNotFound(true)
-          } else {
-            throw new Error(`Error: ${response.status} - ${response.statusText}`)
-          }
-        } else {
-          const data = await response.json()
-          setFormData(data)
-        }
-      } catch (err) {
-        console.error("Error al cargar la tienda:", err)
-        setError("No se pudo cargar la información de la tienda. Por favor, intenta de nuevo más tarde.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchStore()
-  }, [router, storeId])
+  }, [router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -140,28 +101,26 @@ export default function EditStorePage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/`, {
-        method: "PUT",
+      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          nombre: formData.nombre,
-          direccion: formData.direccion,
-          telefono: formData.telefono,
-          descripcion: formData.descripcion,
-        }),
+        body: JSON.stringify(formData),
       })
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        const errorText = await response.text()
+        throw new Error(`Error: ${response.status} - ${response.statusText} - ${errorText}`)
       }
 
-      alert("Tienda actualizada con éxito")
+      alert("Tienda creada con éxito")
       router.push("/stores")
     } catch (err) {
-      console.error("Error al actualizar la tienda:", err)
-      alert("No se pudo actualizar la tienda. Por favor, intenta de nuevo más tarde.")
+      console.error("Error al crear la tienda:", err)
+      alert(
+        `No se pudo crear la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -171,70 +130,13 @@ export default function EditStorePage() {
     return null // No renderizar nada mientras se verifica o redirige
   }
 
-  if (isLoading) {
-    return (
-      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-        <div className="bg-white p-4 flex items-center">
-          <Link href="/stores" className="mr-4">
-            <ChevronLeft className="h-6 w-6" />
-          </Link>
-          <h1 className="text-xl font-semibold">Editar Tienda</h1>
-        </div>
-        <div className="container max-w-md mx-auto p-4 text-center">
-          <p className="text-text-secondary">Cargando información de la tienda...</p>
-        </div>
-      </main>
-    )
-  }
-
-  if (error) {
-    return (
-      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-        <div className="bg-white p-4 flex items-center">
-          <Link href="/stores" className="mr-4">
-            <ChevronLeft className="h-6 w-6" />
-          </Link>
-          <h1 className="text-xl font-semibold">Editar Tienda</h1>
-        </div>
-        <div className="container max-w-md mx-auto p-4 text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()} className="bg-primary hover:bg-primary-dark">
-            Reintentar
-          </Button>
-        </div>
-      </main>
-    )
-  }
-
-  if (storeNotFound) {
-    return (
-      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-        <div className="bg-white p-4 flex items-center">
-          <Link href="/stores" className="mr-4">
-            <ChevronLeft className="h-6 w-6" />
-          </Link>
-          <h1 className="text-xl font-semibold">Editar Tienda</h1>
-        </div>
-
-        <div className="container max-w-md mx-auto p-4 text-center">
-          <div className="bg-white rounded-lg p-8">
-            <p className="text-text-secondary mb-4">Tienda no encontrada</p>
-            <Button onClick={() => router.push("/stores")} className="bg-primary hover:bg-primary-dark">
-              Volver a tiendas
-            </Button>
-          </div>
-        </div>
-      </main>
-    )
-  }
-
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-white p-4 flex items-center">
         <Link href="/stores" className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
-        <h1 className="text-xl font-semibold">Editar Tienda</h1>
+        <h1 className="text-xl font-semibold">Añadir Nueva Tienda</h1>
       </div>
 
       <div className="container max-w-md mx-auto p-4">
@@ -289,7 +191,7 @@ export default function EditStorePage() {
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <Store className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-base text-text-secondary">Cambiar imagen</p>
+            <p className="text-base text-text-secondary">Añadir imagen</p>
             <p className="text-xs text-text-secondary mt-1">(Funcionalidad no disponible en esta versión)</p>
           </div>
 
@@ -312,7 +214,7 @@ export default function EditStorePage() {
             className="w-full h-14 text-base bg-primary hover:bg-primary-dark mt-6 android-ripple"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Guardando..." : "Actualizar Tienda"}
+            {isSubmitting ? "Guardando..." : "Crear Tienda"}
           </Button>
         </form>
       </div>
