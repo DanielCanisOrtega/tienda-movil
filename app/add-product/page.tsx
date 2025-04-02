@@ -10,22 +10,14 @@ import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// Definir la interfaz para el producto
-interface Product {
-  id: number
-  name: string
-  price: number
-  description: string
-  category: string
-  image: string
-  stock: number
-}
+import { crearProducto, type Producto, generarCodigoBarras } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
 export default function AddProductPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [categories, setCategories] = useState<string[]>([
+  const [categories] = useState<string[]>([
     "Frutas",
     "Verduras",
     "Lácteos",
@@ -36,26 +28,25 @@ export default function AddProductPage() {
     "Otros",
   ])
 
-  const [formData, setFormData] = useState<Omit<Product, "id">>({
-    name: "",
-    price: 0,
-    description: "",
-    category: "",
-    image: "/placeholder.svg?height=200&width=200",
-    stock: 1,
+  const [formData, setFormData] = useState<Omit<Producto, "id">>({
+    nombre: "",
+    precio: 0,
+    categoria: "",
+    cantidad: 1,
+    codigo_barras: generarCodigoBarras(),
   })
 
   const [errors, setErrors] = useState({
-    name: "",
-    price: "",
-    category: "",
+    nombre: "",
+    precio: "",
+    categoria: "",
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "price" || name === "stock" ? Number.parseFloat(value) || 0 : value,
+      [name]: name === "precio" || name === "cantidad" ? Number.parseFloat(value) || 0 : value,
     }))
 
     // Limpiar error
@@ -70,13 +61,13 @@ export default function AddProductPage() {
   const handleCategoryChange = (value: string) => {
     setFormData((prev) => ({
       ...prev,
-      category: value,
+      categoria: value,
     }))
 
-    if (errors.category) {
+    if (errors.categoria) {
       setErrors((prev) => ({
         ...prev,
-        category: "",
+        categoria: "",
       }))
     }
   }
@@ -84,23 +75,23 @@ export default function AddProductPage() {
   const validateForm = () => {
     let isValid = true
     const newErrors = {
-      name: "",
-      price: "",
-      category: "",
+      nombre: "",
+      precio: "",
+      categoria: "",
     }
 
-    if (!formData.name.trim()) {
-      newErrors.name = "El nombre es obligatorio"
+    if (!formData.nombre.trim()) {
+      newErrors.nombre = "El nombre es obligatorio"
       isValid = false
     }
 
-    if (formData.price <= 0) {
-      newErrors.price = "El precio debe ser mayor a 0"
+    if (formData.precio <= 0) {
+      newErrors.precio = "El precio debe ser mayor a 0"
       isValid = false
     }
 
-    if (!formData.category) {
-      newErrors.category = "Seleccione una categoría"
+    if (!formData.categoria) {
+      newErrors.categoria = "Seleccione una categoría"
       isValid = false
     }
 
@@ -108,7 +99,7 @@ export default function AddProductPage() {
     return isValid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -117,31 +108,31 @@ export default function AddProductPage() {
 
     setIsSubmitting(true)
 
-    // Obtener productos existentes del localStorage
-    const existingProducts = localStorage.getItem("products")
-    const products: Product[] = existingProducts ? JSON.parse(existingProducts) : []
+    try {
+      // Crear el producto en el backend
+      const nuevoProducto = await crearProducto(formData)
 
-    // Generar un nuevo ID (el más alto + 1)
-    const newId = products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1
+      if (nuevoProducto) {
+        toast({
+          title: "Producto creado",
+          description: "El producto ha sido creado correctamente",
+        })
 
-    // Crear el nuevo producto
-    const newProduct: Product = {
-      id: newId,
-      ...formData,
-    }
-
-    // Agregar el nuevo producto a la lista
-    products.push(newProduct)
-
-    // Guardar en localStorage
-    localStorage.setItem("products", JSON.stringify(products))
-
-    // Simular tiempo de procesamiento
-    setTimeout(() => {
+        // Redirigir a la lista de productos
+        router.push("/products")
+      } else {
+        throw new Error("No se pudo crear el producto")
+      }
+    } catch (error) {
+      console.error("Error al crear producto:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo crear el producto",
+        variant: "destructive",
+      })
+    } finally {
       setIsSubmitting(false)
-      alert("Producto agregado con éxito")
-      router.push("/products")
-    }, 1000)
+    }
   }
 
   return (
@@ -156,30 +147,30 @@ export default function AddProductPage() {
       <div className="container max-w-md mx-auto p-4">
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-base">
+            <Label htmlFor="nombre" className="text-base">
               Nombre
             </Label>
             <Input
-              id="name"
-              name="name"
-              value={formData.name}
+              id="nombre"
+              name="nombre"
+              value={formData.nombre}
               onChange={handleChange}
               placeholder="Nombre del producto"
               className="bg-input-bg border-0 h-12 text-base"
             />
-            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+            {errors.nombre && <p className="text-sm text-red-500">{errors.nombre}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="price" className="text-base">
+            <Label htmlFor="precio" className="text-base">
               Precio
             </Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base">$</span>
               <Input
-                id="price"
-                name="price"
-                value={formData.price || ""}
+                id="precio"
+                name="precio"
+                value={formData.precio || ""}
                 onChange={handleChange}
                 placeholder="0.00"
                 className="bg-input-bg border-0 pl-8 h-12 text-base"
@@ -188,17 +179,17 @@ export default function AddProductPage() {
                 min="0"
               />
             </div>
-            {errors.price && <p className="text-sm text-red-500">{errors.price}</p>}
+            {errors.precio && <p className="text-sm text-red-500">{errors.precio}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="stock" className="text-base">
+            <Label htmlFor="cantidad" className="text-base">
               Cantidad en inventario
             </Label>
             <Input
-              id="stock"
-              name="stock"
-              value={formData.stock || ""}
+              id="cantidad"
+              name="cantidad"
+              value={formData.cantidad || ""}
               onChange={handleChange}
               placeholder="1"
               className="bg-input-bg border-0 h-12 text-base"
@@ -209,10 +200,10 @@ export default function AddProductPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category" className="text-base">
+            <Label htmlFor="categoria" className="text-base">
               Categoría
             </Label>
-            <Select value={formData.category} onValueChange={handleCategoryChange}>
+            <Select value={formData.categoria} onValueChange={handleCategoryChange}>
               <SelectTrigger className="bg-input-bg border-0 h-12 text-base">
                 <SelectValue placeholder="Seleccionar categoría" />
               </SelectTrigger>
@@ -224,7 +215,24 @@ export default function AddProductPage() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
+            {errors.categoria && <p className="text-sm text-red-500">{errors.categoria}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="codigo_barras" className="text-base">
+              Código de barras
+            </Label>
+            <Input
+              id="codigo_barras"
+              name="codigo_barras"
+              value={formData.codigo_barras}
+              onChange={handleChange}
+              placeholder="Código de barras"
+              className="bg-input-bg border-0 h-12 text-base"
+            />
+            <p className="text-xs text-text-secondary">
+              Se ha generado un código de barras aleatorio. Puede cambiarlo si lo desea.
+            </p>
           </div>
 
           <div className="bg-input-bg rounded-lg p-4 flex flex-col items-center justify-center h-40">
@@ -233,20 +241,6 @@ export default function AddProductPage() {
             </div>
             <p className="text-base text-text-secondary">Añadir foto</p>
             <p className="text-xs text-text-secondary mt-1">(Funcionalidad no disponible en esta versión)</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description" className="text-base">
-              Descripción
-            </Label>
-            <Input
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Descripción del producto"
-              className="bg-input-bg border-0 h-12 text-base"
-            />
           </div>
 
           <Button
