@@ -8,7 +8,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { fetchWithAuth, loginToBackend } from "@/services/auth-service"
-import { AuthStatus } from "@/components/auth-status"
 
 // Definir la interfaz para las tiendas
 interface StoreType {
@@ -64,7 +63,7 @@ export default function StoresPage() {
       return
     }
 
-    // Función para cargar las tiendas
+    // Modificar la función fetchStores para incluir mejor manejo de errores
     const fetchStores = async () => {
       // No cargar tiendas si estamos autenticando
       if (isAuthenticating) return
@@ -73,13 +72,24 @@ export default function StoresPage() {
       setError(null)
 
       try {
+        console.log("Intentando obtener lista de tiendas...")
         const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/")
 
         if (!response.ok) {
-          throw new Error(`Error: ${response.status} - ${response.statusText}`)
+          const errorText = await response.text()
+          console.error(`Error al obtener tiendas: ${response.status} - ${response.statusText}`, errorText)
+
+          if (response.status === 403) {
+            throw new Error(
+              `Error de permisos (403): No tienes acceso a este recurso. Intenta cerrar sesión y volver a iniciar.`,
+            )
+          } else {
+            throw new Error(`Error: ${response.status} - ${response.statusText}`)
+          }
         }
 
         const data = await response.json()
+        console.log(`Se obtuvieron ${data.length} tiendas correctamente`)
         setStores(data)
       } catch (err) {
         console.error("Error al cargar las tiendas:", err)
@@ -114,6 +124,27 @@ export default function StoresPage() {
   }, [stores, searchQuery])
 
   const handleDeleteStore = async (id: string) => {
+    const fetchStores = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/")
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Error al obtener tiendas: ${response.status} - ${response.statusText}`, errorText)
+          throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        }
+        const data = await response.json()
+        setStores(data)
+      } catch (err) {
+        console.error("Error al cargar las tiendas:", err)
+        setError(
+          `No se pudieron cargar las tiendas: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    }
     if (confirm("¿Estás seguro de que deseas eliminar esta tienda? Esta acción no se puede deshacer.")) {
       try {
         const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${id}/`, {
@@ -125,7 +156,8 @@ export default function StoresPage() {
         }
 
         // Actualizar la lista de tiendas después de eliminar
-        setStores(stores.filter((store) => store.id !== id))
+        // En lugar de filtrar localmente, volvemos a cargar todas las tiendas
+        await fetchStores()
         alert("Tienda eliminada con éxito")
       } catch (err) {
         console.error("Error al eliminar la tienda:", err)
@@ -170,9 +202,7 @@ export default function StoresPage() {
       </div>
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <AuthStatus />
-        </div>
+        {/* Eliminamos el componente visible de AuthStatus */}
 
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="relative">

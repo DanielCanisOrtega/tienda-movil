@@ -115,6 +115,7 @@ export default function AddStorePage() {
       }
 
       alert("Tienda creada con éxito")
+      // Redirigir a la página de tiendas
       router.push("/stores")
     } catch (err) {
       console.error("Error al crear la tienda:", err)
