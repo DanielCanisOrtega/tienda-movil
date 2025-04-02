@@ -40,7 +40,7 @@ export function LoginForm() {
         if (username === "admin" && password === "123456") {
           // Guardar el tipo de usuario en localStorage para mantener la sesión
           localStorage.setItem("userType", userType)
-          router.push("/home")
+          router.push("/stores") // Redirigir a la página de gestión de tiendas
         } else {
           setError("Credenciales de administrador incorrectas")
           setIsLoading(false)
@@ -184,3 +184,4 @@ export function LoginForm() {
     </form>
   )
 }
+
