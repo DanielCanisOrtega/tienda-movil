@@ -10,15 +10,16 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
+import { fetchWithAuth } from "@/services/auth-service"
 
 interface StoreData {
   id: string
-  name: string
-  address: string
-  phone: string
-  description: string
-  image?: string
-  createdAt: string
+  nombre: string
+  direccion: string
+  telefono: string
+  descripcion: string
+  imagen?: string
+  fecha_creacion?: string
 }
 
 export default function EditStorePage() {
@@ -28,21 +29,22 @@ export default function EditStorePage() {
 
   const [userType, setUserType] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [storeNotFound, setStoreNotFound] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<StoreData>({
     id: storeId,
-    name: "",
-    address: "",
-    phone: "",
-    description: "",
-    createdAt: "",
+    nombre: "",
+    direccion: "",
+    telefono: "",
+    descripcion: "",
   })
 
   const [errors, setErrors] = useState({
-    name: "",
-    address: "",
-    phone: "",
+    nombre: "",
+    direccion: "",
+    telefono: "",
   })
 
   // Verificar si el usuario es administrador y cargar datos de la tienda
@@ -56,20 +58,33 @@ export default function EditStorePage() {
       return
     }
 
-    // Cargar datos de la tienda
-    const storedStores = localStorage.getItem("stores")
-    if (storedStores) {
-      const stores: StoreData[] = JSON.parse(storedStores)
-      const store = stores.find((s) => s.id === storeId)
+    // Función para cargar los datos de la tienda
+    const fetchStore = async () => {
+      setIsLoading(true)
+      setError(null)
 
-      if (store) {
-        setFormData(store)
-      } else {
-        setStoreNotFound(true)
+      try {
+        const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/`)
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setStoreNotFound(true)
+          } else {
+            throw new Error(`Error: ${response.status} - ${response.statusText}`)
+          }
+        } else {
+          const data = await response.json()
+          setFormData(data)
+        }
+      } catch (err) {
+        console.error("Error al cargar la tienda:", err)
+        setError("No se pudo cargar la información de la tienda. Por favor, intenta de nuevo más tarde.")
+      } finally {
+        setIsLoading(false)
       }
-    } else {
-      setStoreNotFound(true)
     }
+
+    fetchStore()
   }, [router, storeId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -91,23 +106,23 @@ export default function EditStorePage() {
   const validateForm = () => {
     let isValid = true
     const newErrors = {
-      name: "",
-      address: "",
-      phone: "",
+      nombre: "",
+      direccion: "",
+      telefono: "",
     }
 
-    if (!formData.name.trim()) {
-      newErrors.name = "El nombre es obligatorio"
+    if (!formData.nombre.trim()) {
+      newErrors.nombre = "El nombre es obligatorio"
       isValid = false
     }
 
-    if (!formData.address.trim()) {
-      newErrors.address = "La dirección es obligatoria"
+    if (!formData.direccion.trim()) {
+      newErrors.direccion = "La dirección es obligatoria"
       isValid = false
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "El teléfono es obligatorio"
+    if (!formData.telefono.trim()) {
+      newErrors.telefono = "El teléfono es obligatorio"
       isValid = false
     }
 
@@ -115,7 +130,7 @@ export default function EditStorePage() {
     return isValid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -124,28 +139,71 @@ export default function EditStorePage() {
 
     setIsSubmitting(true)
 
-    // Obtener tiendas existentes del localStorage
-    const storedStores = localStorage.getItem("stores")
-    if (storedStores) {
-      const stores: StoreData[] = JSON.parse(storedStores)
+    try {
+      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nombre: formData.nombre,
+          direccion: formData.direccion,
+          telefono: formData.telefono,
+          descripcion: formData.descripcion,
+        }),
+      })
 
-      // Actualizar la tienda
-      const updatedStores = stores.map((store) => (store.id === formData.id ? formData : store))
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+      }
 
-      // Guardar en localStorage
-      localStorage.setItem("stores", JSON.stringify(updatedStores))
-
-      // Simular tiempo de procesamiento
-      setTimeout(() => {
-        setIsSubmitting(false)
-        alert("Tienda actualizada con éxito")
-        router.push("/stores")
-      }, 1000)
+      alert("Tienda actualizada con éxito")
+      router.push("/stores")
+    } catch (err) {
+      console.error("Error al actualizar la tienda:", err)
+      alert("No se pudo actualizar la tienda. Por favor, intenta de nuevo más tarde.")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   if (userType !== "admin") {
     return null // No renderizar nada mientras se verifica o redirige
+  }
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
+        <div className="bg-white p-4 flex items-center">
+          <Link href="/stores" className="mr-4">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <h1 className="text-xl font-semibold">Editar Tienda</h1>
+        </div>
+        <div className="container max-w-md mx-auto p-4 text-center">
+          <p className="text-text-secondary">Cargando información de la tienda...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
+        <div className="bg-white p-4 flex items-center">
+          <Link href="/stores" className="mr-4">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <h1 className="text-xl font-semibold">Editar Tienda</h1>
+        </div>
+        <div className="container max-w-md mx-auto p-4 text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()} className="bg-primary hover:bg-primary-dark">
+            Reintentar
+          </Button>
+        </div>
+      </main>
+    )
   }
 
   if (storeNotFound) {
@@ -182,49 +240,49 @@ export default function EditStorePage() {
       <div className="container max-w-md mx-auto p-4">
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-base">
+            <Label htmlFor="nombre" className="text-base">
               Nombre de la Tienda
             </Label>
             <Input
-              id="name"
-              name="name"
-              value={formData.name}
+              id="nombre"
+              name="nombre"
+              value={formData.nombre}
               onChange={handleChange}
               placeholder="Ej: Tienda Principal"
               className="bg-input-bg border-0 h-12 text-base"
             />
-            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+            {errors.nombre && <p className="text-sm text-red-500">{errors.nombre}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address" className="text-base">
+            <Label htmlFor="direccion" className="text-base">
               Dirección
             </Label>
             <Input
-              id="address"
-              name="address"
-              value={formData.address}
+              id="direccion"
+              name="direccion"
+              value={formData.direccion}
               onChange={handleChange}
               placeholder="Ej: Calle 123 #45-67"
               className="bg-input-bg border-0 h-12 text-base"
             />
-            {errors.address && <p className="text-sm text-red-500">{errors.address}</p>}
+            {errors.direccion && <p className="text-sm text-red-500">{errors.direccion}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone" className="text-base">
+            <Label htmlFor="telefono" className="text-base">
               Teléfono
             </Label>
             <Input
-              id="phone"
-              name="phone"
-              value={formData.phone}
+              id="telefono"
+              name="telefono"
+              value={formData.telefono}
               onChange={handleChange}
               placeholder="Ej: +57 3124567890"
               className="bg-input-bg border-0 h-12 text-base"
               type="tel"
             />
-            {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
+            {errors.telefono && <p className="text-sm text-red-500">{errors.telefono}</p>}
           </div>
 
           <div className="bg-input-bg rounded-lg p-4 flex flex-col items-center justify-center h-40">
@@ -236,13 +294,13 @@ export default function EditStorePage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-base">
+            <Label htmlFor="descripcion" className="text-base">
               Descripción
             </Label>
             <Textarea
-              id="description"
-              name="description"
-              value={formData.description}
+              id="descripcion"
+              name="descripcion"
+              value={formData.descripcion}
               onChange={handleChange}
               placeholder="Descripción de la tienda"
               className="bg-input-bg border-0 min-h-[100px] text-base"

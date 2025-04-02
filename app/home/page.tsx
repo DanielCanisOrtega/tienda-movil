@@ -3,17 +3,32 @@
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import Link from "next/link"
-import { ShoppingBag, Package, Users, BarChart2, ShoppingCart, DollarSign } from "lucide-react"
+import { ShoppingBag, Package, Users, BarChart2, ShoppingCart, DollarSign, ArrowLeft } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 
 export default function HomePage() {
   const [userType, setUserType] = useState<string | null>(null)
+  const [selectedStore, setSelectedStore] = useState<{ id: string; name: string } | null>(null)
+  const searchParams = useSearchParams()
+  const storeId = searchParams.get("storeId")
 
   useEffect(() => {
     // Obtener el tipo de usuario del localStorage
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
-  }, [])
+
+    // Obtener la tienda seleccionada
+    const selectedStoreId = storeId || localStorage.getItem("selectedStoreId")
+    const selectedStoreName = localStorage.getItem("selectedStoreName")
+
+    if (selectedStoreId && selectedStoreName) {
+      setSelectedStore({
+        id: selectedStoreId,
+        name: selectedStoreName,
+      })
+    }
+  }, [storeId])
 
   const createSampleExpenses = () => {
     const categories = ["Pedidos", "Servicios", "Nómina", "Alquiler", "Impuestos", "Otros"]
@@ -54,9 +69,40 @@ export default function HomePage() {
     alert(`Se han creado ${sampleExpenses.length} gastos de ejemplo`)
   }
 
+  // Si no hay tienda seleccionada y el usuario es administrador, redirigir a la página de tiendas
+  if (!selectedStore && userType === "admin") {
+    return (
+      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
+        <div className="bg-primary text-white p-5">
+          <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
+          <p className="text-sm opacity-80 mt-1">¡Bienvenido, Administrador!</p>
+        </div>
+
+        <div className="container max-w-md mx-auto p-4 text-center">
+          <div className="bg-white rounded-lg p-8 shadow-sm">
+            <p className="text-text-secondary mb-4">No has seleccionado ninguna tienda</p>
+            <Link href="/stores">
+              <button className="bg-primary text-white px-4 py-2 rounded-lg">Ir a gestión de tiendas</button>
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
       <div className="bg-primary text-white p-5">
+        {selectedStore && (
+          <div className="flex items-center mb-2">
+            {userType === "admin" && (
+              <Link href="/stores" className="mr-2">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            )}
+            <span className="text-sm font-medium">Tienda: {selectedStore.name}</span>
+          </div>
+        )}
         <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
         <p className="text-sm opacity-80 mt-1">
           ¡Bienvenido de nuevo{userType === "admin" ? ", Administrador" : userType === "vendor" ? ", Vendedor" : ""}!

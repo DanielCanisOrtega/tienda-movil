@@ -7,26 +7,29 @@ import { Edit, Plus, Search, Store, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { fetchWithAuth } from "@/services/auth-service"
 
 // Definir la interfaz para las tiendas
-interface Store {
+interface StoreType {
   id: string
-  name: string
-  address: string
-  phone: string
-  description?: string
-  image?: string
-  createdAt: string
+  nombre: string
+  direccion: string
+  telefono: string
+  descripcion?: string
+  imagen?: string
+  fecha_creacion: string
 }
 
 export default function StoresPage() {
   const router = useRouter()
-  const [stores, setStores] = useState<Store[]>([])
+  const [stores, setStores] = useState<StoreType[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [filteredStores, setFilteredStores] = useState<Store[]>([])
+  const [filteredStores, setFilteredStores] = useState<StoreType[]>([])
   const [userType, setUserType] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Cargar tiendas del localStorage
+  // Cargar tiendas de la API
   useEffect(() => {
     // Verificar si el usuario es administrador
     const storedUserType = localStorage.getItem("userType")
@@ -38,33 +41,40 @@ export default function StoresPage() {
       return
     }
 
-    // Cargar tiendas del localStorage
-    const storedStores = localStorage.getItem("stores")
-    if (storedStores) {
-      setStores(JSON.parse(storedStores))
-    } else {
-      // Datos iniciales de ejemplo
-      const initialStores: Store[] = [
-        {
-          id: "1",
-          name: "Tienda Principal",
-          address: "Calle 123 #45-67",
-          phone: "+57 3124567890",
-          description: "Tienda principal de productos mixtos",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          name: "Sucursal Norte",
-          address: "Avenida Norte #78-90",
-          phone: "+57 3209876543",
-          description: "Sucursal ubicada en la zona norte",
-          createdAt: new Date().toISOString(),
-        },
-      ]
-      setStores(initialStores)
-      localStorage.setItem("stores", JSON.stringify(initialStores))
+    // Función para cargar las tiendas
+    const fetchStores = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        console.log("Intentando conectar a:", "https://tienda-backend-p9ms.onrender.com/api/tiendas/")
+
+        const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "omit",
+        })
+
+        console.log("Respuesta recibida:", response.status, response.statusText)
+
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        console.log("Datos recibidos:", data)
+        setStores(data)
+      } catch (err) {
+        console.error("Error detallado al cargar las tiendas:", err)
+        setError(`No se pudieron cargar las tiendas: ${err instanceof Error ? err.message : 'Error desconocido'}. Por favor, intenta de nuevo más tarde.`)      } finally {
+        setIsLoading(false)
+      }
     }
+
+    fetchStores()
   }, [router])
 
   // Filtrar tiendas según búsqueda
@@ -75,34 +85,61 @@ export default function StoresPage() {
       const query = searchQuery.toLowerCase()
       const filtered = stores.filter(
         (store) =>
-          store.name.toLowerCase().includes(query) ||
-          store.address.toLowerCase().includes(query) ||
-          store.description?.toLowerCase().includes(query),
+          store.nombre.toLowerCase().includes(query) ||
+          store.direccion.toLowerCase().includes(query) ||
+          store.descripcion?.toLowerCase().includes(query),
       )
       setFilteredStores(filtered)
     }
   }, [stores, searchQuery])
 
-  const handleDeleteStore = (id: string) => {
+  const handleDeleteStore = async (id: string) => {
     if (confirm("¿Estás seguro de que deseas eliminar esta tienda? Esta acción no se puede deshacer.")) {
-      const updatedStores = stores.filter((store) => store.id !== id)
-      setStores(updatedStores)
-      localStorage.setItem("stores", JSON.stringify(updatedStores))
+      try {
+        const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${id}/`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        }
+
+        // Actualizar la lista de tiendas después de eliminar
+        setStores(stores.filter((store) => store.id !== id))
+        alert("Tienda eliminada con éxito")
+      } catch (err) {
+        console.error("Error al eliminar la tienda:", err)
+        alert("No se pudo eliminar la tienda. Por favor, intenta de nuevo más tarde.")
+      }
     }
   }
 
-  const handleSelectStore = (storeId: string) => {
-    // Guardar la tienda seleccionada en localStorage
-    localStorage.setItem("selectedStoreId", storeId)
+  const handleSelectStore = async (storeId: string, storeName: string) => {
+    try {
+      const response = await fetchWithAuth(
+        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
 
-    // Obtener la tienda seleccionada
-    const selectedStore = stores.find((store) => store.id === storeId)
-    if (selectedStore) {
-      localStorage.setItem("selectedStoreName", selectedStore.name)
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+      }
+
+      // Guardar la tienda seleccionada en localStorage
+      localStorage.setItem("selectedStoreId", storeId)
+      localStorage.setItem("selectedStoreName", storeName)
+
+      // Redirigir a la página de inicio con la tienda seleccionada
+      router.push(`/home?storeId=${storeId}`)
+    } catch (err) {
+      console.error("Error al seleccionar la tienda:", err)
+      alert("No se pudo seleccionar la tienda. Por favor, intenta de nuevo más tarde.")
     }
-
-    // Redirigir a la página de inicio con la tienda seleccionada
-    router.push(`/home?storeId=${storeId}`)
   }
 
   return (
@@ -132,7 +169,25 @@ export default function StoresPage() {
           </Button>
         </Link>
 
-        {filteredStores.length === 0 ? (
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-text-secondary">Cargando tiendas...</p>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-red-500 mb-2">{error}</p>
+              <p className="text-sm text-text-secondary mb-4">
+                Esto podría deberse a problemas de conectividad o que el servidor está temporalmente inaccesible.
+              </p>
+              <Button onClick={() => window.location.reload()} className="mt-2 bg-primary hover:bg-primary-dark">
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        ) : filteredStores.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
               <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -146,7 +201,7 @@ export default function StoresPage() {
               <Card key={store.id} className="overflow-hidden">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-lg flex justify-between items-center">
-                    <span>{store.name}</span>
+                    <span>{store.nombre}</span>
                     <div className="flex space-x-2">
                       <Link href={`/stores/edit/${store.id}`}>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -167,13 +222,13 @@ export default function StoresPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <p className="text-sm text-text-secondary">{store.address}</p>
-                  <p className="text-sm text-text-secondary">{store.phone}</p>
-                  {store.description && <p className="text-sm mt-2">{store.description}</p>}
+                  <p className="text-sm text-text-secondary">{store.direccion}</p>
+                  <p className="text-sm text-text-secondary">{store.telefono}</p>
+                  {store.descripcion && <p className="text-sm mt-2">{store.descripcion}</p>}
 
                   <Button
                     className="w-full mt-4 bg-primary hover:bg-primary-dark"
-                    onClick={() => handleSelectStore(store.id)}
+                    onClick={() => handleSelectStore(store.id, store.nombre)}
                   >
                     Entrar a la tienda
                   </Button>
