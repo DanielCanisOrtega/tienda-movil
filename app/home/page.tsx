@@ -3,15 +3,18 @@
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import Link from "next/link"
-import { ShoppingBag, Package, Users, BarChart2, ShoppingCart, DollarSign, ArrowLeft } from "lucide-react"
+import { ShoppingBag, Package, Users, BarChart2, ShoppingCart, DollarSign, ArrowLeft, LogOut } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
+  const router = useRouter()
   const [userType, setUserType] = useState<string | null>(null)
   const [selectedStore, setSelectedStore] = useState<{ id: string; name: string } | null>(null)
   const searchParams = useSearchParams()
   const storeId = searchParams.get("storeId")
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     // Obtener el tipo de usuario del localStorage
@@ -30,43 +33,21 @@ export default function HomePage() {
     }
   }, [storeId])
 
-  const createSampleExpenses = () => {
-    const categories = ["Pedidos", "Servicios", "Nómina", "Alquiler", "Impuestos", "Otros"]
-    const paymentMethods = ["Efectivo", "Transferencia", "Tarjeta de Débito", "Tarjeta de Crédito"]
-    const descriptions = [
-      "Factura de luz",
-      "Factura de agua",
-      "Pedido de frutas",
-      "Pedido de verduras",
-      "Pago de empleados",
-      "Alquiler del local",
-      "Impuestos municipales",
-      "Mantenimiento",
-    ]
+  const handleLogout = () => {
+    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+      setIsLoggingOut(true)
 
-    const sampleExpenses = []
-    const today = new Date()
+      // Limpiar tokens y datos de sesión
+      localStorage.removeItem("backendToken")
+      localStorage.removeItem("refreshToken")
+      localStorage.removeItem("tokenExpiresAt")
+      localStorage.removeItem("userType")
+      localStorage.removeItem("selectedStoreId")
+      localStorage.removeItem("selectedStoreName")
 
-    // Crear 20 gastos de ejemplo en los últimos 30 días
-    for (let i = 0; i < 20; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - Math.floor(Math.random() * 30)) // Hasta 30 días atrás
-
-      const expense = {
-        id: crypto.randomUUID(),
-        description: descriptions[Math.floor(Math.random() * descriptions.length)],
-        amount: Math.floor(Math.random() * 500000) + 50000, // Entre 50,000 y 550,000
-        date: date.toISOString().split("T")[0], // Formato YYYY-MM-DD
-        category: categories[Math.floor(Math.random() * categories.length)],
-        paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
-        notes: Math.random() > 0.5 ? "Nota de ejemplo" : "",
-      }
-
-      sampleExpenses.push(expense)
+      // Redirigir a la página de inicio de sesión
+      router.push("/")
     }
-
-    localStorage.setItem("expenses", JSON.stringify(sampleExpenses))
-    alert(`Se han creado ${sampleExpenses.length} gastos de ejemplo`)
   }
 
   // Si no hay tienda seleccionada y el usuario es administrador, redirigir a la página de tiendas
@@ -94,13 +75,19 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
       <div className="bg-primary text-white p-5">
         {selectedStore && (
-          <div className="flex items-center mb-2">
-            {userType === "admin" && (
-              <Link href="/stores" className="mr-2">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            )}
-            <span className="text-sm font-medium">Tienda: {selectedStore.name}</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center">
+              {userType === "admin" && (
+                <Link href="/stores" className="mr-2">
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+              )}
+              <span className="text-sm font-medium">Tienda: {selectedStore.name}</span>
+            </div>
+            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-1" />
+              <span className="text-xs">Salir</span>
+            </Button>
           </div>
         )}
         <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
@@ -129,7 +116,7 @@ export default function HomePage() {
             icon={<Package className="h-8 w-8 text-primary" />}
             title="Inventario"
             description="Ver productos"
-            href="/products"
+            href={selectedStore ? `/stores/${selectedStore.id}/products` : "/products"}
           />
 
           <MenuCard
@@ -146,7 +133,7 @@ export default function HomePage() {
                 icon={<Users className="h-8 w-8 text-primary" />}
                 title="Vendedores"
                 description="Gestionar equipo"
-                href="/vendors"
+                href={selectedStore ? `/stores/${selectedStore.id}/employees` : "/vendors"}
               />
 
               <MenuCard
@@ -156,14 +143,6 @@ export default function HomePage() {
                 href="/dashboard"
               />
             </>
-          )}
-
-          {userType === "admin" && (
-            <div className="mt-6">
-              <button onClick={createSampleExpenses} className="text-sm text-primary underline">
-                Crear datos de ejemplo para gastos
-              </button>
-            </div>
           )}
         </div>
       </div>

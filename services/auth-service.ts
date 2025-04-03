@@ -33,9 +33,20 @@ export async function loginToBackend(): Promise<string | null> {
     const data: AuthResponse = await response.json()
     console.log("Autenticación exitosa, token obtenido")
 
-    // Guardar tokens
-    saveAuthTokens(data.access, data.refresh)
-    return data.access
+    // Guardar ambos tokens en localStorage
+    if (data.access) {
+      localStorage.setItem("backendToken", data.access)
+      if (data.refresh) {
+        localStorage.setItem("refreshToken", data.refresh)
+        // Guardar también la fecha de expiración (asumiendo que el token dura 1 hora)
+        const expiresAt = new Date()
+        expiresAt.setHours(expiresAt.getHours() + 1)
+        localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
+      }
+      return data.access
+    }
+
+    return null
   } catch (error) {
     console.error("Error al iniciar sesión en el backend:", error)
     return null
@@ -57,20 +68,27 @@ export async function refreshToken(): Promise<string | null> {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ refresh: refreshToken }),
+      body: JSON.stringify({
+        refresh: refreshToken,
+      }),
     })
 
     if (!response.ok) {
       console.error(`Error al refrescar token: ${response.status} - ${response.statusText}`)
-      
-      // Si falla la renovación, eliminar TODOS los tokens y forzar login
-      clearAuthTokens()
+      // Si hay un error al refrescar, limpiar tokens y volver a iniciar sesión
+      localStorage.removeItem("backendToken")
+      localStorage.removeItem("refreshToken")
+      localStorage.removeItem("tokenExpiresAt")
       return await loginToBackend()
     }
 
     const data = await response.json()
     if (data.access) {
-      saveAuthTokens(data.access, data.refresh)
+      localStorage.setItem("backendToken", data.access)
+      // Actualizar fecha de expiración
+      const expiresAt = new Date()
+      expiresAt.setHours(expiresAt.getHours() + 1)
+      localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
       console.log("Token refrescado exitosamente")
       return data.access
     }
@@ -78,7 +96,6 @@ export async function refreshToken(): Promise<string | null> {
     return null
   } catch (error) {
     console.error("Error al refrescar token:", error)
-    clearAuthTokens()  // Si hay un error, asegurarnos de limpiar los tokens inválidos
     return null
   }
 }
@@ -160,19 +177,3 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
   return response
 }
 
-// Función para guardar los tokens en localStorage
-function saveAuthTokens(access: string, refresh: string) {
-  localStorage.setItem("backendToken", access)
-  localStorage.setItem("refreshToken", refresh)
-
-  const expiresAt = new Date()
-  expiresAt.setHours(expiresAt.getHours() + 1)
-  localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
-}
-
-// Función para eliminar todos los tokens en caso de error
-function clearAuthTokens() {
-  localStorage.removeItem("backendToken")
-  localStorage.removeItem("refreshToken")
-  localStorage.removeItem("tokenExpiresAt")
-}

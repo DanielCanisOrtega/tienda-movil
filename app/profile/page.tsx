@@ -136,20 +136,8 @@ export default function ProfilePage() {
         )}
 
         {userType === "admin" && (
-          <div className="space-y-4">
-            <Link href="/vendors">
-              <Button className="w-full h-12 text-base bg-primary hover:bg-primary-dark android-ripple">
-                Gestionar Vendedores
-              </Button>
-            </Link>
-          </div>
+          <div className="space-y-4">{/* Eliminados los botones de gestión de vendedores */}</div>
         )}
-
-        <Link href="/cart">
-          <Button className="w-full h-12 text-base bg-primary hover:bg-primary-dark android-ripple">
-            Registrar Venta
-          </Button>
-        </Link>
 
         <Card>
           <CardHeader>

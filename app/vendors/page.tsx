@@ -7,6 +7,7 @@ import { useState, useEffect } from "react"
 import { VendorList } from "@/components/vendor-list"
 import { VendorForm } from "@/components/vendor-form"
 import { BottomNavigation } from "@/components/bottom-navigation"
+import { useRouter } from "next/navigation"
 
 export interface Vendor {
   id: string
@@ -23,6 +24,18 @@ export default function VendorsPage() {
   const [showEditForm, setShowEditForm] = useState(false)
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null)
   const [vendors, setVendors] = useState<Vendor[]>([])
+  const router = useRouter()
+
+  useEffect(() => {
+    // Obtener el ID de la tienda seleccionada
+    const selectedStoreId = localStorage.getItem("selectedStoreId")
+
+    // Si hay una tienda seleccionada, redirigir a la gestión de empleados de esa tienda
+    if (selectedStoreId) {
+      router.push(`/stores/${selectedStoreId}/employees`)
+      return
+    }
+  }, [router])
 
   useEffect(() => {
     // Obtener el tipo de usuario del localStorage
@@ -145,3 +158,4 @@ export default function VendorsPage() {
     </main>
   )
 }
+

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Edit, Plus, Search, Store, Trash2, Loader2 } from "lucide-react"
+import { Edit, Plus, Search, Store, Trash2, Loader2, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -29,6 +29,7 @@ export default function StoresPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Intentar autenticarse al cargar la página
   useEffect(() => {
@@ -194,6 +195,23 @@ export default function StoresPage() {
     }
   }
 
+  const handleLogout = () => {
+    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+      setIsLoggingOut(true)
+
+      // Limpiar tokens y datos de sesión
+      localStorage.removeItem("backendToken")
+      localStorage.removeItem("refreshToken")
+      localStorage.removeItem("tokenExpiresAt")
+      localStorage.removeItem("userType")
+      localStorage.removeItem("selectedStoreId")
+      localStorage.removeItem("selectedStoreName")
+
+      // Redirigir a la página de inicio de sesión
+      router.push("/")
+    }
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-primary text-white p-5">
@@ -202,8 +220,6 @@ export default function StoresPage() {
       </div>
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
-        {/* Eliminamos el componente visible de AuthStatus */}
-
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary h-5 w-5" />
@@ -216,12 +232,23 @@ export default function StoresPage() {
           </div>
         </div>
 
-        <Link href="/stores/add">
-          <Button className="w-full h-12 bg-primary hover:bg-primary-dark flex items-center justify-center">
-            <Plus className="mr-2 h-5 w-5" />
-            Añadir Nueva Tienda
+        <div className="flex space-x-2">
+          <Link href="/stores/add" className="flex-1">
+            <Button className="w-full h-12 bg-primary hover:bg-primary-dark flex items-center justify-center">
+              <Plus className="mr-2 h-5 w-5" />
+              Añadir Tienda
+            </Button>
+          </Link>
+
+          <Button
+            className="h-12 bg-red-500 hover:bg-red-600 flex items-center justify-center px-4"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="sr-only">Cerrar Sesión</span>
           </Button>
-        </Link>
+        </div>
 
         {isAuthenticating ? (
           <Card>
@@ -288,12 +315,14 @@ export default function StoresPage() {
                   <p className="text-sm text-text-secondary">{store.telefono}</p>
                   {store.descripcion && <p className="text-sm mt-2">{store.descripcion}</p>}
 
-                  <Button
-                    className="w-full mt-4 bg-primary hover:bg-primary-dark"
-                    onClick={() => handleSelectStore(store.id, store.nombre)}
-                  >
-                    Entrar a la tienda
-                  </Button>
+                  <div className="mt-4">
+                    <Button
+                      className="w-full bg-primary hover:bg-primary-dark"
+                      onClick={() => handleSelectStore(store.id, store.nombre)}
+                    >
+                      Entrar a la tienda
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
