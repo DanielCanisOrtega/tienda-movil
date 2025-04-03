@@ -140,6 +140,37 @@ export default function AddProductPage() {
     return isValid
   }
 
+  // Función para seleccionar la tienda
+  const selectStore = async () => {
+    try {
+      console.log(`Seleccionando tienda con ID: ${storeId}`)
+      const response = await fetchWithAuth(
+        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
+      }
+
+      console.log("Tienda seleccionada correctamente")
+      return true
+    } catch (err) {
+      console.error("Error al seleccionar tienda:", err)
+      alert(
+        `No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+      )
+      return false
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -150,6 +181,13 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     try {
+      // Primero seleccionar la tienda
+      const storeSelected = await selectStore()
+      if (!storeSelected) {
+        setIsSubmitting(false)
+        return
+      }
+
       console.log("Creando nuevo producto:", formData)
 
       const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/productos/", {
@@ -163,7 +201,7 @@ export default function AddProductPage() {
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Error al crear producto: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        throw new Error(`Error al crear producto: ${response.status} - ${response.statusText}`)
       }
 
       alert("Producto creado con éxito")

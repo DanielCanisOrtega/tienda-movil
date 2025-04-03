@@ -5,7 +5,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChevronLeft, ImageIcon, Loader2 } from "lucide-react"
+import { ChevronLeft, ImageIcon, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
@@ -13,8 +13,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { fetchWithAuth } from "@/services/auth-service"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 interface ProductFormData {
+  id?: number
   nombre: string
   descripcion: string
   precio: number
@@ -22,6 +32,7 @@ interface ProductFormData {
   categoria: string
   disponible: boolean
   tienda: number
+  codigo_barras?: string
 }
 
 export default function EditProductPage() {
@@ -32,9 +43,9 @@ export default function EditProductPage() {
 
   const [userType, setUserType] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [storeName, setStoreName] = useState<string>("")
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const [formData, setFormData] = useState<ProductFormData>({
     nombre: "",
@@ -56,7 +67,80 @@ export default function EditProductPage() {
   // Categorías predefinidas
   const categories = ["Frutas", "Verduras", "Lácteos", "Carnes", "Abarrotes", "Bebidas", "Limpieza", "Otros"]
 
-  // Verificar si el usuario está autorizado y cargar datos del producto
+  // Función para seleccionar la tienda
+  const selectStore = async () => {
+    try {
+      console.log(`Seleccionando tienda con ID: ${storeId}`)
+      const response = await fetchWithAuth(
+        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
+      }
+
+      console.log("Tienda seleccionada correctamente")
+      return true
+    } catch (err) {
+      console.error("Error al seleccionar tienda:", err)
+      alert(
+        `No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+      )
+      return false
+    }
+  }
+
+  // Obtener datos del producto
+  const fetchProduct = async () => {
+    try {
+      // Primero seleccionar la tienda
+      const storeSelected = await selectStore()
+      if (!storeSelected) {
+        return
+      }
+
+      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`)
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      // Verificar que el producto pertenezca a la tienda seleccionada
+      if (data.tienda !== Number.parseInt(storeId)) {
+        alert("Este producto no pertenece a la tienda seleccionada")
+        router.push(`/stores/${storeId}/products`)
+        return
+      }
+
+      setFormData({
+        id: data.id,
+        nombre: data.nombre || "",
+        descripcion: data.descripcion || "",
+        precio: data.precio || 0,
+        cantidad: data.cantidad || 0,
+        categoria: data.categoria || "",
+        disponible: data.disponible !== undefined ? data.disponible : true,
+        tienda: data.tienda || Number.parseInt(storeId),
+        codigo_barras: data.codigo_barras || "",
+      })
+    } catch (error) {
+      console.error("Error al cargar el producto:", error)
+      alert("No se pudo cargar la información del producto. Por favor, intenta de nuevo más tarde.")
+      router.push(`/stores/${storeId}/products`)
+    }
+  }
+
+  // Verificar si el usuario está autorizado y cargar datos
   useEffect(() => {
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
@@ -74,46 +158,7 @@ export default function EditProductPage() {
 
     // Cargar datos del producto
     fetchProduct()
-  }, [router, storeId, productId])
-
-  // Función para obtener los datos del producto
-  const fetchProduct = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      console.log(`Obteniendo datos del producto con ID: ${productId}`)
-
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al obtener producto: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Datos del producto:", data)
-
-      // Actualizar el formulario con los datos del producto
-      setFormData({
-        nombre: data.nombre || "",
-        descripcion: data.descripcion || "",
-        precio: data.precio || 0,
-        cantidad: data.cantidad || 0,
-        categoria: data.categoria || "",
-        disponible: data.disponible !== undefined ? data.disponible : true,
-        tienda: data.tienda || Number.parseInt(storeId),
-      })
-    } catch (err) {
-      console.error("Error al cargar el producto:", err)
-      setError(
-        `No se pudo cargar la información del producto: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  }, [storeId, productId, router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -195,7 +240,12 @@ export default function EditProductPage() {
     setIsSubmitting(true)
 
     try {
-      console.log("Actualizando producto:", formData)
+      // Primero seleccionar la tienda
+      const storeSelected = await selectStore()
+      if (!storeSelected) {
+        setIsSubmitting(false)
+        return
+      }
 
       const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`, {
         method: "PUT",
@@ -208,7 +258,7 @@ export default function EditProductPage() {
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Error al actualizar producto: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        throw new Error(`Error al actualizar producto: ${response.status} - ${response.statusText}`)
       }
 
       alert("Producto actualizado con éxito")
@@ -223,42 +273,38 @@ export default function EditProductPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-        <div className="bg-white p-4 flex items-center">
-          <Link href={`/stores/${storeId}/products`} className="mr-4">
-            <ChevronLeft className="h-6 w-6" />
-          </Link>
-          <h1 className="text-xl font-semibold">Editar Producto</h1>
-        </div>
-        <div className="container max-w-md mx-auto p-4 flex items-center justify-center h-full">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-            <p className="text-text-secondary">Cargando información del producto...</p>
-          </div>
-        </div>
-      </main>
-    )
-  }
+  const handleDelete = async () => {
+    setIsDeleting(true)
 
-  if (error) {
-    return (
-      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-        <div className="bg-white p-4 flex items-center">
-          <Link href={`/stores/${storeId}/products`} className="mr-4">
-            <ChevronLeft className="h-6 w-6" />
-          </Link>
-          <h1 className="text-xl font-semibold">Editar Producto</h1>
-        </div>
-        <div className="container max-w-md mx-auto p-4 text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={() => fetchProduct()} className="bg-primary hover:bg-primary-dark">
-            Reintentar
-          </Button>
-        </div>
-      </main>
-    )
+    try {
+      // Primero seleccionar la tienda
+      const storeSelected = await selectStore()
+      if (!storeSelected) {
+        setIsDeleting(false)
+        return
+      }
+
+      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error al eliminar producto: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al eliminar producto: ${response.status} - ${response.statusText}`)
+      }
+
+      alert("Producto eliminado con éxito")
+      router.push(`/stores/${storeId}/products`)
+    } catch (err) {
+      console.error("Error al eliminar el producto:", err)
+      alert(
+        `No se pudo eliminar el producto: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+      )
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+    }
   }
 
   return (
@@ -350,7 +396,7 @@ export default function EditProductPage() {
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <ImageIcon className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-base text-text-secondary">Cambiar imagen</p>
+            <p className="text-base text-text-secondary">Añadir imagen</p>
             <p className="text-xs text-text-secondary mt-1">(Funcionalidad no disponible en esta versión)</p>
           </div>
 
@@ -373,13 +419,44 @@ export default function EditProductPage() {
             <Label htmlFor="disponible">Producto disponible</Label>
           </div>
 
-          <Button
-            type="submit"
-            className="w-full h-14 text-base bg-primary hover:bg-primary-dark mt-6 android-ripple"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Guardando..." : "Actualizar Producto"}
-          </Button>
+          <div className="flex gap-4 mt-6">
+            <Button
+              type="submit"
+              className="flex-1 h-14 text-base bg-primary hover:bg-primary-dark android-ripple"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-14 aspect-square flex items-center justify-center"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-6 w-6" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Eliminar Producto</DialogTitle>
+                  <DialogDescription>
+                    ¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+                    Cancelar
+                  </Button>
+                  <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                    {isDeleting ? "Eliminando..." : "Eliminar"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </form>
       </div>
     </main>
