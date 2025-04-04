@@ -12,6 +12,7 @@ export default function HomePage() {
   const router = useRouter()
   const [userType, setUserType] = useState<string | null>(null)
   const [selectedStore, setSelectedStore] = useState<{ id: string; name: string } | null>(null)
+  const [vendorName, setVendorName] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const storeId = searchParams.get("storeId")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -20,6 +21,12 @@ export default function HomePage() {
     // Obtener el tipo de usuario del localStorage
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
+
+    // Obtener el nombre del vendedor si existe
+    const storedVendorName = localStorage.getItem("vendorName")
+    if (storedVendorName) {
+      setVendorName(storedVendorName)
+    }
 
     // Obtener la tienda seleccionada
     const selectedStoreId = storeId || localStorage.getItem("selectedStoreId")
@@ -44,6 +51,7 @@ export default function HomePage() {
       localStorage.removeItem("userType")
       localStorage.removeItem("selectedStoreId")
       localStorage.removeItem("selectedStoreName")
+      localStorage.removeItem("vendorName")
 
       // Redirigir a la página de inicio de sesión
       router.push("/")
@@ -92,7 +100,15 @@ export default function HomePage() {
         )}
         <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
         <p className="text-sm opacity-80 mt-1">
-          ¡Bienvenido de nuevo{userType === "admin" ? ", Administrador" : userType === "vendor" ? ", Vendedor" : ""}!
+          ¡Bienvenido
+          {vendorName
+            ? `, ${vendorName}`
+            : userType === "admin"
+              ? ", Administrador"
+              : userType === "vendor"
+                ? ", Vendedor"
+                : ""}
+          !
         </p>
       </div>
 
