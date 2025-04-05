@@ -129,12 +129,24 @@ export default function AddExpensePage() {
       const existingExpenses = localStorage.getItem("expenses")
       const expenses: Expense[] = existingExpenses ? JSON.parse(existingExpenses) : []
 
+      // Asegurarse de que la fecha esté en formato YYYY-MM-DD
+      let formattedDate = formData.date
+      if (!formattedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        try {
+          const date = new Date(formattedDate)
+          formattedDate = date.toISOString().split("T")[0] // Formato YYYY-MM-DD
+        } catch (e) {
+          console.error("Error al formatear fecha:", formattedDate, e)
+          // Si hay error, usar la fecha actual
+          formattedDate = new Date().toISOString().split("T")[0]
+        }
+      }
+
       // Crear el nuevo gasto con ID único
       const newExpense: Expense = {
         id: crypto.randomUUID(),
         ...formData,
-        // Asegurarse de que la fecha esté en formato ISO para consistencia
-        date: formData.date,
+        date: formattedDate, // Usar la fecha formateada
         storeId: storeId || undefined,
       }
 

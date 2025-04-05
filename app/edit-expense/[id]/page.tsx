@@ -141,27 +141,56 @@ export default function EditExpensePage() {
 
     setIsSubmitting(true)
 
-    // Obtener gastos existentes del localStorage
-    const storedExpenses = localStorage.getItem("expenses")
-    if (storedExpenses) {
-      const expenses: Expense[] = JSON.parse(storedExpenses)
+    try {
+      // Asegurarse de que la fecha esté en formato YYYY-MM-DD
+      let formattedDate = formData.date
+      if (!formattedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        try {
+          const date = new Date(formattedDate)
+          formattedDate = date.toISOString().split("T")[0] // Formato YYYY-MM-DD
+        } catch (e) {
+          console.error("Error al formatear fecha:", formattedDate, e)
+          // Si hay error, usar la fecha actual
+          formattedDate = new Date().toISOString().split("T")[0]
+        }
+      }
 
-      // Actualizar el gasto
-      const updatedExpenses = expenses.map((expense) => (expense.id === formData.id ? formData : expense))
+      // Crear el gasto actualizado con la fecha formateada
+      const updatedExpense = {
+        ...formData,
+        date: formattedDate,
+      }
 
-      // Guardar en localStorage
-      localStorage.setItem("expenses", JSON.stringify(updatedExpenses))
+      // Obtener gastos existentes del localStorage
+      const storedExpenses = localStorage.getItem("expenses")
+      if (storedExpenses) {
+        const expenses: Expense[] = JSON.parse(storedExpenses)
 
-      // Simular tiempo de procesamiento
-      setTimeout(() => {
-        setIsSubmitting(false)
-        toast({
-          title: "Gasto actualizado",
-          description: "El gasto ha sido actualizado con éxito",
-          variant: "success",
-        })
-        router.push("/expenses")
-      }, 1000)
+        // Actualizar el gasto
+        const updatedExpenses = expenses.map((expense) => (expense.id === updatedExpense.id ? updatedExpense : expense))
+
+        // Guardar en localStorage
+        localStorage.setItem("expenses", JSON.stringify(updatedExpenses))
+
+        // Simular tiempo de procesamiento
+        setTimeout(() => {
+          setIsSubmitting(false)
+          toast({
+            title: "Gasto actualizado",
+            description: "El gasto ha sido actualizado con éxito",
+            variant: "success",
+          })
+          router.push("/expenses")
+        }, 1000)
+      }
+    } catch (error) {
+      console.error("Error al actualizar el gasto:", error)
+      setIsSubmitting(false)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el gasto. Por favor, intenta de nuevo más tarde.",
+        variant: "destructive",
+      })
     }
   }
 
