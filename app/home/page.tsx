@@ -3,7 +3,17 @@
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import Link from "next/link"
-import { ShoppingBag, Package, Users, BarChart2, ShoppingCart, DollarSign, ArrowLeft, LogOut } from "lucide-react"
+import {
+  ShoppingBag,
+  Package,
+  Users,
+  BarChart2,
+  ShoppingCart,
+  DollarSign,
+  ArrowLeft,
+  LogOut,
+  CreditCard,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -142,7 +152,7 @@ export default function HomePage() {
             href="/expenses"
           />
 
-          {/* Solo mostrar Vendedores y Reportes si es administrador */}
+          {/* Solo mostrar Vendedores, Cajas y Reportes si es administrador */}
           {userType === "admin" && (
             <>
               <MenuCard
@@ -150,6 +160,13 @@ export default function HomePage() {
                 title="Vendedores"
                 description="Gestionar equipo"
                 href={selectedStore ? `/stores/${selectedStore.id}/employees` : "/vendors"}
+              />
+
+              <MenuCard
+                icon={<CreditCard className="h-8 w-8 text-primary" />}
+                title="Cajas"
+                description="Gestionar cajas"
+                href={selectedStore ? `/stores/${selectedStore.id}/cajas` : "/vendors"}
               />
 
               <MenuCard
