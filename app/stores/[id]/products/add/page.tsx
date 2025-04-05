@@ -171,7 +171,10 @@ export default function AddProductPage() {
     return isValid
   }
 
+<<<<<<< HEAD
   // Modificar la función handleSubmit para mejorar la adición de productos en la tienda
+=======
+>>>>>>> 3870742a9a7e94a94118d2e6cf41f9a770310339
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -182,11 +185,21 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     try {
+<<<<<<< HEAD
       // Usar la nueva función que combina selección de tienda y refresco de token
       const storeSelected = await selectStoreAndRefreshToken(storeId)
 
       if (!storeSelected) {
         throw new Error(`No se pudo seleccionar la tienda ${storeId}`)
+=======
+      // Verificar que la tienda ya esté seleccionada
+      const selectedStoreId = localStorage.getItem("selectedStoreId")
+      if (selectedStoreId !== storeId) {
+        console.log("La tienda seleccionada no coincide con la tienda actual, redirigiendo...")
+        router.push("/stores")
+        setIsSubmitting(false)
+        return
+>>>>>>> 3870742a9a7e94a94118d2e6cf41f9a770310339
       }
 
       console.log("Creando nuevo producto:", formData)

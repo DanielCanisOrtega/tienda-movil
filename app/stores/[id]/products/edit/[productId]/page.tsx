@@ -101,9 +101,11 @@ export default function EditProductPage() {
   // Obtener datos del producto
   const fetchProduct = async () => {
     try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
+      // Verificar que la tienda ya esté seleccionada
+      const selectedStoreId = localStorage.getItem("selectedStoreId")
+      if (selectedStoreId !== storeId) {
+        console.log("La tienda seleccionada no coincide con la tienda actual, redirigiendo...")
+        router.push("/stores")
         return
       }
 
@@ -240,9 +242,11 @@ export default function EditProductPage() {
     setIsSubmitting(true)
 
     try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
+      // Verificar que la tienda ya esté seleccionada
+      const selectedStoreId = localStorage.getItem("selectedStoreId")
+      if (selectedStoreId !== storeId) {
+        console.log("La tienda seleccionada no coincide con la tienda actual, redirigiendo...")
+        router.push("/stores")
         setIsSubmitting(false)
         return
       }
