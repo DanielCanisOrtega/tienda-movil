@@ -34,205 +34,161 @@ export default function DashboardPage() {
   const [salesData, setSalesData] = useState<Sale[]>([])
   const [expensesData, setExpensesData] = useState<Expense[]>([])
   const [reportView, setReportView] = useState<"sales" | "expenses" | "balance">("sales")
+  const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Generar datos de ejemplo para las gráficas
+  // Load data from localStorage
   useEffect(() => {
-    // Cargar ventas desde localStorage
-    const storedSales = localStorage.getItem("dailySales")
-    if (storedSales) {
-      // Convertir las fechas de string a Date
-      const parsedSales = JSON.parse(storedSales).map((sale: any) => ({
-        ...sale,
-        date: new Date(sale.date),
-      }))
-      setSalesData(parsedSales)
-    } else {
-      // Generar datos de ejemplo si no hay ventas reales
-      const exampleSales: Sale[] = generateExampleSales()
-      setSalesData(exampleSales)
+    // Get the selected store ID
+    const selectedStoreId = localStorage.getItem("selectedStoreId")
+    if (selectedStoreId) {
+      setStoreId(selectedStoreId)
     }
 
-    // Cargar gastos desde localStorage
+    // Load sales from localStorage
+    const storedSales = localStorage.getItem("sales")
+    if (storedSales) {
+      try {
+        // Convert dates from string to Date
+        const parsedSales = JSON.parse(storedSales).map((sale: any) => ({
+          ...sale,
+          date: new Date(sale.date),
+        }))
+        setSalesData(parsedSales)
+      } catch (error) {
+        console.error("Error parsing sales data:", error)
+        setSalesData([])
+      }
+    }
+
+    // Load expenses from localStorage
     const storedExpenses = localStorage.getItem("expenses")
     if (storedExpenses) {
       try {
         const parsedExpenses = JSON.parse(storedExpenses)
-        console.log("Gastos cargados:", parsedExpenses.length)
         setExpensesData(parsedExpenses)
       } catch (error) {
-        console.error("Error al cargar gastos:", error)
+        console.error("Error parsing expenses data:", error)
         setExpensesData([])
       }
-    } else {
-      console.log("No hay gastos almacenados")
-      setExpensesData([])
     }
   }, [])
 
-  // Función para generar datos de ejemplo
-  const generateExampleSales = (): Sale[] => {
-    const sales: Sale[] = []
-    const products = [
-      { id: 1, name: "Manzana Roja", price: 4500, category: "Frutas" },
-      { id: 2, name: "Banano", price: 3200, category: "Frutas" },
-      { id: 3, name: "Tomate", price: 4200, category: "Verduras" },
-      { id: 4, name: "Cebolla", price: 3800, category: "Verduras" },
-      { id: 5, name: "Leche", price: 4800, category: "Lácteos" },
-      { id: 6, name: "Queso", price: 12500, category: "Lácteos" },
-      { id: 7, name: "Pollo", price: 15900, category: "Carnes" },
-      { id: 8, name: "Carne", price: 28500, category: "Carnes" },
-    ]
-
-    // Generar ventas para los últimos 30 días
-    const today = new Date()
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - i)
-
-      // Generar entre 1 y 5 ventas por día
-      const salesPerDay = Math.floor(Math.random() * 5) + 1
-
-      for (let j = 0; j < salesPerDay; j++) {
-        const items = []
-        // Generar entre 1 y 4 productos por venta
-        const itemsCount = Math.floor(Math.random() * 4) + 1
-
-        for (let k = 0; k < itemsCount; k++) {
-          const product = products[Math.floor(Math.random() * products.length)]
-          const quantity = Math.floor(Math.random() * 5) + 1
-
-          items.push({
-            product,
-            quantity,
-          })
-        }
-
-        const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-
-        sales.push({
-          id: `sale-${i}-${j}`,
-          items,
-          total,
-          date: new Date(date),
-        })
-      }
-    }
-
-    return sales
-  }
-
-  // Filtrar ventas según el período seleccionado
+  // Filter sales by store ID
   const getFilteredSales = () => {
+    if (!storeId) return []
+
+    const storeSales = salesData.filter((sale) => {
+      // Check if sale has storeId property and it matches the current storeId
+      return "storeId" in sale ? sale.storeId === storeId : true
+    })
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Domingo como inicio de semana
+    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
     switch (activeTab) {
       case "daily":
-        return salesData.filter((sale) => {
+        return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
           return saleDate >= today
         })
       case "weekly":
-        return salesData.filter((sale) => {
+        return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
           return saleDate >= startOfWeek
         })
       case "monthly":
-        return salesData.filter((sale) => {
+        return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
           return saleDate >= startOfMonth
         })
       default:
-        return salesData
+        return storeSales
     }
   }
 
-  // Filtrar gastos según el período seleccionado
+  // Filter expenses by store ID
   const getFilteredExpenses = () => {
+    if (!storeId || !expensesData.length) return []
+
+    const storeExpenses = expensesData.filter((expense) => {
+      // Check if expense has storeId property and it matches the current storeId
+      return "storeId" in expense ? expense.storeId === storeId : true
+    })
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Domingo como inicio de semana
+    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-    // Si no hay gastos, devolver un array vacío
-    if (!expensesData || expensesData.length === 0) {
-      return []
-    }
-
-    // Imprimir para depuración
-    console.log("Total de gastos antes de filtrar:", expensesData.length)
-
     switch (activeTab) {
       case "daily":
-        return expensesData.filter((expense) => {
+        return storeExpenses.filter((expense) => {
           const expenseDate = new Date(expense.date)
-          const result = expenseDate >= today
-          return result
+          return expenseDate >= today
         })
       case "weekly":
-        return expensesData.filter((expense) => {
+        return storeExpenses.filter((expense) => {
           const expenseDate = new Date(expense.date)
           return expenseDate >= startOfWeek
         })
       case "monthly":
-        return expensesData.filter((expense) => {
+        return storeExpenses.filter((expense) => {
           const expenseDate = new Date(expense.date)
           return expenseDate >= startOfMonth
         })
       default:
-        return expensesData
+        return storeExpenses
     }
   }
 
-  // Calcular total de ventas
+  // Calculate total sales
   const calculateTotalSales = (sales: Sale[]) => {
     return sales.reduce((sum, sale) => sum + sale.total, 0)
   }
 
-  // Calcular total de gastos
+  // Calculate total expenses
   const calculateTotalExpenses = (expenses: Expense[]) => {
     return expenses.reduce((sum, expense) => sum + expense.amount, 0)
   }
 
-  // Preparar datos para la gráfica de barras (ventas por día)
+  // Prepare data for bar chart (sales by day)
   const prepareSalesBarChartData = () => {
     const filteredSales = getFilteredSales()
     const salesByDay = new Map<string, number>()
 
-    // Inicializar días según el período seleccionado
     if (activeTab === "daily") {
-      // Para vista diaria, mostrar ventas por hora
+      // For daily view, group by hour
       for (let i = 0; i < 24; i++) {
         const hour = i < 10 ? `0${i}:00` : `${i}:00`
         salesByDay.set(hour, 0)
       }
 
-      // Sumar ventas por hora
+      // Sum sales by hour
       filteredSales.forEach((sale) => {
         const hour = new Date(sale.date).getHours()
         const hourKey = hour < 10 ? `0${hour}:00` : `${hour}:00`
         salesByDay.set(hourKey, (salesByDay.get(hourKey) || 0) + sale.total)
       })
     } else if (activeTab === "weekly") {
-      // Para vista semanal, mostrar ventas por día de la semana
+      // For weekly view, group by day of week
       const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
       days.forEach((day) => salesByDay.set(day, 0))
 
-      // Sumar ventas por día de la semana
+      // Sum sales by day of week
       filteredSales.forEach((sale) => {
         const day = days[new Date(sale.date).getDay()]
         salesByDay.set(day, (salesByDay.get(day) || 0) + sale.total)
       })
     } else {
-      // Para vista mensual, mostrar ventas por día del mes
+      // For monthly view, group by day of month
       const today = new Date()
       const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
 
@@ -240,31 +196,30 @@ export default function DashboardPage() {
         salesByDay.set(`${i}`, 0)
       }
 
-      // Sumar ventas por día del mes
+      // Sum sales by day of month
       filteredSales.forEach((sale) => {
         const day = new Date(sale.date).getDate().toString()
         salesByDay.set(day, (salesByDay.get(day) || 0) + sale.total)
       })
     }
 
-    // Convertir Map a array para la gráfica
+    // Convert Map to array for chart
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
   }
 
-  // Preparar datos para la gráfica de barras (gastos por día)
+  // Prepare data for bar chart (expenses by day)
   const prepareExpensesBarChartData = () => {
     const filteredExpenses = getFilteredExpenses()
     const expensesByDay = new Map<string, number>()
 
-    // Inicializar días según el período seleccionado
     if (activeTab === "daily") {
-      // Para vista diaria, mostrar gastos por hora
+      // For daily view, group by hour
       for (let i = 0; i < 24; i++) {
         const hour = i < 10 ? `0${i}:00` : `${i}:00`
         expensesByDay.set(hour, 0)
       }
 
-      // Sumar gastos por hora
+      // Sum expenses by hour
       filteredExpenses.forEach((expense) => {
         const date = new Date(expense.date)
         const hour = date.getHours()
@@ -272,18 +227,18 @@ export default function DashboardPage() {
         expensesByDay.set(hourKey, (expensesByDay.get(hourKey) || 0) + expense.amount)
       })
     } else if (activeTab === "weekly") {
-      // Para vista semanal, mostrar gastos por día de la semana
+      // For weekly view, group by day of week
       const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
       days.forEach((day) => expensesByDay.set(day, 0))
 
-      // Sumar gastos por día de la semana
+      // Sum expenses by day of week
       filteredExpenses.forEach((expense) => {
         const date = new Date(expense.date)
         const day = days[date.getDay()]
         expensesByDay.set(day, (expensesByDay.get(day) || 0) + expense.amount)
       })
     } else {
-      // Para vista mensual, mostrar gastos por día del mes
+      // For monthly view, group by day of month
       const today = new Date()
       const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
 
@@ -291,7 +246,7 @@ export default function DashboardPage() {
         expensesByDay.set(`${i}`, 0)
       }
 
-      // Sumar gastos por día del mes
+      // Sum expenses by day of month
       filteredExpenses.forEach((expense) => {
         const date = new Date(expense.date)
         const day = date.getDate().toString()
@@ -299,22 +254,22 @@ export default function DashboardPage() {
       })
     }
 
-    // Convertir Map a array para la gráfica
+    // Convert Map to array for chart
     return Array.from(expensesByDay).map(([name, value]) => ({ name, value }))
   }
 
-  // Preparar datos para la gráfica de balance (ingresos vs gastos)
+  // Prepare data for balance chart (income vs expenses)
   const prepareBalanceBarChartData = () => {
     const salesData = prepareSalesBarChartData()
     const expensesData = prepareExpensesBarChartData()
 
-    // Combinar los datos para mostrar ingresos y gastos juntos
+    // Combine data to show income and expenses together
     const combinedData: { name: string; ingresos: number; gastos: number }[] = []
 
-    // Crear un conjunto de todas las etiquetas (nombres)
+    // Create a set of all labels (names)
     const allNames = new Set([...salesData.map((item) => item.name), ...expensesData.map((item) => item.name)])
 
-    // Para cada nombre, buscar el valor correspondiente en ventas y gastos
+    // For each name, find the corresponding value in sales and expenses
     Array.from(allNames).forEach((name) => {
       const salesItem = salesData.find((item) => item.name === name)
       const expensesItem = expensesData.find((item) => item.name === name)
@@ -329,13 +284,13 @@ export default function DashboardPage() {
     return combinedData
   }
 
-  // Preparar datos para la gráfica de líneas (tendencia)
+  // Prepare data for line chart (trend)
   const prepareLineChartData = () => {
     const filteredSales = getFilteredSales()
     const salesByDay = new Map<string, number>()
 
     if (activeTab === "daily") {
-      // Para vista diaria, agrupar por hora
+      // For daily view, group by hour
       for (let i = 0; i < 24; i++) {
         const hour = i < 10 ? `0${i}:00` : `${i}:00`
         salesByDay.set(hour, 0)
@@ -344,10 +299,10 @@ export default function DashboardPage() {
       filteredSales.forEach((sale) => {
         const hour = new Date(sale.date).getHours()
         const hourKey = hour < 10 ? `0${hour}:00` : `${hour}:00`
-        salesByDay.set(hourKey, (salesByDay.get(hourKey) || 0) + 1) // Contar número de ventas
+        salesByDay.set(hourKey, (salesByDay.get(hourKey) || 0) + 1) // Count number of sales
       })
     } else if (activeTab === "weekly") {
-      // Para vista semanal, agrupar por día
+      // For weekly view, group by day
       const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
       days.forEach((day) => salesByDay.set(day, 0))
 
@@ -356,7 +311,7 @@ export default function DashboardPage() {
         salesByDay.set(day, (salesByDay.get(day) || 0) + 1)
       })
     } else {
-      // Para vista mensual, agrupar por semana
+      // For monthly view, group by week
       for (let i = 1; i <= 5; i++) {
         salesByDay.set(`Semana ${i}`, 0)
       }
@@ -371,7 +326,7 @@ export default function DashboardPage() {
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
   }
 
-  // Formatear precio en pesos colombianos
+  // Format price in Colombian pesos
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
@@ -601,18 +556,18 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Limpiar canvas
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Configuración
+    // Configuration
     const padding = { top: 20, right: 20, bottom: 40, left: 60 }
     const chartWidth = canvas.width - padding.left - padding.right
     const chartHeight = canvas.height - padding.top - padding.bottom
 
-    // Encontrar el valor máximo para escalar
+    // Find the maximum value for scaling
     const maxValue = Math.max(...data.map((item) => Math.max(item.ingresos, item.gastos)), 1)
 
-    // Dibujar ejes
+    // Draw axes
     ctx.beginPath()
     ctx.moveTo(padding.left, padding.top)
     ctx.lineTo(padding.left, canvas.height - padding.bottom)
@@ -620,32 +575,32 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
     ctx.strokeStyle = "#ccc"
     ctx.stroke()
 
-    // Dibujar barras
+    // Draw bars
     const barWidth = (chartWidth / data.length) * 0.35
     const groupWidth = chartWidth / data.length
 
     data.forEach((item, index) => {
       const x = padding.left + index * groupWidth + groupWidth * 0.15
 
-      // Barra de ingresos
+      // Income bar
       const incomesHeight = (item.ingresos / maxValue) * chartHeight
       const incomesY = canvas.height - padding.bottom - incomesHeight
       ctx.fillStyle = "#29d890"
       ctx.fillRect(x, incomesY, barWidth, incomesHeight)
 
-      // Barra de gastos
+      // Expense bar
       const expensesHeight = (item.gastos / maxValue) * chartHeight
       const expensesY = canvas.height - padding.bottom - expensesHeight
       ctx.fillStyle = "#ff1515"
       ctx.fillRect(x + barWidth + 2, expensesY, barWidth, expensesHeight)
 
-      // Dibujar etiqueta
+      // Draw label
       ctx.fillStyle = "#798184"
       ctx.font = "10px sans-serif"
       ctx.textAlign = "center"
       ctx.fillText(item.name, x + barWidth + 1, canvas.height - padding.bottom + 15)
 
-      // Dibujar valores
+      // Draw values
       if (item.ingresos > 0) {
         ctx.fillStyle = "#0e0e0e"
         ctx.font = "10px sans-serif"
@@ -669,10 +624,10 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
       }
     })
 
-    // Leyenda
+    // Legend
     const legendY = padding.top / 2
 
-    // Ingresos
+    // Income
     ctx.fillStyle = "#29d890"
     ctx.fillRect(padding.left, legendY, 10, 10)
     ctx.fillStyle = "#0e0e0e"
@@ -680,7 +635,7 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
     ctx.textAlign = "left"
     ctx.fillText("Ingresos", padding.left + 15, legendY + 8)
 
-    // Gastos
+    // Expenses
     ctx.fillStyle = "#ff1515"
     ctx.fillRect(padding.left + 80, legendY, 10, 10)
     ctx.fillStyle = "#0e0e0e"

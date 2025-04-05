@@ -44,3 +44,4 @@ export function VendorList({ vendors, onEdit, onDelete }: VendorListProps) {
     </div>
   )
 }
+

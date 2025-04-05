@@ -1,19 +1,18 @@
 "use client"
-
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { ChevronLeft, Loader2, DollarSign, Clock, AlertCircle } from "lucide-react"
-import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { VendorNavigation } from "@/components/vendor-navigation"
-import { fetchWithAuth } from "@/services/auth-service"
+import { ChevronLeft } from "lucide-react"
+import Link from "next/link"
 
 interface Caja {
   id: number
   usuario: number
+  usuario_nombre: string
   turno: string
   saldo_inicial: string
   saldo_final: string
@@ -33,58 +32,57 @@ export default function VendorCajaPage() {
   const [storeName, setStoreName] = useState<string | null>(null)
 
   useEffect(() => {
-    // Verificar si el usuario es un vendedor
+    // Verify if the user is a vendor
     const userType = localStorage.getItem("userType")
     if (userType !== "vendor") {
       router.push("/")
       return
     }
 
-    // Obtener el nombre del vendedor y de la tienda
+    // Get the vendor name and store name
     const storedVendorName = localStorage.getItem("vendorName")
     const selectedStoreName = localStorage.getItem("selectedStoreName")
     if (storedVendorName) setVendorName(storedVendorName)
     if (selectedStoreName) setStoreName(selectedStoreName)
 
-    // Cargar la caja actual del vendedor
+    // Load the vendor's current cash register
     cargarCajaActual()
   }, [router])
 
-  const cargarCajaActual = async () => {
+  const cargarCajaActual = () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Obtener todas las cajas
-      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/")
-
-      if (!response.ok) {
-        throw new Error(`Error al obtener cajas: ${response.status}`)
-      }
-
-      const cajas = await response.json()
-
-      // Obtener el ID del vendedor actual
+      // Get the store ID and vendor ID
+      const storeId = localStorage.getItem("selectedStoreId")
       const vendorId = localStorage.getItem("vendorId")
-      if (!vendorId) {
-        throw new Error("No se encontró el ID del vendedor")
+
+      if (!storeId || !vendorId) {
+        throw new Error("No se encontró información de la tienda o del vendedor")
       }
 
-      // Buscar la caja abierta del vendedor actual
-      const cajaVendedor = Array.isArray(cajas)
-        ? cajas.find((caja: Caja) => caja.usuario === Number(vendorId) && caja.estado === "abierta")
-        : null
+      // Get the store's cash registers
+      const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
 
-      if (cajaVendedor) {
-        console.log("Caja actual encontrada:", cajaVendedor)
-        setCajaActual(cajaVendedor)
-        setSaldoFinal(cajaVendedor.saldo_final)
+      if (storedCajas) {
+        const cajas = JSON.parse(storedCajas)
 
-        // Guardar el ID de la caja en localStorage
-        localStorage.setItem("cajaActualId", cajaVendedor.id.toString())
+        // Find the vendor's open cash register
+        const cajaVendedor = cajas.find(
+          (caja: Caja) => caja.usuario.toString() === vendorId && caja.estado === "abierta",
+        )
+
+        if (cajaVendedor) {
+          console.log("Caja actual encontrada:", cajaVendedor)
+          setCajaActual(cajaVendedor)
+          setSaldoFinal(cajaVendedor.saldo_final)
+        } else {
+          console.log("No se encontró una caja abierta para este vendedor")
+          setError("No tienes una caja abierta actualmente. Por favor, contacta al administrador.")
+        }
       } else {
-        console.log("No se encontró una caja abierta para este vendedor")
-        setError("No tienes una caja abierta actualmente. Por favor, contacta al administrador.")
+        setError("No hay cajas registradas en esta tienda")
       }
     } catch (err) {
       console.error("Error al cargar la caja:", err)
@@ -94,7 +92,7 @@ export default function VendorCajaPage() {
     }
   }
 
-  const handleCerrarCaja = async () => {
+  const handleCerrarCaja = () => {
     if (!cajaActual) return
 
     if (!saldoFinal.trim()) {
@@ -105,48 +103,43 @@ export default function VendorCajaPage() {
     setIsSubmitting(true)
 
     try {
-      // Primero actualizar el saldo final
-      const updateResponse = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/cajas/${cajaActual.id}/`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            saldo_final: saldoFinal,
-          }),
-        },
-      )
+      // Get the store ID
+      const storeId = localStorage.getItem("selectedStoreId")
 
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text()
-        throw new Error(`Error al actualizar saldo: ${updateResponse.status} - ${errorText}`)
+      if (!storeId) {
+        throw new Error("No se encontró información de la tienda")
       }
 
-      // Luego cerrar la caja
-      const closeResponse = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/cajas/${cajaActual.id}/cerrar/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
+      // Get the store's cash registers
+      const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
 
-      if (!closeResponse.ok) {
-        const errorText = await closeResponse.text()
-        throw new Error(`Error al cerrar caja: ${closeResponse.status} - ${errorText}`)
+      if (storedCajas) {
+        let cajas = JSON.parse(storedCajas)
+
+        // Update the cash register
+        cajas = cajas.map((caja: Caja) => {
+          if (caja.id === cajaActual.id) {
+            return {
+              ...caja,
+              saldo_final: saldoFinal,
+              estado: "cerrada",
+              fecha_cierre: new Date().toISOString(),
+            }
+          }
+          return caja
+        })
+
+        // Save to localStorage
+        localStorage.setItem(`store_${storeId}_cajas`, JSON.stringify(cajas))
+
+        // Clear the current cash register information
+        localStorage.removeItem("cajaActualId")
+
+        alert("Caja cerrada con éxito")
+
+        // Redirect to home
+        router.push("/home")
       }
-
-      alert("Caja cerrada con éxito")
-
-      // Limpiar la información de la caja actual
-      localStorage.removeItem("cajaActualId")
-
-      // Redirigir al inicio
-      router.push("/home")
     } catch (err) {
       console.error("Error al cerrar la caja:", err)
       alert(`No se pudo cerrar la caja: ${err instanceof Error ? err.message : "Error desconocido"}`)
@@ -155,7 +148,7 @@ export default function VendorCajaPage() {
     }
   }
 
-  // Formatear fecha
+  // Format date
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString)
@@ -171,7 +164,7 @@ export default function VendorCajaPage() {
     }
   }
 
-  // Formatear saldo
+  // Format currency
   const formatCurrency = (value: string) => {
     try {
       const numValue = Number.parseFloat(value)
@@ -195,24 +188,17 @@ export default function VendorCajaPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
-      <div className="bg-primary text-white p-4">
-        <div className="flex items-center mb-2">
-          <Link href="/home" className="mr-2">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-xl font-semibold">Mi Caja</h1>
-        </div>
-        <p className="text-sm opacity-80">
-          {vendorName ? `${vendorName} - ` : ""}
-          {storeName || ""}
-        </p>
+      <div className="bg-white p-4 flex items-center">
+        <Link href="/home" className="mr-4">
+          <ChevronLeft className="h-6 w-6" />
+        </Link>
+        <h1 className="text-xl font-semibold">Mi Caja</h1>
       </div>
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
         {error ? (
           <Card>
             <CardContent className="p-6 text-center">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <p className="text-red-500 mb-4">{error}</p>
               <Button onClick={() => router.push("/home")} className="bg-primary hover:bg-primary-dark">
                 Volver al inicio
@@ -226,32 +212,31 @@ export default function VendorCajaPage() {
                 <CardTitle className="text-lg">Información de la Caja</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Clock className="h-5 w-5 text-primary mr-2" />
-                    <span className="font-medium">Turno:</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">ID de Caja</Label>
+                    <p className="font-medium">#{cajaActual.id}</p>
                   </div>
-                  <span className="capitalize">{cajaActual.turno}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <DollarSign className="h-5 w-5 text-primary mr-2" />
-                    <span className="font-medium">Saldo inicial:</span>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Turno</Label>
+                    <p className="font-medium capitalize">{cajaActual.turno}</p>
                   </div>
-                  <span>{formatCurrency(cajaActual.saldo_inicial)}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Fecha de apertura:</span>
-                  <span>{formatDate(cajaActual.fecha_apertura)}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Estado:</span>
-                  <span className="capitalize bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                    {cajaActual.estado}
-                  </span>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Estado</Label>
+                    <p className="font-medium capitalize">{cajaActual.estado}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Fecha de Apertura</Label>
+                    <p className="font-medium">{formatDate(cajaActual.fecha_apertura)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Saldo Inicial</Label>
+                    <p className="font-medium">{formatCurrency(cajaActual.saldo_inicial)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Saldo Actual</Label>
+                    <p className="font-medium">{formatCurrency(cajaActual.saldo_final)}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -260,48 +245,39 @@ export default function VendorCajaPage() {
               <CardHeader>
                 <CardTitle className="text-lg">Cerrar Caja</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="saldo_final">Saldo Final</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base">$</span>
-                    <Input
-                      id="saldo_final"
-                      value={saldoFinal}
-                      onChange={(e) => setSaldoFinal(e.target.value.replace(/[^0-9.]/g, ""))}
-                      placeholder="0.00"
-                      className="bg-input-bg border-0 pl-8 h-12 text-base"
-                      type="text"
-                      inputMode="decimal"
-                    />
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="saldoFinal">Saldo Final</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base">$</span>
+                      <Input
+                        id="saldoFinal"
+                        value={saldoFinal}
+                        onChange={(e) => setSaldoFinal(e.target.value)}
+                        placeholder="0.00"
+                        className="bg-input-bg border-0 pl-8 h-12 text-base"
+                        type="text"
+                        inputMode="decimal"
+                      />
+                    </div>
                   </div>
-                  <p className="text-xs text-text-secondary">
-                    Ingresa el saldo final con el que entregarás la caja al finalizar tu turno.
-                  </p>
-                </div>
 
-                <Button
-                  onClick={handleCerrarCaja}
-                  className="w-full bg-primary hover:bg-primary-dark"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Cerrando caja...
-                    </>
-                  ) : (
-                    "Cerrar Caja"
-                  )}
-                </Button>
+                  <Button
+                    onClick={handleCerrarCaja}
+                    className="w-full h-12 bg-primary hover:bg-primary-dark"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Procesando..." : "Cerrar Caja"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </>
         ) : (
           <Card>
             <CardContent className="p-6 text-center">
-              <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-              <p className="mb-4">No se encontró información de tu caja actual.</p>
+              <p className="text-text-secondary mb-4">No tienes una caja abierta actualmente</p>
               <Button onClick={() => router.push("/home")} className="bg-primary hover:bg-primary-dark">
                 Volver al inicio
               </Button>

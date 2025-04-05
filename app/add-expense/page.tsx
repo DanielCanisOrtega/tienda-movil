@@ -12,25 +12,29 @@ import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import type { Expense } from "../expenses/page"
+import { useToast } from "@/hooks/use-toast"
 
 export default function AddExpensePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Modificar la inicialización de la fecha para usar la zona horaria de Colombia
   const [formData, setFormData] = useState<Omit<Expense, "id">>({
-    description: "",
+    descripcion: "",
     amount: 0,
-    date: new Date().toISOString().split("T")[0], // Formato YYYY-MM-DD
-    category: "",
+    // Usar la fecha local de Colombia (UTC-5)
+    date: new Date().toLocaleDateString("en-CA"), // Formato YYYY-MM-DD que respeta la zona horaria local
+    categoria: "",
     paymentMethod: "",
     notes: "",
   })
 
   const [errors, setErrors] = useState({
-    description: "",
+    descripcion: "",
     amount: "",
     date: "",
-    category: "",
+    categoria: "",
     paymentMethod: "",
   })
 
@@ -71,15 +75,15 @@ export default function AddExpensePage() {
   const validateForm = () => {
     let isValid = true
     const newErrors = {
-      description: "",
+      descripcion: "",
       amount: "",
       date: "",
-      category: "",
+      categoria: "",
       paymentMethod: "",
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = "La descripción es obligatoria"
+    if (!formData.descripcion.trim()) {
+      newErrors.descripcion = "La descripción es obligatoria"
       isValid = false
     }
 
@@ -93,8 +97,8 @@ export default function AddExpensePage() {
       isValid = false
     }
 
-    if (!formData.category) {
-      newErrors.category = "Seleccione una categoría"
+    if (!formData.categoria) {
+      newErrors.categoria = "Seleccione una categoría"
       isValid = false
     }
 
@@ -107,6 +111,7 @@ export default function AddExpensePage() {
     return isValid
   }
 
+  // Modificar la función handleSubmit para asegurar que la fecha se guarde correctamente
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -116,29 +121,51 @@ export default function AddExpensePage() {
 
     setIsSubmitting(true)
 
-    // Obtener gastos existentes del localStorage
-    const existingExpenses = localStorage.getItem("expenses")
-    const expenses: Expense[] = existingExpenses ? JSON.parse(existingExpenses) : []
+    try {
+      // Obtener el ID de la tienda seleccionada
+      const storeId = localStorage.getItem("selectedStoreId")
 
-    // Crear el nuevo gasto con ID único
-    const newExpense: Expense = {
-      id: crypto.randomUUID(),
-      ...formData,
-    }
+      // Obtener gastos existentes del localStorage
+      const existingExpenses = localStorage.getItem("expenses")
+      const expenses: Expense[] = existingExpenses ? JSON.parse(existingExpenses) : []
 
-    // Agregar el nuevo gasto a la lista
-    expenses.push(newExpense)
+      // Crear el nuevo gasto con ID único
+      const newExpense: Expense = {
+        id: crypto.randomUUID(),
+        ...formData,
+        // Asegurarse de que la fecha esté en formato ISO para consistencia
+        date: formData.date,
+        storeId: storeId || undefined,
+      }
 
-    // Guardar en localStorage
-    localStorage.setItem("expenses", JSON.stringify(expenses))
-    console.log("Gasto guardado. Total de gastos:", expenses.length)
+      console.log("Nuevo gasto a guardar:", newExpense)
 
-    // Simular tiempo de procesamiento
-    setTimeout(() => {
+      // Agregar el nuevo gasto a la lista
+      expenses.push(newExpense)
+
+      // Guardar en localStorage
+      localStorage.setItem("expenses", JSON.stringify(expenses))
+      console.log("Gasto guardado. Total de gastos:", expenses.length)
+
+      // Simular tiempo de procesamiento
+      setTimeout(() => {
+        setIsSubmitting(false)
+        toast({
+          title: "Gasto registrado",
+          description: "El gasto ha sido registrado con éxito",
+          variant: "success",
+        })
+        router.push("/expenses")
+      }, 1000)
+    } catch (error) {
+      console.error("Error al guardar el gasto:", error)
       setIsSubmitting(false)
-      alert("Gasto registrado con éxito")
-      router.push("/expenses")
-    }, 1000)
+      toast({
+        title: "Error",
+        description: "No se pudo registrar el gasto. Por favor, intenta de nuevo más tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -153,18 +180,18 @@ export default function AddExpensePage() {
       <div className="container max-w-md mx-auto p-4">
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-base">
+            <Label htmlFor="descripcion" className="text-base">
               Descripción
             </Label>
             <Input
-              id="description"
-              name="description"
-              value={formData.description}
+              id="descripcion"
+              name="descripcion"
+              value={formData.descripcion}
               onChange={handleChange}
               placeholder="Ej: Pedido de frutas, Factura de luz"
               className="bg-input-bg border-0 h-12 text-base"
             />
-            {errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
+            {errors.descripcion && <p className="text-sm text-red-500">{errors.descripcion}</p>}
           </div>
 
           <div className="space-y-2">
@@ -204,10 +231,10 @@ export default function AddExpensePage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category" className="text-base">
+            <Label htmlFor="categoria" className="text-base">
               Categoría
             </Label>
-            <Select value={formData.category} onValueChange={(value) => handleSelectChange("category", value)}>
+            <Select value={formData.categoria} onValueChange={(value) => handleSelectChange("categoria", value)}>
               <SelectTrigger className="bg-input-bg border-0 h-12 text-base">
                 <SelectValue placeholder="Seleccionar categoría" />
               </SelectTrigger>
@@ -219,7 +246,7 @@ export default function AddExpensePage() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
+            {errors.categoria && <p className="text-sm text-red-500">{errors.categoria}</p>}
           </div>
 
           <div className="space-y-2">

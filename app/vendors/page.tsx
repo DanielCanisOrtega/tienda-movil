@@ -16,6 +16,7 @@ export interface Vendor {
   email: string
   password: string
   photo?: string
+  active?: boolean
 }
 
 export default function VendorsPage() {
@@ -37,23 +38,44 @@ export default function VendorsPage() {
     }
   }, [router])
 
+  // Update the handleDeleteVendor function to mark vendors as inactive instead of removing them
+  const handleDeleteVendor = (id: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar este vendedor?")) {
+      // Instead of filtering out the vendor, mark it as inactive
+      const updatedVendors = vendors.map((vendor) => (vendor.id === id ? { ...vendor, active: false } : vendor))
+
+      // Update state with all vendors (including inactive ones)
+      setVendors(updatedVendors)
+
+      // But only show active vendors in the UI
+      const activeVendors = updatedVendors.filter((vendor) => vendor.active !== false)
+
+      // Save all vendors to localStorage
+      localStorage.setItem("vendors", JSON.stringify(updatedVendors))
+    }
+  }
+
+  // Also update the useEffect that loads vendors to filter out inactive ones for display
   useEffect(() => {
-    // Obtener el tipo de usuario del localStorage
+    // Obtain the user type from localStorage
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
 
-    // Verificar si el usuario es administrador
+    // Check if the user is an administrator
     if (storedUserType !== "admin") {
-      // Redirigir a la página de inicio si no es administrador
+      // Redirect to the home page if not an administrator
       window.location.href = "/home"
     }
 
-    // Cargar vendedores del localStorage
+    // Load vendors from localStorage
     const storedVendors = localStorage.getItem("vendors")
     if (storedVendors) {
-      setVendors(JSON.parse(storedVendors))
+      const allVendors = JSON.parse(storedVendors)
+      // Only display active vendors
+      const activeVendors = allVendors.filter((v: any) => v.active !== false)
+      setVendors(allVendors) // Keep all vendors in state
     } else {
-      // Datos iniciales de ejemplo
+      // Sample initial data
       const initialVendors: Vendor[] = [
         {
           id: "1",
@@ -61,6 +83,7 @@ export default function VendorsPage() {
           phone: "+57 3124567890",
           email: "juan@example.com",
           password: "123456",
+          active: true,
         },
         {
           id: "2",
@@ -68,6 +91,7 @@ export default function VendorsPage() {
           phone: "+57 3209876543",
           email: "maria@example.com",
           password: "123456",
+          active: true,
         },
       ]
       setVendors(initialVendors)
@@ -88,14 +112,6 @@ export default function VendorsPage() {
     localStorage.setItem("vendors", JSON.stringify(updatedVendors))
     setShowEditForm(false)
     setCurrentVendor(null)
-  }
-
-  const handleDeleteVendor = (id: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar este vendedor?")) {
-      const updatedVendors = vendors.filter((vendor) => vendor.id !== id)
-      setVendors(updatedVendors)
-      localStorage.setItem("vendors", JSON.stringify(updatedVendors))
-    }
   }
 
   const startEditVendor = (vendor: Vendor) => {

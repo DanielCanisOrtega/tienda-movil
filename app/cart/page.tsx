@@ -13,10 +13,14 @@ import { useRouter } from "next/navigation"
 
 interface Product {
   id: number
-  name: string
-  price: number
-  category: string
-  image: string
+  nombre: string
+  precio: number
+  categoria: string
+  imagen?: string
+  cantidad: number
+  disponible: boolean
+  tienda: number
+  descripcion: string
 }
 
 interface CartItem {
@@ -31,42 +35,34 @@ export default function CartPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Cargar productos
+  // Cargar productos y carrito
   useEffect(() => {
-    // En un caso real, estos datos vendrían de una API
-    const availableProducts: Product[] = [
-      { id: 1, name: "Manzana Roja", price: 4500, category: "Frutas", image: "/placeholder.svg?height=80&width=80" },
-      { id: 2, name: "Banano", price: 3200, category: "Frutas", image: "/placeholder.svg?height=80&width=80" },
-      { id: 3, name: "Tomate", price: 4200, category: "Verduras", image: "/placeholder.svg?height=80&width=80" },
-      {
-        id: 4,
-        name: "Cebolla Cabezona",
-        price: 3800,
-        category: "Verduras",
-        image: "/placeholder.svg?height=80&width=80",
-      },
-      { id: 5, name: "Leche Entera", price: 4800, category: "Lácteos", image: "/placeholder.svg?height=80&width=80" },
-      {
-        id: 6,
-        name: "Queso Campesino",
-        price: 12500,
-        category: "Lácteos",
-        image: "/placeholder.svg?height=80&width=80",
-      },
-      { id: 7, name: "Pollo Entero", price: 15900, category: "Carnes", image: "/placeholder.svg?height=80&width=80" },
-      {
-        id: 8,
-        name: "Carne de Res (Lomo)",
-        price: 28500,
-        category: "Carnes",
-        image: "/placeholder.svg?height=80&width=80",
-      },
-    ]
+    // Obtener el ID de la tienda seleccionada
+    const selectedStoreId = localStorage.getItem("selectedStoreId")
+    if (selectedStoreId) {
+      setStoreId(selectedStoreId)
 
-    setProducts(availableProducts)
-    setFilteredProducts(availableProducts)
-  }, [])
+      // Cargar productos de la tienda
+      const storedProducts = localStorage.getItem(`store_${selectedStoreId}_products`)
+      if (storedProducts) {
+        const parsedProducts = JSON.parse(storedProducts)
+        // Solo mostrar productos disponibles
+        const availableProducts = parsedProducts.filter((p: Product) => p.disponible && p.cantidad > 0)
+        setProducts(availableProducts)
+        setFilteredProducts(availableProducts)
+      }
+
+      // Cargar carrito si existe
+      const storedCart = localStorage.getItem(`store_${selectedStoreId}_cart`)
+      if (storedCart) {
+        setCartItems(JSON.parse(storedCart))
+      }
+    } else {
+      router.push("/home")
+    }
+  }, [router])
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -75,16 +71,24 @@ export default function CartPage() {
     } else {
       const filtered = products.filter(
         (product) =>
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.category.toLowerCase().includes(searchQuery.toLowerCase()),
+          product.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.categoria.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.descripcion.toLowerCase().includes(searchQuery.toLowerCase()),
       )
       setFilteredProducts(filtered)
     }
   }, [searchQuery, products])
 
+  // Guardar carrito en localStorage cuando cambia
+  useEffect(() => {
+    if (storeId && cartItems.length > 0) {
+      localStorage.setItem(`store_${storeId}_cart`, JSON.stringify(cartItems))
+    }
+  }, [cartItems, storeId])
+
   // Calcular el total del carrito
   const cartTotal = cartItems.reduce((total, item) => {
-    return total + item.product.price * item.quantity
+    return total + item.product.precio * item.quantity
   }, 0)
 
   // Formatear precio en pesos colombianos
@@ -98,9 +102,16 @@ export default function CartPage() {
 
   // Agregar producto al carrito
   const addToCart = (product: Product) => {
-    setCartItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.product.id === product.id)
+    // Verificar si hay suficiente stock
+    const existingItem = cartItems.find((item) => item.product.id === product.id)
+    const currentQuantity = existingItem ? existingItem.quantity : 0
 
+    if (currentQuantity >= product.cantidad) {
+      alert(`No hay suficiente stock de ${product.nombre}. Solo quedan ${product.cantidad} unidades.`)
+      return
+    }
+
+    setCartItems((prevItems) => {
       if (existingItem) {
         // Si el producto ya está en el carrito, aumentar la cantidad
         return prevItems.map((item) =>
@@ -115,6 +126,13 @@ export default function CartPage() {
 
   // Actualizar cantidad de un producto en el carrito
   const updateQuantity = (productId: number, newQuantity: number) => {
+    const item = cartItems.find((item) => item.product.id === productId)
+
+    if (item && newQuantity > item.product.cantidad) {
+      alert(`No hay suficiente stock de ${item.product.nombre}. Solo quedan ${item.product.cantidad} unidades.`)
+      return
+    }
+
     if (newQuantity <= 0) {
       // Si la cantidad es 0 o menos, eliminar el producto del carrito
       setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId))
@@ -131,7 +149,7 @@ export default function CartPage() {
     setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId))
   }
 
-  // Procesar la venta
+  // Update the processCheckout function to update product inventory when a sale is made
   const processCheckout = () => {
     if (cartItems.length === 0) {
       alert("El carrito está vacío")
@@ -140,30 +158,55 @@ export default function CartPage() {
 
     setIsProcessing(true)
 
-    // Simulamos el procesamiento de la venta
-    setTimeout(() => {
-      // En un caso real, aquí enviarías los datos al backend
+    // Update inventory
+    if (storeId) {
+      const storedProducts = localStorage.getItem(`store_${storeId}_products`)
+      if (storedProducts) {
+        let products = JSON.parse(storedProducts)
 
-      // Guardar la venta en localStorage para el historial
+        // Update quantity of each product
+        cartItems.forEach((item) => {
+          products = products.map((p: Product) => {
+            if (p.id === item.product.id) {
+              const newQuantity = p.cantidad - item.quantity
+              return {
+                ...p,
+                cantidad: newQuantity,
+                disponible: newQuantity > 0,
+              }
+            }
+            return p
+          })
+        })
+
+        // Save updated products
+        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
+      }
+
+      // Save the sale in localStorage for history
       const sale = {
         id: crypto.randomUUID(),
         items: cartItems,
         total: cartTotal,
         date: new Date().toISOString(),
+        storeId,
       }
 
-      const storedSales = localStorage.getItem("dailySales")
+      const storedSales = localStorage.getItem("sales")
       const sales = storedSales ? JSON.parse(storedSales) : []
       sales.push(sale)
-      localStorage.setItem("dailySales", JSON.stringify(sales))
+      localStorage.setItem("sales", JSON.stringify(sales))
 
-      // Limpiar carrito y redirigir
+      // Clear cart
       setCartItems([])
-      setIsProcessing(false)
+      localStorage.removeItem(`store_${storeId}_cart`)
+    }
 
+    setTimeout(() => {
+      setIsProcessing(false)
       alert("¡Venta registrada con éxito!")
       router.push("/sales")
-    }, 1500)
+    }, 1000)
   }
 
   return (
@@ -191,16 +234,20 @@ export default function CartPage() {
               <div className="space-y-4">
                 {cartItems.map((item) => (
                   <div key={item.product.id} className="flex items-center space-x-4">
-                    <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-                      <img
-                        src={item.product.image || "/placeholder.svg"}
-                        alt={item.product.name}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
+                      {item.product.imagen ? (
+                        <img
+                          src={item.product.imagen || "/placeholder.svg"}
+                          alt={item.product.nombre}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-xl text-gray-400">📦</div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{item.product.name}</h3>
-                      <p className="text-sm text-muted-foreground">{formatPrice(item.product.price)}</p>
+                      <h3 className="font-medium truncate">{item.product.nombre}</h3>
+                      <p className="text-sm text-muted-foreground">{formatPrice(item.product.precio)}</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
@@ -221,7 +268,9 @@ export default function CartPage() {
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="text-right w-20 font-medium">{formatPrice(item.product.price * item.quantity)}</div>
+                    <div className="text-right w-20 font-medium">
+                      {formatPrice(item.product.precio * item.quantity)}
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -277,18 +326,22 @@ export default function CartPage() {
                     className="flex items-center p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
                     onClick={() => addToCart(product)}
                   >
-                    <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-                      <img
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
+                      {product.imagen ? (
+                        <img
+                          src={product.imagen || "/placeholder.svg"}
+                          alt={product.nombre}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-xl text-gray-400">📦</div>
+                      )}
                     </div>
                     <div className="ml-3 flex-1">
-                      <h3 className="font-medium">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground">{product.category}</p>
+                      <h3 className="font-medium">{product.nombre}</h3>
+                      <p className="text-sm text-muted-foreground">{product.categoria}</p>
                     </div>
-                    <div className="font-medium">{formatPrice(product.price)}</div>
+                    <div className="font-medium">{formatPrice(product.precio)}</div>
                     <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 p-0 text-primary">
                       <Plus className="h-4 w-4" />
                     </Button>

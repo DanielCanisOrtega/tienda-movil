@@ -6,7 +6,6 @@ import { ChevronLeft, Plus, Edit, Trash2, Search, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { fetchWithAuth } from "@/services/auth-service"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,23 +16,97 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 // Definir la interfaz para las cajas
 interface Caja {
   id: number
   usuario: number
+  usuario_nombre: string
   turno: string
   saldo_inicial: string
   saldo_final: string
   fecha_apertura: string
-  fecha_cierre: string
+  fecha_cierre: string | null
   estado: string
+}
+
+// Datos de ejemplo para cajas
+const generateSampleCajas = (storeId: string): Caja[] => {
+  const turnos = ["mañana", "tarde", "noche"]
+  const estados = ["abierta", "cerrada"]
+
+  // Obtener empleados de la tienda
+  const storedEmployees = localStorage.getItem(`store_${storeId}_employees`)
+  let employees = []
+
+  if (storedEmployees) {
+    employees = JSON.parse(storedEmployees).filter((emp: any) => emp.activo)
+  } else {
+    // Si no hay empleados, crear algunos de ejemplo
+    employees = [
+      { id: 1, nombre: "Juan Pérez" },
+      { id: 2, nombre: "María López" },
+      { id: 3, nombre: "Carlos Rodríguez" },
+    ]
+  }
+
+  const cajas: Caja[] = []
+
+  // Generar cajas para los últimos 30 días
+  const today = new Date()
+  let cajaId = 1
+
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+
+    // Generar entre 1 y 3 cajas por día
+    const cajasPerDay = Math.floor(Math.random() * 3) + 1
+
+    for (let j = 0; j < cajasPerDay; j++) {
+      const employee = employees[Math.floor(Math.random() * employees.length)]
+      const turno = turnos[Math.floor(Math.random() * turnos.length)]
+      const estado = i === 0 && j === 0 ? "abierta" : estados[Math.floor(Math.random() * estados.length)]
+
+      // Generar saldos aleatorios
+      const saldo_inicial = (Math.floor(Math.random() * 50) + 10) * 10000 // Entre 100,000 y 600,000
+      const saldo_final =
+        estado === "cerrada" ? saldo_inicial + (Math.floor(Math.random() * 100) + 20) * 10000 : saldo_inicial
+
+      // Fecha de apertura
+      const fecha_apertura = new Date(date)
+      fecha_apertura.setHours(8 + j * 8, 0, 0, 0)
+
+      // Fecha de cierre (solo si está cerrada)
+      let fecha_cierre = null
+      if (estado === "cerrada") {
+        fecha_cierre = new Date(fecha_apertura)
+        fecha_cierre.setHours(fecha_apertura.getHours() + 8)
+      }
+
+      cajas.push({
+        id: cajaId++,
+        usuario: employee.id,
+        usuario_nombre: employee.nombre,
+        turno,
+        saldo_inicial: saldo_inicial.toString(),
+        saldo_final: saldo_final.toString(),
+        fecha_apertura: fecha_apertura.toISOString(),
+        fecha_cierre: fecha_cierre ? fecha_cierre.toISOString() : null,
+        estado,
+      })
+    }
+  }
+
+  return cajas
 }
 
 export default function CajasPage() {
   const params = useParams()
   const router = useRouter()
   const storeId = params.id as string
+  const { toast } = useToast()
 
   const [cajas, setCajas] = useState<Caja[]>([])
   const [filteredCajas, setFilteredCajas] = useState<Caja[]>([])
@@ -45,70 +118,7 @@ export default function CajasPage() {
   const [cajaToDelete, setCajaToDelete] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Función para seleccionar la tienda
-  const selectStore = async () => {
-    try {
-      console.log(`Seleccionando tienda con ID: ${storeId}`)
-      const response = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
-      }
-
-      console.log("Tienda seleccionada correctamente")
-      return true
-    } catch (err) {
-      console.error("Error al seleccionar tienda:", err)
-      setError(`No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}`)
-      return false
-    }
-  }
-
-  // Cargar las cajas
-  const fetchCajas = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
-        setIsLoading(false)
-        return
-      }
-
-      console.log("Obteniendo cajas...")
-      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/")
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al obtener cajas: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al obtener cajas: ${response.status} - ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Cajas obtenidas:", data)
-      setCajas(data)
-      setFilteredCajas(data)
-    } catch (err) {
-      console.error("Error al cargar las cajas:", err)
-      setError(`No se pudieron cargar las cajas: ${err instanceof Error ? err.message : "Error desconocido"}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Verificar si el usuario está autorizado y cargar datos
+  // Cargar cajas
   useEffect(() => {
     const userType = localStorage.getItem("userType")
     if (userType !== "admin") {
@@ -123,8 +133,31 @@ export default function CajasPage() {
     }
 
     // Cargar cajas
-    fetchCajas()
+    loadCajas()
   }, [storeId, router])
+
+  // Cargar cajas desde localStorage o generar datos de ejemplo
+  const loadCajas = () => {
+    setIsLoading(true)
+
+    // Intentar cargar cajas del localStorage
+    const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
+
+    if (storedCajas) {
+      const parsedCajas = JSON.parse(storedCajas)
+      setCajas(parsedCajas)
+      setFilteredCajas(parsedCajas)
+    } else {
+      // Si no hay datos en localStorage, generar datos de ejemplo
+      const sampleCajas = generateSampleCajas(storeId)
+      setCajas(sampleCajas)
+      setFilteredCajas(sampleCajas)
+      // Guardar en localStorage para futuras visitas
+      localStorage.setItem(`store_${storeId}_cajas`, JSON.stringify(sampleCajas))
+    }
+
+    setIsLoading(false)
+  }
 
   // Filtrar cajas cuando cambia el término de búsqueda
   useEffect(() => {
@@ -136,8 +169,9 @@ export default function CajasPage() {
         (caja) =>
           caja.turno.toLowerCase().includes(query) ||
           caja.estado.toLowerCase().includes(query) ||
-          caja.saldo_inicial.toLowerCase().includes(query) ||
-          caja.saldo_final.toLowerCase().includes(query),
+          caja.usuario_nombre.toLowerCase().includes(query) ||
+          caja.saldo_inicial.includes(query) ||
+          caja.saldo_final.includes(query),
       )
       setFilteredCajas(filtered)
     }
@@ -150,33 +184,28 @@ export default function CajasPage() {
     setIsDeleting(true)
 
     try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
-        setIsDeleting(false)
-        setIsDeleteDialogOpen(false)
-        return
-      }
+      // Obtener cajas actuales
+      const updatedCajas = cajas.filter((caja) => caja.id !== cajaToDelete)
 
-      console.log(`Eliminando caja con ID: ${cajaToDelete}`)
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/cajas/${cajaToDelete}/`, {
-        method: "DELETE",
+      // Actualizar estado
+      setCajas(updatedCajas)
+      setFilteredCajas(updatedCajas)
+
+      // Guardar en localStorage
+      localStorage.setItem(`store_${storeId}_cajas`, JSON.stringify(updatedCajas))
+
+      toast({
+        title: "Caja eliminada",
+        description: "La caja ha sido eliminada correctamente",
+        variant: "success",
       })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al eliminar caja: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al eliminar caja: ${response.status} - ${response.statusText}`)
-      }
-
-      console.log("Caja eliminada correctamente")
-      // Actualizar la lista de cajas
-      setCajas(cajas.filter((caja) => caja.id !== cajaToDelete))
-      setFilteredCajas(filteredCajas.filter((caja) => caja.id !== cajaToDelete))
-      alert("Caja eliminada con éxito")
     } catch (err) {
       console.error("Error al eliminar la caja:", err)
-      alert(`No se pudo eliminar la caja: ${err instanceof Error ? err.message : "Error desconocido"}`)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la caja. Por favor, intenta de nuevo más tarde.",
+        variant: "destructive",
+      })
     } finally {
       setIsDeleting(false)
       setIsDeleteDialogOpen(false)
@@ -270,7 +299,7 @@ export default function CajasPage() {
         {error ? (
           <div className="bg-white rounded-lg p-8 text-center">
             <p className="text-red-500 mb-4">{error}</p>
-            <Button onClick={fetchCajas} className="bg-primary hover:bg-primary-dark">
+            <Button onClick={loadCajas} className="bg-primary hover:bg-primary-dark">
               Reintentar
             </Button>
           </div>
@@ -289,9 +318,15 @@ export default function CajasPage() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h3 className="font-semibold text-lg">Caja #{caja.id}</h3>
+                      <p className="text-sm text-text-secondary">Vendedor: {caja.usuario_nombre}</p>
                       <p className="text-sm text-text-secondary">Turno: {caja.turno}</p>
                     </div>
-                    <Badge className={getStatusColor(caja.estado)}>{caja.estado}</Badge>
+                    <Badge
+                      variant={caja.estado === "abierta" ? "default" : "secondary"}
+                      className={getStatusColor(caja.estado)}
+                    >
+                      {caja.estado}
+                    </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 my-3">
@@ -309,7 +344,7 @@ export default function CajasPage() {
                     </div>
                     <div>
                       <p className="text-xs text-text-secondary">Cierre</p>
-                      <p className="text-sm">{formatDate(caja.fecha_cierre)}</p>
+                      <p className="text-sm">{caja.fecha_cierre ? formatDate(caja.fecha_cierre) : "No cerrada"}</p>
                     </div>
                   </div>
 

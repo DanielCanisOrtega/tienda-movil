@@ -9,18 +9,69 @@ import { ChevronLeft, Plus, Search, User, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { getAuthToken } from "@/services/auth-service"
 import { BottomNavigation } from "@/components/bottom-navigation"
 
-// Actualizar la interfaz Employee para que coincida con la estructura de la respuesta
+// Interfaz para los empleados
 interface Employee {
-  id: number | string
+  id: number
   nombre: string
-  username?: string
   email?: string
-  first_name?: string
-  last_name?: string
+  telefono?: string
+  cargo?: string
+  activo: boolean
 }
+
+// Datos de ejemplo para empleados
+const sampleEmployees: Employee[] = [
+  {
+    id: 1,
+    nombre: "Juan Pérez",
+    email: "juan@tiendamixta.com",
+    telefono: "3001234567",
+    cargo: "Vendedor Senior",
+    activo: true,
+  },
+  {
+    id: 2,
+    nombre: "María López",
+    email: "maria@tiendamixta.com",
+    telefono: "3109876543",
+    cargo: "Vendedor",
+    activo: true,
+  },
+  {
+    id: 3,
+    nombre: "Carlos Rodríguez",
+    email: "carlos@tiendamixta.com",
+    telefono: "3201234567",
+    cargo: "Vendedor",
+    activo: true,
+  },
+  {
+    id: 4,
+    nombre: "Ana Martínez",
+    email: "ana@tiendamixta.com",
+    telefono: "3001234568",
+    cargo: "Cajero",
+    activo: true,
+  },
+  {
+    id: 5,
+    nombre: "Pedro Gómez",
+    email: "pedro@tiendamixta.com",
+    telefono: "3109876544",
+    cargo: "Vendedor",
+    activo: true,
+  },
+  {
+    id: 6,
+    nombre: "Laura Sánchez",
+    email: "laura@tiendamixta.com",
+    telefono: "3201234568",
+    cargo: "Cajero",
+    activo: true,
+  },
+]
 
 export default function StoreEmployeesPage() {
   const router = useRouter()
@@ -32,13 +83,13 @@ export default function StoreEmployeesPage() {
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([])
   const [userType, setUserType] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [storeName, setStoreName] = useState<string>("")
   const [showAddForm, setShowAddForm] = useState(false)
-  // Cambiar para usar nombre de usuario en lugar de ID
-  const [newEmployeeUsername, setNewEmployeeUsername] = useState("")
+  const [newEmployeeName, setNewEmployeeName] = useState("")
+  const [newEmployeeEmail, setNewEmployeeEmail] = useState("")
+  const [newEmployeePhone, setNewEmployeePhone] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
+  const [nextId, setNextId] = useState(7) // Para generar IDs únicos
 
   // Verificar si el usuario es administrador
   useEffect(() => {
@@ -57,249 +108,105 @@ export default function StoreEmployeesPage() {
       setStoreName(selectedStoreName)
     }
 
-    // Cargar empleados de la tienda
-    fetchEmployees()
+    // Cargar empleados de ejemplo o del localStorage
+    loadEmployees()
   }, [router, storeId])
 
-  // Modificar la función fetchEmployees para manejar la estructura específica de la respuesta
-  const fetchEmployees = async () => {
+  // Cargar empleados
+  const loadEmployees = () => {
     setIsLoading(true)
-    setError(null)
 
-    try {
-      // Asegurarse de tener un token válido
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error("No se pudo obtener un token de autenticación")
-      }
+    // Intentar cargar empleados del localStorage
+    const storedEmployees = localStorage.getItem(`store_${storeId}_employees`)
 
-      console.log(`Obteniendo empleados de la tienda con ID: ${storeId}`)
-
-      const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/empleados/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al obtener empleados: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Respuesta de empleados:", data)
-
-      // Verificar si la respuesta tiene la estructura esperada
-      if (data && typeof data === "object" && Array.isArray(data.empleados)) {
-        console.log(`Se encontraron ${data.empleados.length} empleados`)
-        setEmployees(data.empleados)
-        setFilteredEmployees(data.empleados)
-      } else {
-        console.error("La respuesta no tiene la estructura esperada:", data)
-        setEmployees([])
-        setFilteredEmployees([])
-      }
-    } catch (err) {
-      console.error("Error al cargar los empleados:", err)
-      setError(
-        `No se pudieron cargar los vendedores: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
-      setEmployees([])
-      setFilteredEmployees([])
-    } finally {
-      setIsLoading(false)
+    if (storedEmployees) {
+      const parsedEmployees = JSON.parse(storedEmployees)
+      setEmployees(parsedEmployees)
+      setFilteredEmployees(parsedEmployees.filter((emp:Employee) => emp.activo))
+    } else {
+      // Si no hay datos en localStorage, usar los datos de ejemplo
+      setEmployees(sampleEmployees)
+      setFilteredEmployees(sampleEmployees)
+      // Guardar en localStorage para futuras visitas
+      localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(sampleEmployees))
     }
+
+    setIsLoading(false)
   }
 
   // Filtrar empleados según búsqueda
   useEffect(() => {
-    if (!Array.isArray(employees)) {
-      console.error("employees no es un array:", employees)
-      setFilteredEmployees([])
-      return
-    }
-
     if (searchQuery.trim() === "") {
-      setFilteredEmployees(employees)
+      setFilteredEmployees(employees.filter((emp) => emp.activo))
     } else {
       const query = searchQuery.toLowerCase()
       const filtered = employees.filter(
         (employee) =>
-          (employee.username ? employee.username.toLowerCase().includes(query) : false) ||
-          (employee.email ? employee.email.toLowerCase().includes(query) : false) ||
-          `${employee.first_name || ""} ${employee.last_name || ""}`.toLowerCase().includes(query) ||
-          employee.nombre.toLowerCase().includes(query),
+          employee.activo &&
+          (employee.nombre.toLowerCase().includes(query) ||
+            (employee.email && employee.email.toLowerCase().includes(query)) ||
+            (employee.telefono && employee.telefono.includes(query)) ||
+            (employee.cargo && employee.cargo.toLowerCase().includes(query))),
       )
       setFilteredEmployees(filtered)
     }
   }, [employees, searchQuery])
 
-  // Modificar la función handleAddEmployee para enviar los datos correctamente
-  const handleAddEmployee = async (e: React.FormEvent) => {
+  // Añadir empleado
+  const handleAddEmployee = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!newEmployeeUsername.trim()) {
-      setAddError("El nombre de usuario es obligatorio")
+    if (!newEmployeeName.trim()) {
+      alert("El nombre del empleado es obligatorio")
       return
     }
 
     setIsSubmitting(true)
-    setAddError(null)
 
-    try {
-      // Asegurarse de tener un token válido
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error("No se pudo obtener un token de autenticación")
-      }
-
-      console.log(`Agregando empleado ${newEmployeeUsername} a la tienda ${storeId}`)
-
-      // Modificar el cuerpo de la solicitud para que coincida con lo que espera la API
-      const response = await fetch(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/agregar_empleado/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ nombre: newEmployeeUsername }),
-        },
-      )
-
-      // Intentar obtener el texto de la respuesta para depuración
-      let responseText
-      try {
-        responseText = await response.text()
-        console.log("Respuesta al agregar empleado:", responseText)
-      } catch (textError) {
-        console.error("Error al leer la respuesta:", textError)
-      }
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText} - ${responseText || ""}`)
-      }
-
-      // Limpiar el formulario
-      setNewEmployeeUsername("")
-      setShowAddForm(false)
-
-      // Recargar la lista de empleados
-      await fetchEmployees()
-
-      alert("Vendedor agregado con éxito")
-    } catch (err) {
-      console.error("Error al agregar el empleado:", err)
-      setAddError(
-        `No se pudo agregar el vendedor: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, verifica que el usuario existe y no está ya asociado a la tienda.`,
-      )
-    } finally {
-      setIsSubmitting(false)
+    // Crear nuevo empleado
+    const newEmployee: Employee = {
+      id: nextId,
+      nombre: newEmployeeName,
+      email: newEmployeeEmail || undefined,
+      telefono: newEmployeePhone || undefined,
+      cargo: "Vendedor",
+      activo: true,
     }
+
+    // Actualizar estado
+    const updatedEmployees = [...employees, newEmployee]
+    setEmployees(updatedEmployees)
+    setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo))
+
+    // Guardar en localStorage
+    localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(updatedEmployees))
+
+    // Incrementar el ID para el próximo empleado
+    setNextId(nextId + 1)
+
+    // Limpiar formulario
+    setNewEmployeeName("")
+    setNewEmployeeEmail("")
+    setNewEmployeePhone("")
+    setShowAddForm(false)
+    setIsSubmitting(false)
+
+    alert("Vendedor añadido con éxito")
   }
 
-  // Probar un enfoque diferente para eliminar empleados
-  const handleRemoveEmployee = async (employeeId: number | string, nombre: string) => {
+  // "Eliminar" empleado (solo ocultar)
+  const handleRemoveEmployee = (employeeId: number, nombre: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar al vendedor ${nombre} de esta tienda?`)) {
-      try {
-        // Asegurarse de tener un token válido
-        const token = await getAuthToken()
-        if (!token) {
-          throw new Error("No se pudo obtener un token de autenticación")
-        }
+      // Mark as inactive instead of removing
+      const updatedEmployees = employees.map((emp) => (emp.id === employeeId ? { ...emp, activo: false } : emp))
 
-        console.log(`Eliminando empleado ${nombre} (ID: ${employeeId}) de la tienda ${storeId}`)
+      setEmployees(updatedEmployees)
+      setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo))
 
-        // Intentar con el ID del empleado
-        const response = await fetch(
-          `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/remover_empleado/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            // Enviar solo el ID del empleado
-            body: JSON.stringify({ empleado_id: employeeId }),
-          },
-        )
+      // Save to localStorage
+      localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(updatedEmployees))
 
-        // Intentar obtener el texto de la respuesta para depuración
-        let responseText
-        try {
-          responseText = await response.text()
-          console.log("Respuesta al eliminar empleado:", responseText)
-        } catch (textError) {
-          console.error("Error al leer la respuesta:", textError)
-        }
-
-        if (!response.ok) {
-          // Si falla, intentar con un enfoque alternativo
-          console.log("Primer intento fallido, probando con nombre...")
-
-          // Intentar con el nombre del empleado
-          const alternativeResponse = await fetch(
-            `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/remover_empleado/`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ nombre: nombre }),
-            },
-          )
-
-          let altResponseText
-          try {
-            altResponseText = await alternativeResponse.text()
-            console.log("Respuesta al segundo intento:", altResponseText)
-          } catch (textError) {
-            console.error("Error al leer la respuesta del segundo intento:", textError)
-          }
-
-          if (!alternativeResponse.ok) {
-            // Tercer intento: usar ID como parámetro en la URL
-            console.log("Segundo intento fallido, probando con ID en URL...")
-
-            const thirdResponse = await fetch(
-              `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/remover_empleado/${employeeId}/`,
-              {
-                method: "DELETE",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              },
-            )
-
-            let thirdResponseText
-            try {
-              thirdResponseText = await thirdResponse.text()
-              console.log("Respuesta al tercer intento:", thirdResponseText)
-            } catch (textError) {
-              console.error("Error al leer la respuesta del tercer intento:", textError)
-            }
-
-            if (!thirdResponse.ok) {
-              throw new Error(
-                `No se pudo eliminar el empleado después de varios intentos. Último error: ${thirdResponse.status} - ${thirdResponse.statusText}`,
-              )
-            }
-          }
-        }
-
-        // Recargar la lista de empleados
-        await fetchEmployees()
-
-        alert("Vendedor eliminado con éxito")
-      } catch (err) {
-        console.error("Error al eliminar el empleado:", err)
-        alert(
-          `No se pudo eliminar el vendedor: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-        )
-      }
+      alert("Vendedor eliminado con éxito")
     }
   }
 
@@ -344,17 +251,42 @@ export default function StoreEmployeesPage() {
             <CardContent>
               <form onSubmit={handleAddEmployee} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="username" className="text-sm font-medium">
-                    Nombre de Usuario
+                  <label htmlFor="nombre" className="text-sm font-medium">
+                    Nombre Completo
                   </label>
                   <Input
-                    id="username"
-                    value={newEmployeeUsername}
-                    onChange={(e) => setNewEmployeeUsername(e.target.value)}
-                    placeholder="Ingrese el nombre de usuario"
+                    id="nombre"
+                    value={newEmployeeName}
+                    onChange={(e) => setNewEmployeeName(e.target.value)}
+                    placeholder="Nombre del vendedor"
+                    className="bg-input-bg border-0"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Correo Electrónico
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newEmployeeEmail}
+                    onChange={(e) => setNewEmployeeEmail(e.target.value)}
+                    placeholder="correo@ejemplo.com"
                     className="bg-input-bg border-0"
                   />
-                  {addError && <p className="text-sm text-red-500">{addError}</p>}
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="telefono" className="text-sm font-medium">
+                    Teléfono
+                  </label>
+                  <Input
+                    id="telefono"
+                    value={newEmployeePhone}
+                    onChange={(e) => setNewEmployeePhone(e.target.value)}
+                    placeholder="300 123 4567"
+                    className="bg-input-bg border-0"
+                  />
                 </div>
                 <div className="flex space-x-2">
                   <Button
@@ -363,8 +295,9 @@ export default function StoreEmployeesPage() {
                     className="flex-1"
                     onClick={() => {
                       setShowAddForm(false)
-                      setAddError(null)
-                      setNewEmployeeUsername("")
+                      setNewEmployeeName("")
+                      setNewEmployeeEmail("")
+                      setNewEmployeePhone("")
                     }}
                   >
                     Cancelar
@@ -385,18 +318,6 @@ export default function StoreEmployeesPage() {
               <p className="text-text-secondary">Cargando vendedores...</p>
             </CardContent>
           </Card>
-        ) : error ? (
-          <Card>
-            <CardContent className="p-6 text-center">
-              <p className="text-red-500 mb-2">{error}</p>
-              <p className="text-sm text-text-secondary mb-4">
-                Esto podría deberse a problemas de conectividad o que el servidor está temporalmente inaccesible.
-              </p>
-              <Button onClick={() => fetchEmployees()} className="mt-2 bg-primary hover:bg-primary-dark">
-                Reintentar
-              </Button>
-            </CardContent>
-          </Card>
         ) : filteredEmployees.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
@@ -414,11 +335,8 @@ export default function StoreEmployeesPage() {
                     <div>
                       <h3 className="font-medium">{employee.nombre}</h3>
                       {employee.email && <p className="text-sm text-text-secondary">{employee.email}</p>}
-                      {(employee.first_name || employee.last_name) && (
-                        <p className="text-sm">
-                          {employee.first_name} {employee.last_name}
-                        </p>
-                      )}
+                      {employee.telefono && <p className="text-sm text-text-secondary">{employee.telefono}</p>}
+                      {employee.cargo && <p className="text-xs text-primary mt-1">{employee.cargo}</p>}
                     </div>
                     <Button
                       variant="ghost"

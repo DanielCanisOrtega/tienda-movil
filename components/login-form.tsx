@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { User, Lock, LogIn, Store, ArrowLeft } from "lucide-react"
-import { fetchWithAuth, loginToBackend } from "@/services/auth-service"
 
 export function LoginForm() {
   // Estados para el formulario de administrador
@@ -29,7 +28,7 @@ export function LoginForm() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        await loginToBackend()
+        // await loginToBackend() // Removed this line
       } catch (err) {
         console.error("Error al inicializar autenticación:", err)
       }
@@ -45,25 +44,28 @@ export function LoginForm() {
     return horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
   }
 
-  // Función para crear una caja para el vendedor
-  const crearCajaParaVendedor = async (tiendaId: string, usuarioId: number): Promise<boolean> => {
+  // Add function to automatically create a cash register when a vendor logs in
+  const crearCajaParaVendedor = (tiendaId: string, usuarioId: number, nombreVendedor: string): void => {
     try {
       console.log(`Creando caja para el vendedor ${usuarioId} en la tienda ${tiendaId}...`)
 
-      // Primero, verificar si hay cajas existentes para obtener el último saldo final
-      const cajasResponse = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/")
+      // Get existing cash registers
+      const storedCajas = localStorage.getItem(`store_${tiendaId}_cajas`)
+      let cajas = []
+      let nextId = 1
 
-      if (!cajasResponse.ok) {
-        console.error(`Error al obtener cajas: ${cajasResponse.status}`)
-        throw new Error(`Error al obtener cajas: ${cajasResponse.status}`)
+      if (storedCajas) {
+        cajas = JSON.parse(storedCajas)
+        // Find the highest ID to assign a new one
+        if (cajas.length > 0) {
+          nextId = Math.max(...cajas.map((caja: any) => caja.id)) + 1
+        }
       }
 
-      const cajas = await cajasResponse.json()
-
-      // Encontrar la última caja cerrada para usar su saldo final como saldo inicial
-      let saldoInicial = "0"
-      if (Array.isArray(cajas) && cajas.length > 0) {
-        // Ordenar cajas por fecha de cierre (de más reciente a más antigua)
+      // Find the last closed cash register to use its final balance as initial balance
+      let saldoInicial = "100000" // Default value
+      if (cajas.length > 0) {
+        // Sort cash registers by closing date (from most recent to oldest)
         const cajasCerradas = cajas
           .filter((caja: any) => caja.estado === "cerrada" && caja.saldo_final)
           .sort((a: any, b: any) => new Date(b.fecha_cierre).getTime() - new Date(a.fecha_cierre).getTime())
@@ -74,48 +76,43 @@ export function LoginForm() {
         }
       }
 
-      // Crear la nueva caja
-      const turnoActual = determinarTurnoActual()
-      const cajaData = {
+      // Determine current shift (morning or night)
+      const horaActual = new Date().getHours()
+      const turnoActual = horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
+
+      // Create the new cash register
+      const nuevaCaja = {
+        id: nextId,
         usuario: usuarioId,
+        usuario_nombre: nombreVendedor,
         turno: turnoActual,
         saldo_inicial: saldoInicial,
-        saldo_final: saldoInicial, // Inicialmente igual al saldo inicial
+        saldo_final: saldoInicial, // Initially equal to initial balance
         estado: "abierta",
         fecha_apertura: new Date().toISOString(),
+        fecha_cierre: null,
       }
 
-      console.log("Datos de la nueva caja:", cajaData)
+      console.log("Datos de la nueva caja:", nuevaCaja)
 
-      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(cajaData),
-      })
+      // Add the new cash register to the list
+      cajas.push(nuevaCaja)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al crear caja: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al crear caja: ${response.status} - ${response.statusText}`)
-      }
+      // Save to localStorage
+      localStorage.setItem(`store_${tiendaId}_cajas`, JSON.stringify(cajas))
 
-      const nuevaCaja = await response.json()
-      console.log("Caja creada exitosamente:", nuevaCaja)
-
-      // Guardar el ID de la caja en localStorage para referencia futura
-      localStorage.setItem("cajaActualId", nuevaCaja.id.toString())
+      // Save the cash register ID in localStorage for future reference
+      localStorage.setItem("cajaActualId", nextId.toString())
       localStorage.setItem("cajaActualSaldoInicial", saldoInicial)
 
-      return true
+      console.log("Caja creada exitosamente")
     } catch (err) {
       console.error("Error al crear caja para el vendedor:", err)
-      return false
     }
   }
 
-  const handleVendorLogin = async (e: React.FormEvent) => {
+  // Update the handleVendorLogin function to create a cash register
+  const handleVendorLogin = (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
@@ -126,70 +123,46 @@ export function LoginForm() {
       return
     }
 
-    try {
-      // Primero autenticarse con el backend
-      const token = await loginToBackend()
-      if (!token) {
-        throw new Error("No se pudo autenticar con el backend")
-      }
+    // Look for the vendor in the stores
+    const selectedStoreId = localStorage.getItem("selectedStoreId") || "1"
+    const storedEmployees = localStorage.getItem(`store_${selectedStoreId}_employees`)
 
-      // Buscar al vendedor en todas las tiendas
-      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/")
+    if (storedEmployees) {
+      const employees = JSON.parse(storedEmployees)
+      const employee = employees.find((emp: any) => emp.activo && emp.nombre.toLowerCase() === vendorName.toLowerCase())
 
-      if (!response.ok) {
-        throw new Error(`Error al obtener tiendas: ${response.status}`)
-      }
-
-      const tiendas = await response.json()
-      let vendedorEncontrado = false
-      let tiendaAsociada = null
-      let usuarioId = null
-
-      // Para cada tienda, verificar sus empleados
-      for (const tienda of tiendas) {
-        const empleadosResponse = await fetchWithAuth(
-          `https://tienda-backend-p9ms.onrender.com/api/tiendas/${tienda.id}/empleados/`,
-        )
-
-        if (empleadosResponse.ok) {
-          const data = await empleadosResponse.json()
-
-          if (data && data.empleados) {
-            // Buscar si el vendedor está en esta tienda
-            const empleado = data.empleados.find((emp: any) => emp.nombre.toLowerCase() === vendorName.toLowerCase())
-
-            if (empleado) {
-              vendedorEncontrado = true
-              tiendaAsociada = tienda
-              usuarioId = empleado.id
-              break
-            }
-          }
-        }
-      }
-
-      if (vendedorEncontrado && tiendaAsociada && usuarioId) {
-        // Guardar información en localStorage
+      if (employee) {
+        // Save information in localStorage
         localStorage.setItem("userType", "vendor")
-        localStorage.setItem("selectedStoreId", tiendaAsociada.id.toString())
-        localStorage.setItem("selectedStoreName", tiendaAsociada.nombre)
-        localStorage.setItem("vendorName", vendorName)
-        localStorage.setItem("vendorId", usuarioId.toString())
+        localStorage.setItem("vendorName", employee.nombre)
+        localStorage.setItem("vendorId", employee.id.toString())
 
-        // Crear una caja para el vendedor
-        await crearCajaParaVendedor(tiendaAsociada.id.toString(), usuarioId)
+        // Create a cash register for the vendor
+        crearCajaParaVendedor(selectedStoreId, employee.id, employee.nombre)
 
-        // Redirigir a la página de inicio con la tienda seleccionada
-        router.push(`/home?storeId=${tiendaAsociada.id}`)
+        // Redirect to home page
+        router.push(`/home`)
       } else {
-        setError("No se encontró ningún vendedor con ese nombre")
+        setError("No se encontró ningún vendedor con ese nombre en esta tienda")
+        setIsLoading(false)
       }
-    } catch (err) {
-      console.error("Error al iniciar sesión como vendedor:", err)
-      setError(`Error al iniciar sesión: ${err instanceof Error ? err.message : "Error desconocido"}`)
-    } finally {
-      setIsLoading(false)
+    } else {
+      // If there are no registered employees, allow access with sample data
+      const vendorId = Math.floor(Math.random() * 1000) + 100
+
+      // Save information in localStorage
+      localStorage.setItem("userType", "vendor")
+      localStorage.setItem("vendorName", vendorName)
+      localStorage.setItem("vendorId", vendorId.toString())
+
+      // Create a cash register for the vendor
+      crearCajaParaVendedor(selectedStoreId, vendorId, vendorName)
+
+      // Redirect to home page
+      router.push(`/home`)
     }
+
+    setIsLoading(false)
   }
 
   const handleAdminLogin = (e: React.FormEvent) => {

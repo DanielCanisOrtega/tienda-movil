@@ -12,30 +12,32 @@ import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import type { Expense } from "../../expenses/page"
+import { useToast } from "@/hooks/use-toast"
 
 export default function EditExpensePage() {
   const router = useRouter()
   const params = useParams()
   const expenseId = params.id as string
+  const { toast } = useToast()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [expenseNotFound, setExpenseNotFound] = useState(false)
 
   const [formData, setFormData] = useState<Expense>({
     id: expenseId,
-    description: "",
+    descripcion: "",
     amount: 0,
     date: new Date().toISOString().split("T")[0],
-    category: "",
+    categoria: "",
     paymentMethod: "",
     notes: "",
   })
 
   const [errors, setErrors] = useState({
-    description: "",
+    descripcion: "",
     amount: "",
     date: "",
-    category: "",
+    categoria: "",
     paymentMethod: "",
   })
 
@@ -93,15 +95,15 @@ export default function EditExpensePage() {
   const validateForm = () => {
     let isValid = true
     const newErrors = {
-      description: "",
+      descripcion: "",
       amount: "",
       date: "",
-      category: "",
+      categoria: "",
       paymentMethod: "",
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = "La descripción es obligatoria"
+    if (!formData.descripcion.trim()) {
+      newErrors.descripcion = "La descripción es obligatoria"
       isValid = false
     }
 
@@ -115,8 +117,8 @@ export default function EditExpensePage() {
       isValid = false
     }
 
-    if (!formData.category) {
-      newErrors.category = "Seleccione una categoría"
+    if (!formData.categoria) {
+      newErrors.categoria = "Seleccione una categoría"
       isValid = false
     }
 
@@ -129,6 +131,7 @@ export default function EditExpensePage() {
     return isValid
   }
 
+  // Modificar la función handleSubmit para asegurar que la fecha se guarde correctamente
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -152,7 +155,11 @@ export default function EditExpensePage() {
       // Simular tiempo de procesamiento
       setTimeout(() => {
         setIsSubmitting(false)
-        alert("Gasto actualizado con éxito")
+        toast({
+          title: "Gasto actualizado",
+          description: "El gasto ha sido actualizado con éxito",
+          variant: "success",
+        })
         router.push("/expenses")
       }, 1000)
     }
@@ -192,18 +199,18 @@ export default function EditExpensePage() {
       <div className="container max-w-md mx-auto p-4">
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-base">
+            <Label htmlFor="descripcion" className="text-base">
               Descripción
             </Label>
             <Input
-              id="description"
-              name="description"
-              value={formData.description}
+              id="descripcion"
+              name="descripcion"
+              value={formData.descripcion}
               onChange={handleChange}
               placeholder="Ej: Pedido de frutas, Factura de luz"
               className="bg-input-bg border-0 h-12 text-base"
             />
-            {errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
+            {errors.descripcion && <p className="text-sm text-red-500">{errors.descripcion}</p>}
           </div>
 
           <div className="space-y-2">
@@ -243,10 +250,10 @@ export default function EditExpensePage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category" className="text-base">
+            <Label htmlFor="categoria" className="text-base">
               Categoría
             </Label>
-            <Select value={formData.category} onValueChange={(value) => handleSelectChange("category", value)}>
+            <Select value={formData.categoria} onValueChange={(value) => handleSelectChange("categoria", value)}>
               <SelectTrigger className="bg-input-bg border-0 h-12 text-base">
                 <SelectValue placeholder="Seleccionar categoría" />
               </SelectTrigger>
@@ -258,7 +265,7 @@ export default function EditExpensePage() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
+            {errors.categoria && <p className="text-sm text-red-500">{errors.categoria}</p>}
           </div>
 
           <div className="space-y-2">

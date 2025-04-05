@@ -11,9 +11,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 // Definición de interfaces
 interface Product {
   id: number
-  name: string
-  price: number
-  category: string
+  nombre: string
+  precio: number
+  categoria: string
 }
 
 interface CartItem {
@@ -26,23 +26,98 @@ interface Sale {
   items: CartItem[]
   total: number
   date: string
+  storeId: string
+}
+
+// Generate more sample sales data
+const generateSampleSales = (): Sale[] => {
+  const sampleProducts = [
+    { id: 1, nombre: "Manzana Roja", precio: 2500, categoria: "Frutas" },
+    { id: 2, nombre: "Banano", precio: 1800, categoria: "Frutas" },
+    { id: 7, nombre: "Tomate", precio: 3000, categoria: "Verduras" },
+    { id: 8, nombre: "Cebolla", precio: 2200, categoria: "Verduras" },
+    { id: 13, nombre: "Leche Entera", precio: 4500, categoria: "Lácteos" },
+    { id: 14, nombre: "Queso Campesino", precio: 12000, categoria: "Lácteos" },
+    { id: 18, nombre: "Pechuga de Pollo", precio: 15000, categoria: "Carnes" },
+    { id: 22, nombre: "Arroz", precio: 5500, categoria: "Abarrotes" },
+    { id: 27, nombre: "Agua Mineral", precio: 3000, categoria: "Bebidas" },
+  ]
+
+  const sales: Sale[] = []
+  const storeId = localStorage.getItem("selectedStoreId") || "1"
+
+  // Generate sales for the last 30 days
+  const today = new Date()
+
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+
+    // Generate between 1 and 5 sales per day
+    const salesPerDay = Math.floor(Math.random() * 5) + 1
+
+    for (let j = 0; j < salesPerDay; j++) {
+      const items: CartItem[] = []
+      // Generate between 1 and 4 products per sale
+      const itemsCount = Math.floor(Math.random() * 4) + 1
+
+      for (let k = 0; k < itemsCount; k++) {
+        const product = sampleProducts[Math.floor(Math.random() * sampleProducts.length)]
+        const quantity = Math.floor(Math.random() * 5) + 1
+
+        items.push({
+          product,
+          quantity,
+        })
+      }
+
+      const total = items.reduce((sum, item) => sum + item.product.precio * item.quantity, 0)
+
+      sales.push({
+        id: `sample-sale-${i}-${j}`,
+        items,
+        total,
+        date: date.toISOString(),
+        storeId,
+      })
+    }
+  }
+
+  return sales
 }
 
 export default function SalesPage() {
   // Estado para las ventas
   const [sales, setSales] = useState<Sale[]>([])
   const [activeTab, setActiveTab] = useState("today")
+  const [storeId, setStoreId] = useState<string | null>(null)
 
   // Cargar ventas desde localStorage al iniciar
   useEffect(() => {
-    const storedSales = localStorage.getItem("dailySales")
+    const selectedStoreId = localStorage.getItem("selectedStoreId")
+    if (selectedStoreId) {
+      setStoreId(selectedStoreId)
+    }
+
+    // Intentar cargar ventas del localStorage
+    const storedSales = localStorage.getItem("sales")
+
     if (storedSales) {
-      setSales(JSON.parse(storedSales))
+      const parsedSales = JSON.parse(storedSales)
+      setSales(parsedSales)
+    } else {
+      // Si no hay ventas guardadas, generar datos de ejemplo
+      const sampleSales = generateSampleSales()
+      setSales(sampleSales)
+      // Guardar en localStorage para futuras visitas
+      localStorage.setItem("sales", JSON.stringify(sampleSales))
     }
   }, [])
 
   // Filtrar ventas según el período seleccionado
   const getFilteredSales = () => {
+    if (!storeId) return []
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -51,24 +126,27 @@ export default function SalesPage() {
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
+    // Primero filtrar por tienda
+    const storeSales = sales.filter((sale) => sale.storeId === storeId)
+
     switch (activeTab) {
       case "today":
-        return sales.filter((sale) => {
+        return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
           return saleDate >= today
         })
       case "week":
-        return sales.filter((sale) => {
+        return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
           return saleDate >= startOfWeek
         })
       case "month":
-        return sales.filter((sale) => {
+        return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
           return saleDate >= startOfMonth
         })
       default:
-        return sales
+        return storeSales
     }
   }
 
@@ -159,9 +237,9 @@ export default function SalesPage() {
                       {sale.items.map((item, index) => (
                         <div key={index} className="flex justify-between text-sm">
                           <div>
-                            {item.quantity} x {item.product.name}
+                            {item.quantity} x {item.product.nombre}
                           </div>
-                          <div>{formatPrice(item.product.price * item.quantity)}</div>
+                          <div>{formatPrice(item.product.precio * item.quantity)}</div>
                         </div>
                       ))}
                     </div>

@@ -24,6 +24,37 @@ interface ProductFormData {
   tienda: number
 }
 
+// Define the function directly in this file
+async function selectStoreAndRefreshToken(storeId: string): Promise<boolean> {
+  try {
+    console.log(`Seleccionando tienda con ID: ${storeId}`)
+    const response = await fetchWithAuth(
+      `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
+      throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
+    }
+
+    console.log("Tienda seleccionada correctamente")
+    return true
+  } catch (err) {
+    console.error("Error al seleccionar tienda:", err)
+    alert(
+      `No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
+    )
+    return false
+  }
+}
+
 export default function AddProductPage() {
   const router = useRouter()
   const params = useParams()
@@ -140,37 +171,7 @@ export default function AddProductPage() {
     return isValid
   }
 
-  // Función para seleccionar la tienda
-  const selectStore = async () => {
-    try {
-      console.log(`Seleccionando tienda con ID: ${storeId}`)
-      const response = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
-      }
-
-      console.log("Tienda seleccionada correctamente")
-      return true
-    } catch (err) {
-      console.error("Error al seleccionar tienda:", err)
-      alert(
-        `No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
-      return false
-    }
-  }
-
+  // Modificar la función handleSubmit para mejorar la adición de productos en la tienda
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -181,28 +182,33 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
+      // Usar la nueva función que combina selección de tienda y refresco de token
+      const storeSelected = await selectStoreAndRefreshToken(storeId)
+
       if (!storeSelected) {
-        setIsSubmitting(false)
-        return
+        throw new Error(`No se pudo seleccionar la tienda ${storeId}`)
       }
 
       console.log("Creando nuevo producto:", formData)
 
-      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/productos/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
+      // Obtener productos existentes del localStorage
+      const existingProducts = localStorage.getItem(`store_${storeId}_products`)
+      const products = existingProducts ? JSON.parse(existingProducts) : []
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al crear producto: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al crear producto: ${response.status} - ${response.statusText}`)
+      // Generar un nuevo ID (el más alto + 1)
+      const newId = products.length > 0 ? Math.max(...products.map((p: any) => p.id)) + 1 : 1
+
+      // Crear el nuevo producto con el ID generado
+      const newProduct = {
+        ...formData,
+        id: newId,
       }
+
+      // Agregar el nuevo producto a la lista
+      products.push(newProduct)
+
+      // Guardar en localStorage
+      localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
 
       alert("Producto creado con éxito")
       router.push(`/stores/${storeId}/products`)
