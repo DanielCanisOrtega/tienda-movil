@@ -1,6 +1,6 @@
 "use client"
 
-import { Package, ShoppingBag, User } from "lucide-react"
+import { Package, ShoppingBag, User, DollarSign } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -23,7 +23,18 @@ export function VendorNavigation() {
         <span className="text-xs mt-1">Ventas</span>
       </Link>
 
-      <Link href="/profile" className={`bottom-nav-item android-ripple ${isActive("/profile") ? "active" : ""}`}>
+      <Link
+        href="/vendor/caja"
+        className={`bottom-nav-item android-ripple ${isActive("/vendor/caja") ? "active" : ""}`}
+      >
+        <DollarSign size={24} />
+        <span className="text-xs mt-1">Mi Caja</span>
+      </Link>
+
+      <Link
+        href="/vendor/profile"
+        className={`bottom-nav-item android-ripple ${isActive("/vendor/profile") ? "active" : ""}`}
+      >
         <User size={24} />
         <span className="text-xs mt-1">Perfil</span>
       </Link>

@@ -38,6 +38,83 @@ export function LoginForm() {
     initAuth()
   }, [])
 
+  // Función para determinar el turno actual (mañana o noche)
+  const determinarTurnoActual = (): string => {
+    const horaActual = new Date().getHours()
+    // Si es entre 6am y 6pm, es turno de mañana, de lo contrario es turno de noche
+    return horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
+  }
+
+  // Función para crear una caja para el vendedor
+  const crearCajaParaVendedor = async (tiendaId: string, usuarioId: number): Promise<boolean> => {
+    try {
+      console.log(`Creando caja para el vendedor ${usuarioId} en la tienda ${tiendaId}...`)
+
+      // Primero, verificar si hay cajas existentes para obtener el último saldo final
+      const cajasResponse = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/")
+
+      if (!cajasResponse.ok) {
+        console.error(`Error al obtener cajas: ${cajasResponse.status}`)
+        throw new Error(`Error al obtener cajas: ${cajasResponse.status}`)
+      }
+
+      const cajas = await cajasResponse.json()
+
+      // Encontrar la última caja cerrada para usar su saldo final como saldo inicial
+      let saldoInicial = "0"
+      if (Array.isArray(cajas) && cajas.length > 0) {
+        // Ordenar cajas por fecha de cierre (de más reciente a más antigua)
+        const cajasCerradas = cajas
+          .filter((caja: any) => caja.estado === "cerrada" && caja.saldo_final)
+          .sort((a: any, b: any) => new Date(b.fecha_cierre).getTime() - new Date(a.fecha_cierre).getTime())
+
+        if (cajasCerradas.length > 0) {
+          saldoInicial = cajasCerradas[0].saldo_final
+          console.log(`Usando saldo final de caja anterior: ${saldoInicial}`)
+        }
+      }
+
+      // Crear la nueva caja
+      const turnoActual = determinarTurnoActual()
+      const cajaData = {
+        usuario: usuarioId,
+        turno: turnoActual,
+        saldo_inicial: saldoInicial,
+        saldo_final: saldoInicial, // Inicialmente igual al saldo inicial
+        estado: "abierta",
+        fecha_apertura: new Date().toISOString(),
+      }
+
+      console.log("Datos de la nueva caja:", cajaData)
+
+      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(cajaData),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error al crear caja: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al crear caja: ${response.status} - ${response.statusText}`)
+      }
+
+      const nuevaCaja = await response.json()
+      console.log("Caja creada exitosamente:", nuevaCaja)
+
+      // Guardar el ID de la caja en localStorage para referencia futura
+      localStorage.setItem("cajaActualId", nuevaCaja.id.toString())
+      localStorage.setItem("cajaActualSaldoInicial", saldoInicial)
+
+      return true
+    } catch (err) {
+      console.error("Error al crear caja para el vendedor:", err)
+      return false
+    }
+  }
+
   const handleVendorLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -66,6 +143,7 @@ export function LoginForm() {
       const tiendas = await response.json()
       let vendedorEncontrado = false
       let tiendaAsociada = null
+      let usuarioId = null
 
       // Para cada tienda, verificar sus empleados
       for (const tienda of tiendas) {
@@ -83,18 +161,23 @@ export function LoginForm() {
             if (empleado) {
               vendedorEncontrado = true
               tiendaAsociada = tienda
+              usuarioId = empleado.id
               break
             }
           }
         }
       }
 
-      if (vendedorEncontrado && tiendaAsociada) {
+      if (vendedorEncontrado && tiendaAsociada && usuarioId) {
         // Guardar información en localStorage
         localStorage.setItem("userType", "vendor")
         localStorage.setItem("selectedStoreId", tiendaAsociada.id.toString())
         localStorage.setItem("selectedStoreName", tiendaAsociada.nombre)
         localStorage.setItem("vendorName", vendorName)
+        localStorage.setItem("vendorId", usuarioId.toString())
+
+        // Crear una caja para el vendedor
+        await crearCajaParaVendedor(tiendaAsociada.id.toString(), usuarioId)
 
         // Redirigir a la página de inicio con la tienda seleccionada
         router.push(`/home?storeId=${tiendaAsociada.id}`)

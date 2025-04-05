@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { VendorNavigation } from "@/components/vendor-navigation"
 
 export default function HomePage() {
   const router = useRouter()
@@ -62,6 +63,9 @@ export default function HomePage() {
       localStorage.removeItem("selectedStoreId")
       localStorage.removeItem("selectedStoreName")
       localStorage.removeItem("vendorName")
+      localStorage.removeItem("vendorId")
+      localStorage.removeItem("cajaActualId")
+      localStorage.removeItem("cajaActualSaldoInicial")
 
       // Redirigir a la página de inicio de sesión
       router.push("/")
@@ -145,12 +149,21 @@ export default function HomePage() {
             href={selectedStore ? `/stores/${selectedStore.id}/products` : "/products"}
           />
 
-          <MenuCard
-            icon={<DollarSign className="h-8 w-8 text-primary" />}
-            title="Gastos"
-            description="Gestionar gastos"
-            href="/expenses"
-          />
+          {userType === "vendor" ? (
+            <MenuCard
+              icon={<DollarSign className="h-8 w-8 text-primary" />}
+              title="Mi Caja"
+              description="Gestionar caja"
+              href="/vendor/caja"
+            />
+          ) : (
+            <MenuCard
+              icon={<DollarSign className="h-8 w-8 text-primary" />}
+              title="Gastos"
+              description="Gestionar gastos"
+              href="/expenses"
+            />
+          )}
 
           {/* Solo mostrar Vendedores, Cajas y Reportes si es administrador */}
           {userType === "admin" && (
@@ -180,7 +193,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <BottomNavigation />
+      {userType === "vendor" ? <VendorNavigation /> : <BottomNavigation />}
     </main>
   )
 }
