@@ -12,7 +12,6 @@ import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { fetchWithAuth } from "@/services/auth-service"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface ProductFormData {
   id?: number
@@ -40,14 +40,17 @@ export default function EditProductPage() {
   const params = useParams()
   const storeId = params.id as string
   const productId = params.productId as string
+  const { toast } = useToast()
 
   const [userType, setUserType] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [storeName, setStoreName] = useState<string>("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [productNotFound, setProductNotFound] = useState(false)
 
   const [formData, setFormData] = useState<ProductFormData>({
+    id: Number.parseInt(productId),
     nombre: "",
     descripcion: "",
     precio: 0,
@@ -67,81 +70,6 @@ export default function EditProductPage() {
   // Categorías predefinidas
   const categories = ["Frutas", "Verduras", "Lácteos", "Carnes", "Abarrotes", "Bebidas", "Limpieza", "Otros"]
 
-  // Función para seleccionar la tienda
-  const selectStore = async () => {
-    try {
-      console.log(`Seleccionando tienda con ID: ${storeId}`)
-      const response = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
-      }
-
-      console.log("Tienda seleccionada correctamente")
-      return true
-    } catch (err) {
-      console.error("Error al seleccionar tienda:", err)
-      alert(
-        `No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
-      return false
-    }
-  }
-
-  // Obtener datos del producto
-  const fetchProduct = async () => {
-    try {
-      // Verificar que la tienda ya esté seleccionada
-      const selectedStoreId = localStorage.getItem("selectedStoreId")
-      if (selectedStoreId !== storeId) {
-        console.log("La tienda seleccionada no coincide con la tienda actual, redirigiendo...")
-        router.push("/stores")
-        return
-      }
-
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`)
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      // Verificar que el producto pertenezca a la tienda seleccionada
-      if (data.tienda !== Number.parseInt(storeId)) {
-        alert("Este producto no pertenece a la tienda seleccionada")
-        router.push(`/stores/${storeId}/products`)
-        return
-      }
-
-      setFormData({
-        id: data.id,
-        nombre: data.nombre || "",
-        descripcion: data.descripcion || "",
-        precio: data.precio || 0,
-        cantidad: data.cantidad || 0,
-        categoria: data.categoria || "",
-        disponible: data.disponible !== undefined ? data.disponible : true,
-        tienda: data.tienda || Number.parseInt(storeId),
-        codigo_barras: data.codigo_barras || "",
-      })
-    } catch (error) {
-      console.error("Error al cargar el producto:", error)
-      alert("No se pudo cargar la información del producto. Por favor, intenta de nuevo más tarde.")
-      router.push(`/stores/${storeId}/products`)
-    }
-  }
-
   // Verificar si el usuario está autorizado y cargar datos
   useEffect(() => {
     const storedUserType = localStorage.getItem("userType")
@@ -159,8 +87,27 @@ export default function EditProductPage() {
     }
 
     // Cargar datos del producto
-    fetchProduct()
+    loadProduct()
   }, [storeId, productId, router])
+
+  // Cargar producto desde localStorage
+  const loadProduct = () => {
+    // Obtener productos del localStorage
+    const storedProducts = localStorage.getItem(`store_${storeId}_products`)
+
+    if (storedProducts) {
+      const products = JSON.parse(storedProducts)
+      const product = products.find((p: ProductFormData) => p.id === Number(productId))
+
+      if (product) {
+        setFormData(product)
+      } else {
+        setProductNotFound(true)
+      }
+    } else {
+      setProductNotFound(true)
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -232,7 +179,7 @@ export default function EditProductPage() {
     return isValid
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -242,73 +189,99 @@ export default function EditProductPage() {
     setIsSubmitting(true)
 
     try {
-      // Verificar que la tienda ya esté seleccionada
-      const selectedStoreId = localStorage.getItem("selectedStoreId")
-      if (selectedStoreId !== storeId) {
-        console.log("La tienda seleccionada no coincide con la tienda actual, redirigiendo...")
-        router.push("/stores")
-        setIsSubmitting(false)
-        return
+      // Obtener productos actuales
+      const storedProducts = localStorage.getItem(`store_${storeId}_products`)
+      if (storedProducts) {
+        const products = JSON.parse(storedProducts)
+
+        // Actualizar el producto
+        const updatedProducts = products.map((p: ProductFormData) => (p.id === Number(productId) ? formData : p))
+
+        // Guardar en localStorage
+        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(updatedProducts))
+
+        toast({
+          title: "Producto actualizado",
+          description: "El producto ha sido actualizado con éxito",
+          variant: "success",
+        })
+
+        setTimeout(() => {
+          router.push(`/stores/${storeId}/products`)
+        }, 1000)
       }
-
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al actualizar producto: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al actualizar producto: ${response.status} - ${response.statusText}`)
-      }
-
-      alert("Producto actualizado con éxito")
-      router.push(`/stores/${storeId}/products`)
     } catch (err) {
       console.error("Error al actualizar el producto:", err)
-      alert(
-        `No se pudo actualizar el producto: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el producto. Por favor, intenta de nuevo más tarde.",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     setIsDeleting(true)
 
     try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
-        setIsDeleting(false)
-        return
+      // Obtener productos actuales
+      const storedProducts = localStorage.getItem(`store_${storeId}_products`)
+      if (storedProducts) {
+        const products = JSON.parse(storedProducts)
+
+        // Filtrar el producto a eliminar
+        const updatedProducts = products.filter((p: ProductFormData) => p.id !== Number(productId))
+
+        // Guardar en localStorage
+        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(updatedProducts))
+
+        toast({
+          title: "Producto eliminado",
+          description: "El producto ha sido eliminado con éxito",
+          variant: "success",
+        })
+
+        setTimeout(() => {
+          router.push(`/stores/${storeId}/products`)
+        }, 1000)
       }
-
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al eliminar producto: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al eliminar producto: ${response.status} - ${response.statusText}`)
-      }
-
-      alert("Producto eliminado con éxito")
-      router.push(`/stores/${storeId}/products`)
     } catch (err) {
       console.error("Error al eliminar el producto:", err)
-      alert(
-        `No se pudo eliminar el producto: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el producto. Por favor, intenta de nuevo más tarde.",
+        variant: "destructive",
+      })
     } finally {
       setIsDeleting(false)
       setIsDeleteDialogOpen(false)
     }
+  }
+
+  if (productNotFound) {
+    return (
+      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
+        <div className="bg-white p-4 flex items-center">
+          <Link href={`/stores/${storeId}/products`} className="mr-4">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <h1 className="text-xl font-semibold">Producto no encontrado</h1>
+        </div>
+        <div className="container max-w-md mx-auto p-4 text-center">
+          <div className="bg-white rounded-lg p-8">
+            <p className="text-text-secondary mb-4">El producto que buscas no existe o ha sido eliminado</p>
+            <Button
+              onClick={() => router.push(`/stores/${storeId}/products`)}
+              className="bg-primary hover:bg-primary-dark"
+            >
+              Volver a productos
+            </Button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -400,7 +373,7 @@ export default function EditProductPage() {
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <ImageIcon className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-base text-text-secondary">Añadir imagen</p>
+            <p className="text-base text-text-secondary">Cambiar imagen</p>
             <p className="text-xs text-text-secondary mt-1">(Funcionalidad no disponible en esta versión)</p>
           </div>
 

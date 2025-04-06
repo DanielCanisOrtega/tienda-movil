@@ -7,6 +7,7 @@ import BottomNavigation from "@/components/BottomNavigation"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 
 // Definición de interfaces
 interface Product {
@@ -87,6 +88,7 @@ const generateSampleSales = (): Sale[] => {
 }
 
 export default function SalesPage() {
+  const { toast } = useToast()
   // Estado para las ventas
   const [sales, setSales] = useState<Sale[]>([])
   const [activeTab, setActiveTab] = useState("today")

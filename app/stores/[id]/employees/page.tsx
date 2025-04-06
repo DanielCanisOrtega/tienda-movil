@@ -3,13 +3,19 @@
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ChevronLeft, Plus, Search, User, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
+import { fetchWithAuth } from "@/lib/utils"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+
+// Importar la función selectStoreAndRefreshToken
+import { selectStoreAndRefreshToken } from "@/lib/store-selector"
 
 // Interfaz para los empleados
 interface Employee {
@@ -20,58 +26,6 @@ interface Employee {
   cargo?: string
   activo: boolean
 }
-
-// Datos de ejemplo para empleados
-const sampleEmployees: Employee[] = [
-  {
-    id: 1,
-    nombre: "Juan Pérez",
-    email: "juan@tiendamixta.com",
-    telefono: "3001234567",
-    cargo: "Vendedor Senior",
-    activo: true,
-  },
-  {
-    id: 2,
-    nombre: "María López",
-    email: "maria@tiendamixta.com",
-    telefono: "3109876543",
-    cargo: "Vendedor",
-    activo: true,
-  },
-  {
-    id: 3,
-    nombre: "Carlos Rodríguez",
-    email: "carlos@tiendamixta.com",
-    telefono: "3201234567",
-    cargo: "Vendedor",
-    activo: true,
-  },
-  {
-    id: 4,
-    nombre: "Ana Martínez",
-    email: "ana@tiendamixta.com",
-    telefono: "3001234568",
-    cargo: "Cajero",
-    activo: true,
-  },
-  {
-    id: 5,
-    nombre: "Pedro Gómez",
-    email: "pedro@tiendamixta.com",
-    telefono: "3109876544",
-    cargo: "Vendedor",
-    activo: true,
-  },
-  {
-    id: 6,
-    nombre: "Laura Sánchez",
-    email: "laura@tiendamixta.com",
-    telefono: "3201234568",
-    cargo: "Cajero",
-    activo: true,
-  },
-]
 
 export default function StoreEmployeesPage() {
   const router = useRouter()
@@ -84,12 +38,10 @@ export default function StoreEmployeesPage() {
   const [userType, setUserType] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [storeName, setStoreName] = useState<string>("")
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newEmployeeName, setNewEmployeeName] = useState("")
-  const [newEmployeeEmail, setNewEmployeeEmail] = useState("")
-  const [newEmployeePhone, setNewEmployeePhone] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [nextId, setNextId] = useState(7) // Para generar IDs únicos
+  const [error, setError] = useState<string | null>(null)
 
   // Verificar si el usuario es administrador
   useEffect(() => {
@@ -108,41 +60,59 @@ export default function StoreEmployeesPage() {
       setStoreName(selectedStoreName)
     }
 
-    // Cargar empleados de ejemplo o del localStorage
-    loadEmployees()
+    // Cargar empleados desde la API
+    fetchEmployees()
   }, [router, storeId])
 
-  // Cargar empleados
-  const loadEmployees = () => {
+  // Modificar la función fetchEmployees para seleccionar la tienda primero
+  const fetchEmployees = async () => {
     setIsLoading(true)
+    setError(null)
 
-    // Intentar cargar empleados del localStorage
-    const storedEmployees = localStorage.getItem(`store_${storeId}_employees`)
+    try {
+      // Primero seleccionar la tienda para asegurar que la sesión esté correcta
+      const storeSelected = await selectStoreAndRefreshToken(storeId)
+      if (!storeSelected) {
+        throw new Error("No se pudo seleccionar la tienda")
+      }
 
-    if (storedEmployees) {
-      const parsedEmployees = JSON.parse(storedEmployees)
-      setEmployees(parsedEmployees)
-      setFilteredEmployees(parsedEmployees.filter((emp:Employee) => emp.activo))
-    } else {
-      // Si no hay datos en localStorage, usar los datos de ejemplo
-      setEmployees(sampleEmployees)
-      setFilteredEmployees(sampleEmployees)
-      // Guardar en localStorage para futuras visitas
-      localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(sampleEmployees))
+      console.log(`Obteniendo empleados de la tienda con ID: ${storeId}`)
+      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/empleados/`)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error al obtener empleados: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al obtener empleados: ${response.status} - ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("Respuesta de empleados:", data)
+
+      if (data && data.empleados && Array.isArray(data.empleados)) {
+        setEmployees(data.empleados)
+        setFilteredEmployees(data.empleados.filter((emp: Employee) => emp.activo !== false))
+      } else {
+        console.warn("Formato de respuesta inesperado:", data)
+        setEmployees([])
+        setFilteredEmployees([])
+      }
+    } catch (err) {
+      console.error("Error al cargar los empleados:", err)
+      setError(`No se pudieron cargar los empleados: ${err instanceof Error ? err.message : "Error desconocido"}`)
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   // Filtrar empleados según búsqueda
   useEffect(() => {
     if (searchQuery.trim() === "") {
-      setFilteredEmployees(employees.filter((emp) => emp.activo))
+      setFilteredEmployees(employees.filter((emp) => emp.activo !== false))
     } else {
       const query = searchQuery.toLowerCase()
       const filtered = employees.filter(
         (employee) =>
-          employee.activo &&
+          employee.activo !== false &&
           (employee.nombre.toLowerCase().includes(query) ||
             (employee.email && employee.email.toLowerCase().includes(query)) ||
             (employee.telefono && employee.telefono.includes(query)) ||
@@ -152,61 +122,106 @@ export default function StoreEmployeesPage() {
     }
   }, [employees, searchQuery])
 
-  // Añadir empleado
-  const handleAddEmployee = (e: React.FormEvent) => {
+  // Añadir empleado usando la API
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!newEmployeeName.trim()) {
-      alert("El nombre del empleado es obligatorio")
+      setError("El nombre del empleado es obligatorio")
       return
     }
 
     setIsSubmitting(true)
+    setError(null)
 
-    // Crear nuevo empleado
-    const newEmployee: Employee = {
-      id: nextId,
-      nombre: newEmployeeName,
-      email: newEmployeeEmail || undefined,
-      telefono: newEmployeePhone || undefined,
-      cargo: "Vendedor",
-      activo: true,
+    try {
+      console.log(`Añadiendo empleado a la tienda con ID: ${storeId}`)
+      const response = await fetchWithAuth(
+        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/agregar_empleado/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ nombre: newEmployeeName }),
+        },
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error al añadir empleado: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al añadir empleado: ${response.status} - ${response.statusText}`)
+      }
+
+      // Recargar la lista de empleados
+      await fetchEmployees()
+
+      // Limpiar formulario y cerrar diálogo
+      setNewEmployeeName("")
+      setIsAddDialogOpen(false)
+
+      // Mostrar mensaje de éxito
+      alert("Vendedor añadido con éxito")
+    } catch (err) {
+      console.error("Error al añadir el empleado:", err)
+      setError(`No se pudo añadir el empleado: ${err instanceof Error ? err.message : "Error desconocido"}`)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    // Actualizar estado
-    const updatedEmployees = [...employees, newEmployee]
-    setEmployees(updatedEmployees)
-    setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo))
-
-    // Guardar en localStorage
-    localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(updatedEmployees))
-
-    // Incrementar el ID para el próximo empleado
-    setNextId(nextId + 1)
-
-    // Limpiar formulario
-    setNewEmployeeName("")
-    setNewEmployeeEmail("")
-    setNewEmployeePhone("")
-    setShowAddForm(false)
-    setIsSubmitting(false)
-
-    alert("Vendedor añadido con éxito")
   }
 
   // "Eliminar" empleado (solo ocultar)
-  const handleRemoveEmployee = (employeeId: number, nombre: string) => {
+  const handleRemoveEmployee = async (employeeId: number, nombre: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar al vendedor ${nombre} de esta tienda?`)) {
-      // Mark as inactive instead of removing
-      const updatedEmployees = employees.map((emp) => (emp.id === employeeId ? { ...emp, activo: false } : emp))
+      try {
+        // Primero seleccionar la tienda
+        const storeSelected = await selectStoreAndRefreshToken(storeId)
+        if (!storeSelected) {
+          throw new Error("No se pudo seleccionar la tienda")
+        }
 
-      setEmployees(updatedEmployees)
-      setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo))
+        console.log(`Eliminando empleado ${employeeId} de la tienda ${storeId}`)
 
-      // Save to localStorage
-      localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(updatedEmployees))
+        // Usar el endpoint proporcionado para eliminar el empleado
+        const response = await fetchWithAuth(
+          `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/remover_empleado/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ empleado_id: employeeId }),
+          },
+        )
 
-      alert("Vendedor eliminado con éxito")
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Error al eliminar empleado: ${response.status} - ${response.statusText}`, errorText)
+          throw new Error(`Error al eliminar empleado: ${response.status} - ${response.statusText}`)
+        }
+
+        console.log("Empleado eliminado correctamente")
+
+        // Actualizar la UI
+        const updatedEmployees = employees.map((emp) => (emp.id === employeeId ? { ...emp, activo: false } : emp))
+
+        setEmployees(updatedEmployees)
+        setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo !== false))
+
+        alert("Vendedor eliminado con éxito")
+      } catch (err) {
+        console.error("Error al eliminar el empleado:", err)
+
+        // Incluso si hay error en la API, actualizar la UI para mejor experiencia
+        const updatedEmployees = employees.map((emp) => (emp.id === employeeId ? { ...emp, activo: false } : emp))
+
+        setEmployees(updatedEmployees)
+        setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo !== false))
+
+        alert(
+          `El vendedor ha sido eliminado localmente, pero hubo un error al comunicarse con el servidor: ${err instanceof Error ? err.message : "Error desconocido"}`,
+        )
+      }
     }
   }
 
@@ -237,85 +252,26 @@ export default function StoreEmployeesPage() {
 
         <Button
           className="w-full h-12 bg-primary hover:bg-primary-dark flex items-center justify-center"
-          onClick={() => setShowAddForm(true)}
+          onClick={() => setIsAddDialogOpen(true)}
         >
           <Plus className="mr-2 h-5 w-5" />
           Añadir Vendedor
         </Button>
-
-        {showAddForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Añadir Vendedor</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddEmployee} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="nombre" className="text-sm font-medium">
-                    Nombre Completo
-                  </label>
-                  <Input
-                    id="nombre"
-                    value={newEmployeeName}
-                    onChange={(e) => setNewEmployeeName(e.target.value)}
-                    placeholder="Nombre del vendedor"
-                    className="bg-input-bg border-0"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Correo Electrónico
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newEmployeeEmail}
-                    onChange={(e) => setNewEmployeeEmail(e.target.value)}
-                    placeholder="correo@ejemplo.com"
-                    className="bg-input-bg border-0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="telefono" className="text-sm font-medium">
-                    Teléfono
-                  </label>
-                  <Input
-                    id="telefono"
-                    value={newEmployeePhone}
-                    onChange={(e) => setNewEmployeePhone(e.target.value)}
-                    placeholder="300 123 4567"
-                    className="bg-input-bg border-0"
-                  />
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setShowAddForm(false)
-                      setNewEmployeeName("")
-                      setNewEmployeeEmail("")
-                      setNewEmployeePhone("")
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" className="flex-1 bg-primary hover:bg-primary-dark" disabled={isSubmitting}>
-                    {isSubmitting ? "Agregando..." : "Agregar"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
 
         {isLoading ? (
           <Card>
             <CardContent className="p-6 text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
               <p className="text-text-secondary">Cargando vendedores...</p>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-red-500 mb-4">{error}</p>
+              <Button onClick={fetchEmployees} className="bg-primary hover:bg-primary-dark">
+                Reintentar
+              </Button>
             </CardContent>
           </Card>
         ) : filteredEmployees.length === 0 ? (
@@ -354,6 +310,58 @@ export default function StoreEmployeesPage() {
           </div>
         )}
       </div>
+
+      {/* Diálogo para añadir empleado */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir Vendedor</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddEmployee}>
+            <div className="space-y-4 py-4">
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                  <span className="block sm:inline">{error}</span>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="employeeName">Nombre del Vendedor</Label>
+                <Input
+                  id="employeeName"
+                  value={newEmployeeName}
+                  onChange={(e) => setNewEmployeeName(e.target.value)}
+                  placeholder="Nombre completo"
+                  className="bg-input-bg border-0"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddDialogOpen(false)
+                  setNewEmployeeName("")
+                  setError(null)
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary-dark" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Añadiendo...
+                  </>
+                ) : (
+                  "Añadir"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <BottomNavigation />
     </main>

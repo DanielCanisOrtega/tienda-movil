@@ -19,12 +19,13 @@ export default function AddExpensePage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Modificar la inicialización de la fecha para usar la zona horaria de Colombia
+  // Usar la fecha actual en formato YYYY-MM-DD
+  const today = new Date().toISOString().split("T")[0]
+
   const [formData, setFormData] = useState<Omit<Expense, "id">>({
     descripcion: "",
     amount: 0,
-    // Usar la fecha local de Colombia (UTC-5)
-    date: new Date().toLocaleDateString("en-CA"), // Formato YYYY-MM-DD que respeta la zona horaria local
+    date: today,
     categoria: "",
     paymentMethod: "",
     notes: "",
@@ -111,7 +112,6 @@ export default function AddExpensePage() {
     return isValid
   }
 
-  // Modificar la función handleSubmit para asegurar que la fecha se guarde correctamente
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -129,54 +129,36 @@ export default function AddExpensePage() {
       const existingExpenses = localStorage.getItem("expenses")
       const expenses: Expense[] = existingExpenses ? JSON.parse(existingExpenses) : []
 
-      // Asegurarse de que la fecha esté en formato YYYY-MM-DD
-      let formattedDate = formData.date
-      if (!formattedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        try {
-          const date = new Date(formattedDate)
-          formattedDate = date.toISOString().split("T")[0] // Formato YYYY-MM-DD
-        } catch (e) {
-          console.error("Error al formatear fecha:", formattedDate, e)
-          // Si hay error, usar la fecha actual
-          formattedDate = new Date().toISOString().split("T")[0]
-        }
-      }
-
       // Crear el nuevo gasto con ID único
       const newExpense: Expense = {
         id: crypto.randomUUID(),
         ...formData,
-        date: formattedDate, // Usar la fecha formateada
         storeId: storeId || undefined,
       }
-
-      console.log("Nuevo gasto a guardar:", newExpense)
 
       // Agregar el nuevo gasto a la lista
       expenses.push(newExpense)
 
       // Guardar en localStorage
       localStorage.setItem("expenses", JSON.stringify(expenses))
-      console.log("Gasto guardado. Total de gastos:", expenses.length)
 
-      // Simular tiempo de procesamiento
+      toast({
+        title: "Gasto registrado",
+        description: "El gasto ha sido registrado con éxito",
+        variant: "success",
+      })
+
       setTimeout(() => {
-        setIsSubmitting(false)
-        toast({
-          title: "Gasto registrado",
-          description: "El gasto ha sido registrado con éxito",
-          variant: "success",
-        })
         router.push("/expenses")
       }, 1000)
     } catch (error) {
       console.error("Error al guardar el gasto:", error)
-      setIsSubmitting(false)
       toast({
         title: "Error",
         description: "No se pudo registrar el gasto. Por favor, intenta de nuevo más tarde.",
         variant: "destructive",
       })
+      setIsSubmitting(false)
     }
   }
 

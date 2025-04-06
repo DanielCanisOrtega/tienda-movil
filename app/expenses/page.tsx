@@ -31,13 +31,14 @@ export interface Expense {
   storeId?: string
 }
 
-// Modificar la función generateSampleExpenses para usar la zona horaria de Colombia
+// Generar datos de ejemplo para gastos
 const generateSampleExpenses = (): Expense[] => {
   const categories = ["Pedidos", "Servicios", "Nómina", "Alquiler", "Impuestos", "Otros"]
   const paymentMethods = ["Efectivo", "Transferencia", "Tarjeta de Débito", "Tarjeta de Crédito", "Otro"]
 
   const expenses: Expense[] = []
   const today = new Date()
+  const storeId = localStorage.getItem("selectedStoreId") || "1"
 
   // Generar gastos para los últimos 30 días
   for (let i = 0; i < 30; i++) {
@@ -58,10 +59,11 @@ const generateSampleExpenses = (): Expense[] => {
         id: `expense-${i}-${j}`,
         descripcion: `Gasto de ${category.toLowerCase()}`,
         amount,
-        date: date.toLocaleDateString("en-CA"), // Formato YYYY-MM-DD que respeta la zona horaria local
+        date: date.toISOString().split("T")[0], // Formato YYYY-MM-DD
         categoria: category,
         paymentMethod,
         notes: Math.random() > 0.7 ? `Notas adicionales para el gasto de ${category.toLowerCase()}` : "",
+        storeId,
       })
     }
   }
@@ -69,7 +71,7 @@ const generateSampleExpenses = (): Expense[] => {
   return expenses
 }
 
-// Modificar la función formatDate para usar el formato colombiano
+// Formatear fecha para mostrar
 const formatDate = (dateString: string) => {
   try {
     const dateParts = dateString.split("-")
@@ -89,7 +91,7 @@ const formatDate = (dateString: string) => {
   }
 }
 
-// Reemplazar la función filterExpensesByDate con esta versión más simple y robusta
+// Filtrar gastos por fecha
 const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] => {
   // Obtener la fecha actual y resetear la hora a 00:00:00
   const now = new Date()
@@ -102,15 +104,11 @@ const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] =>
   // Calcular el inicio del mes
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-  console.log("Filtro actual:", period)
-  console.log("Fecha de hoy:", today.toISOString().split("T")[0])
-
   return expenses.filter((expense) => {
     // Convertir la fecha del gasto a un objeto Date para comparación correcta
     const parts = expense.date.split("-")
     // Asegurarse de que la fecha tenga el formato correcto (YYYY-MM-DD)
     if (parts.length !== 3) {
-      console.log("Formato de fecha incorrecto:", expense.date)
       return false
     }
 
@@ -123,14 +121,10 @@ const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] =>
     // Resetear la hora a 00:00:00 para comparar solo fechas
     expenseDate.setHours(0, 0, 0, 0)
 
-    console.log("Comparando gasto:", expense.id, expense.date, "con fecha objeto:", expenseDate.toISOString())
-
     switch (period) {
       case "today":
         // Comparar si la fecha del gasto es igual a hoy
-        const isToday = expenseDate.getTime() === today.getTime()
-        console.log("¿Es hoy?", isToday, expenseDate.toISOString(), today.toISOString())
-        return isToday
+        return expenseDate.getTime() === today.getTime()
       case "week":
         // Verificar si la fecha del gasto es posterior o igual al inicio de la semana
         return expenseDate >= startOfWeek
@@ -141,83 +135,6 @@ const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] =>
         return true
     }
   })
-}
-
-// Modificar la función loadExpenses para asegurar que todas las fechas tengan el formato correcto
-const loadExpenses = () => {
-  setIsLoading(true)
-
-  // Intentar cargar gastos del localStorage
-  const storedExpenses = localStorage.getItem("expenses")
-
-  if (storedExpenses) {
-    try {
-      const parsedExpenses = JSON.parse(storedExpenses)
-
-      // Asegurarse de que todas las fechas tengan el formato correcto
-      const normalizedExpenses = parsedExpenses.map((expense: Expense) => {
-        // Si la fecha no tiene el formato YYYY-MM-DD, intentar convertirla
-        if (expense.date && !expense.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          try {
-            const date = new Date(expense.date)
-            expense.date = date.toISOString().split("T")[0] // Formato YYYY-MM-DD
-          } catch (e) {
-            console.error("Error al normalizar fecha:", expense.date, e)
-          }
-        }
-        return expense
-      })
-
-      setExpenses(normalizedExpenses)
-
-      // Aplicar filtros iniciales
-      let filtered = [...normalizedExpenses]
-      if (storeId) {
-        filtered = filtered.filter((expense) => !expense.storeId || expense.storeId === storeId)
-      }
-      filtered = filterExpensesByDate(filtered, timePeriod)
-      setFilteredExpenses(filtered)
-
-      // Extraer categorías únicas
-      const uniqueCategories = Array.from(
-        new Set(normalizedExpenses.map((expense: Expense) => expense.categoria)),
-      ) as string[]
-      setCategories(uniqueCategories)
-
-      // Guardar las fechas normalizadas de vuelta en localStorage
-      localStorage.setItem("expenses", JSON.stringify(normalizedExpenses))
-    } catch (e) {
-      console.error("Error al cargar gastos:", e)
-      // Si hay un error, generar datos de ejemplo
-      generateAndSetSampleExpenses()
-    }
-  } else {
-    // Si no hay datos en localStorage, generar datos de ejemplo
-    generateAndSetSampleExpenses()
-  }
-
-  setIsLoading(false)
-}
-
-// Función para generar y establecer datos de ejemplo
-const generateAndSetSampleExpenses = () => {
-  const sampleExpenses = generateSampleExpenses()
-  setExpenses(sampleExpenses)
-
-  // Aplicar filtros iniciales
-  let filtered = [...sampleExpenses]
-  if (storeId) {
-    filtered = filtered.filter((expense) => !expense.storeId || expense.storeId === storeId)
-  }
-  filtered = filterExpensesByDate(filtered, timePeriod)
-  setFilteredExpenses(filtered)
-
-  // Extraer categorías únicas
-  const uniqueCategories = Array.from(new Set(sampleExpenses.map((expense) => expense.categoria))) as string[]
-  setCategories(uniqueCategories)
-
-  // Guardar en localStorage para futuras visitas
-  localStorage.setItem("expenses", JSON.stringify(sampleExpenses))
 }
 
 export default function ExpensesPage() {
@@ -248,6 +165,60 @@ export default function ExpensesPage() {
   }, [])
 
   // Cargar gastos desde localStorage o generar datos de ejemplo
+  const loadExpenses = () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Intentar cargar gastos del localStorage
+      const storedExpenses = localStorage.getItem("expenses")
+
+      if (storedExpenses) {
+        const parsedExpenses = JSON.parse(storedExpenses)
+        setExpenses(parsedExpenses)
+
+        // Aplicar filtros iniciales
+        let filtered = [...parsedExpenses]
+        if (storeId) {
+          filtered = filtered.filter((expense) => !expense.storeId || expense.storeId === storeId)
+        }
+        filtered = filterExpensesByDate(filtered, timePeriod)
+        setFilteredExpenses(filtered)
+
+        // Extraer categorías únicas
+        const uniqueCategories = Array.from(
+          new Set(parsedExpenses.map((expense: Expense) => expense.categoria)),
+        ) as string[]
+        setCategories(uniqueCategories)
+      } else {
+        // Si no hay datos en localStorage, generar datos de ejemplo
+        const sampleExpenses = generateSampleExpenses()
+        setExpenses(sampleExpenses)
+
+        // Aplicar filtros iniciales
+        let filtered = [...sampleExpenses]
+        if (storeId) {
+          filtered = filtered.filter((expense) => !expense.storeId || expense.storeId === storeId)
+        }
+        filtered = filterExpensesByDate(filtered, timePeriod)
+        setFilteredExpenses(filtered)
+
+        // Extraer categorías únicas
+        const uniqueCategories = Array.from(new Set(sampleExpenses.map((expense) => expense.categoria))) as string[]
+        setCategories(uniqueCategories)
+
+        // Guardar en localStorage para futuras visitas
+        localStorage.setItem("expenses", JSON.stringify(sampleExpenses))
+      }
+    } catch (err) {
+      console.error("Error al cargar gastos:", err)
+      setError(`No se pudieron cargar los gastos: ${err instanceof Error ? err.message : "Error desconocido"}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const [error, setError] = useState<string | null>(null)
 
   // Filtrar gastos cuando cambia el término de búsqueda o la categoría
   useEffect(() => {
@@ -288,8 +259,6 @@ export default function ExpensesPage() {
       minimumFractionDigits: 0,
     }).format(price)
   }
-
-  // Formatear fecha
 
   // Confirmar eliminación
   const confirmDelete = (expenseId: string) => {

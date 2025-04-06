@@ -12,7 +12,7 @@ import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { fetchWithAuth } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 interface ProductFormData {
   nombre: string
@@ -24,41 +24,11 @@ interface ProductFormData {
   tienda: number
 }
 
-// Define the function directly in this file
-async function selectStoreAndRefreshToken(storeId: string): Promise<boolean> {
-  try {
-    console.log(`Seleccionando tienda con ID: ${storeId}`)
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
-      throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
-    }
-
-    console.log("Tienda seleccionada correctamente")
-    return true
-  } catch (err) {
-    console.error("Error al seleccionar tienda:", err)
-    alert(
-      `No se pudo seleccionar la tienda: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-    )
-    return false
-  }
-}
-
 export default function AddProductPage() {
   const router = useRouter()
   const params = useParams()
   const storeId = params.id as string
+  const { toast } = useToast()
 
   const [userType, setUserType] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -171,8 +141,8 @@ export default function AddProductPage() {
     return isValid
   }
 
-  // Modificar la función handleSubmit para mejorar la adición de productos en la tienda
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Modificar la función handleSubmit para trabajar localmente
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -182,15 +152,6 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     try {
-      // Usar la nueva función que combina selección de tienda y refresco de token
-      const storeSelected = await selectStoreAndRefreshToken(storeId)
-
-      if (!storeSelected) {
-        throw new Error(`No se pudo seleccionar la tienda ${storeId}`)
-      }
-
-      console.log("Creando nuevo producto:", formData)
-
       // Obtener productos existentes del localStorage
       const existingProducts = localStorage.getItem(`store_${storeId}_products`)
       const products = existingProducts ? JSON.parse(existingProducts) : []
@@ -210,13 +171,22 @@ export default function AddProductPage() {
       // Guardar en localStorage
       localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
 
-      alert("Producto creado con éxito")
-      router.push(`/stores/${storeId}/products`)
+      toast({
+        title: "Producto creado",
+        description: "El producto ha sido creado con éxito",
+        variant: "success",
+      })
+
+      setTimeout(() => {
+        router.push(`/stores/${storeId}/products`)
+      }, 1000)
     } catch (err) {
       console.error("Error al crear el producto:", err)
-      alert(
-        `No se pudo crear el producto: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-      )
+      toast({
+        title: "Error",
+        description: `No se pudo crear el producto: ${err instanceof Error ? err.message : "Error desconocido"}`,
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }

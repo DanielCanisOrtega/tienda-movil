@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 interface Product {
   id: number
@@ -30,6 +31,7 @@ interface CartItem {
 
 export default function CartPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [products, setProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
@@ -107,7 +109,11 @@ export default function CartPage() {
     const currentQuantity = existingItem ? existingItem.quantity : 0
 
     if (currentQuantity >= product.cantidad) {
-      alert(`No hay suficiente stock de ${product.nombre}. Solo quedan ${product.cantidad} unidades.`)
+      toast({
+        title: "Stock insuficiente",
+        description: `No hay suficiente stock de ${product.nombre}. Solo quedan ${product.cantidad} unidades.`,
+        variant: "destructive",
+      })
       return
     }
 
@@ -122,6 +128,12 @@ export default function CartPage() {
         return [...prevItems, { product, quantity: 1 }]
       }
     })
+
+    toast({
+      title: "Producto añadido",
+      description: `${product.nombre} añadido al carrito`,
+      variant: "success",
+    })
   }
 
   // Actualizar cantidad de un producto en el carrito
@@ -129,7 +141,11 @@ export default function CartPage() {
     const item = cartItems.find((item) => item.product.id === productId)
 
     if (item && newQuantity > item.product.cantidad) {
-      alert(`No hay suficiente stock de ${item.product.nombre}. Solo quedan ${item.product.cantidad} unidades.`)
+      toast({
+        title: "Stock insuficiente",
+        description: `No hay suficiente stock de ${item.product.nombre}. Solo quedan ${item.product.cantidad} unidades.`,
+        variant: "destructive",
+      })
       return
     }
 
@@ -147,12 +163,22 @@ export default function CartPage() {
   // Eliminar producto del carrito
   const removeFromCart = (productId: number) => {
     setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId))
+
+    toast({
+      title: "Producto eliminado",
+      description: "Producto eliminado del carrito",
+      variant: "success",
+    })
   }
 
-  // Update the processCheckout function to update product inventory when a sale is made
+  // Procesar la venta
   const processCheckout = () => {
     if (cartItems.length === 0) {
-      alert("El carrito está vacío")
+      toast({
+        title: "Carrito vacío",
+        description: "No hay productos en el carrito",
+        variant: "destructive",
+      })
       return
     }
 
@@ -204,7 +230,11 @@ export default function CartPage() {
 
     setTimeout(() => {
       setIsProcessing(false)
-      alert("¡Venta registrada con éxito!")
+      toast({
+        title: "Venta registrada",
+        description: "La venta ha sido registrada con éxito",
+        variant: "success",
+      })
       router.push("/sales")
     }, 1000)
   }
@@ -320,33 +350,37 @@ export default function CartPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
-                {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="flex items-center p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                    onClick={() => addToCart(product)}
-                  >
-                    <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
-                      {product.imagen ? (
-                        <img
-                          src={product.imagen || "/placeholder.svg"}
-                          alt={product.nombre}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="text-xl text-gray-400">📦</div>
-                      )}
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">No se encontraron productos disponibles</div>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                      onClick={() => addToCart(product)}
+                    >
+                      <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
+                        {product.imagen ? (
+                          <img
+                            src={product.imagen || "/placeholder.svg"}
+                            alt={product.nombre}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-xl text-gray-400">📦</div>
+                        )}
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <h3 className="font-medium">{product.nombre}</h3>
+                        <p className="text-sm text-muted-foreground">{product.categoria}</p>
+                      </div>
+                      <div className="font-medium">{formatPrice(product.precio)}</div>
+                      <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 p-0 text-primary">
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <div className="ml-3 flex-1">
-                      <h3 className="font-medium">{product.nombre}</h3>
-                      <p className="text-sm text-muted-foreground">{product.categoria}</p>
-                    </div>
-                    <div className="font-medium">{formatPrice(product.precio)}</div>
-                    <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 p-0 text-primary">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </CardContent>
