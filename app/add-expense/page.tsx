@@ -112,31 +112,42 @@ export default function AddExpensePage() {
     return isValid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) {
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
-      // Obtener el ID de la tienda seleccionada
-      const storeId = localStorage.getItem("selectedStoreId")
+      // Validar campos requeridos
+      const { descripcion, amount, categoria, paymentMethod, date, notes } = formData
+      const selectedStoreId = localStorage.getItem("selectedStoreId") || undefined
 
-      // Obtener gastos existentes del localStorage
-      const existingExpenses = localStorage.getItem("expenses")
-      const expenses: Expense[] = existingExpenses ? JSON.parse(existingExpenses) : []
-
-      // Crear el nuevo gasto con ID único
-      const newExpense: Expense = {
-        id: crypto.randomUUID(),
-        ...formData,
-        storeId: storeId || undefined,
+      if (!descripcion || !amount || !categoria || !paymentMethod) {
+        toast({
+          title: "Error",
+          description: "Por favor, completa todos los campos requeridos.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
       }
 
-      // Agregar el nuevo gasto a la lista
+      // Crear nuevo gasto
+      const newExpense: Expense = {
+        id: `expense-${Date.now()}`,
+        descripcion,
+        amount: Number(amount),
+        date: date || new Date().toISOString().split("T")[0], // Asegurar formato YYYY-MM-DD
+        categoria,
+        paymentMethod,
+        notes,
+        storeId: selectedStoreId,
+      }
+
+      // Obtener gastos existentes
+      const storedExpenses = localStorage.getItem("expenses")
+      const expenses = storedExpenses ? JSON.parse(storedExpenses) : []
+
+      // Añadir nuevo gasto
       expenses.push(newExpense)
 
       // Guardar en localStorage
@@ -144,20 +155,20 @@ export default function AddExpensePage() {
 
       toast({
         title: "Gasto registrado",
-        description: "El gasto ha sido registrado con éxito",
+        description: "El gasto ha sido registrado correctamente.",
         variant: "success",
       })
 
-      setTimeout(() => {
-        router.push("/expenses")
-      }, 1000)
+      // Redireccionar a la página de gastos
+      router.push("/expenses")
     } catch (error) {
-      console.error("Error al guardar el gasto:", error)
+      console.error("Error al registrar el gasto:", error)
       toast({
         title: "Error",
-        description: "No se pudo registrar el gasto. Por favor, intenta de nuevo más tarde.",
+        description: "No se pudo registrar el gasto. Por favor, intenta de nuevo.",
         variant: "destructive",
       })
+    } finally {
       setIsSubmitting(false)
     }
   }

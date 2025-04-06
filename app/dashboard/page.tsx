@@ -12,6 +12,7 @@ import { LineChart } from "@/components/line-chart"
 import { SalesList } from "@/components/sales-list"
 import { ExpensesList } from "@/components/expenses-list"
 import type { Expense } from "../expenses/page"
+import { Badge } from "@/components/ui/badge"
 
 // Interfaces
 interface Sale {
@@ -27,6 +28,7 @@ interface Sale {
   }[]
   total: number
   date: Date | string
+  storeId?: string
 }
 
 export default function DashboardPage() {
@@ -73,42 +75,73 @@ export default function DashboardPage() {
     }
   }, [])
 
+  // Función para convertir una fecha string a objeto Date
+  const parseDate = (dateStr: string | Date): Date => {
+    if (dateStr instanceof Date) {
+      return new Date(dateStr)
+    }
+
+    // Si es string, intentar parsear
+    if (dateStr.includes("T")) {
+      // Formato ISO
+      return new Date(dateStr)
+    } else {
+      // Formato YYYY-MM-DD
+      const parts = dateStr.split("-")
+      if (parts.length === 3) {
+        return new Date(Number.parseInt(parts[0]), Number.parseInt(parts[1]) - 1, Number.parseInt(parts[2]))
+      }
+    }
+
+    // Si no se puede parsear, devolver fecha actual
+    return new Date()
+  }
+
   // Filter sales by store ID
   const getFilteredSales = () => {
     if (!storeId) return []
 
     const storeSales = salesData.filter((sale) => {
       // Check if sale has storeId property and it matches the current storeId
-      return "storeId" in sale ? sale.storeId === storeId : true
+      return !sale.storeId || sale.storeId === storeId
     })
 
-    const today = new Date()
+    // Obtener la fecha actual en Colombia (UTC-5)
+    const now = new Date()
+
+    // Crear fecha de hoy a las 00:00:00
+    const today = new Date(now)
     today.setHours(0, 0, 0, 0)
 
+    // Calcular el inicio de la semana (domingo)
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
+    startOfWeek.setDate(today.getDate() - today.getDay())
 
+    // Calcular el inicio del mes
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-    switch (activeTab) {
-      case "daily":
-        return storeSales.filter((sale) => {
-          const saleDate = new Date(sale.date)
-          return saleDate >= today
-        })
-      case "weekly":
-        return storeSales.filter((sale) => {
-          const saleDate = new Date(sale.date)
+    return storeSales.filter((sale) => {
+      // Convertir la fecha de la venta a un objeto Date
+      const saleDate = parseDate(sale.date)
+
+      // Resetear la hora a 00:00:00 para comparar solo fechas
+      saleDate.setHours(0, 0, 0, 0)
+
+      // Comparar según el período seleccionado
+      switch (activeTab) {
+        case "daily":
+          // Para vista diaria, comparar si la fecha es igual a hoy
+          return saleDate.toDateString() === today.toDateString()
+        case "weekly":
+          // Para vista semanal, verificar si la fecha es posterior o igual al inicio de la semana
           return saleDate >= startOfWeek
-        })
-      case "monthly":
-        return storeSales.filter((sale) => {
-          const saleDate = new Date(sale.date)
+        case "monthly":
+          // Para vista mensual, verificar si la fecha es posterior o igual al inicio del mes
           return saleDate >= startOfMonth
-        })
-      default:
-        return storeSales
-    }
+        default:
+          return true
+      }
+    })
   }
 
   // Filter expenses by store ID
@@ -117,36 +150,45 @@ export default function DashboardPage() {
 
     const storeExpenses = expensesData.filter((expense) => {
       // Check if expense has storeId property and it matches the current storeId
-      return "storeId" in expense ? expense.storeId === storeId : true
+      return !expense.storeId || expense.storeId === storeId
     })
 
-    const today = new Date()
+    // Obtener la fecha actual
+    const now = new Date()
+
+    // Crear fecha de hoy a las 00:00:00
+    const today = new Date(now)
     today.setHours(0, 0, 0, 0)
 
+    // Calcular el inicio de la semana (domingo)
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
+    startOfWeek.setDate(today.getDate() - today.getDay())
 
+    // Calcular el inicio del mes
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-    switch (activeTab) {
-      case "daily":
-        return storeExpenses.filter((expense) => {
-          const expenseDate = new Date(expense.date)
-          return expenseDate >= today
-        })
-      case "weekly":
-        return storeExpenses.filter((expense) => {
-          const expenseDate = new Date(expense.date)
+    return storeExpenses.filter((expense) => {
+      // Convertir la fecha del gasto a un objeto Date
+      const expenseDate = parseDate(expense.date)
+
+      // Resetear la hora a 00:00:00 para comparar solo fechas
+      expenseDate.setHours(0, 0, 0, 0)
+
+      // Comparar según el período seleccionado
+      switch (activeTab) {
+        case "daily":
+          // Para vista diaria, comparar si la fecha es igual a hoy
+          return expenseDate.toDateString() === today.toDateString()
+        case "weekly":
+          // Para vista semanal, verificar si la fecha es posterior o igual al inicio de la semana
           return expenseDate >= startOfWeek
-        })
-      case "monthly":
-        return storeExpenses.filter((expense) => {
-          const expenseDate = new Date(expense.date)
+        case "monthly":
+          // Para vista mensual, verificar si la fecha es posterior o igual al inicio del mes
           return expenseDate >= startOfMonth
-        })
-      default:
-        return storeExpenses
-    }
+        default:
+          return true
+      }
+    })
   }
 
   // Calculate total sales
@@ -221,7 +263,7 @@ export default function DashboardPage() {
 
       // Sum expenses by hour
       filteredExpenses.forEach((expense) => {
-        const date = new Date(expense.date)
+        const date = parseDate(expense.date)
         const hour = date.getHours()
         const hourKey = hour < 10 ? `0${hour}:00` : `${hour}:00`
         expensesByDay.set(hourKey, (expensesByDay.get(hourKey) || 0) + expense.amount)
@@ -233,7 +275,7 @@ export default function DashboardPage() {
 
       // Sum expenses by day of week
       filteredExpenses.forEach((expense) => {
-        const date = new Date(expense.date)
+        const date = parseDate(expense.date)
         const day = days[date.getDay()]
         expensesByDay.set(day, (expensesByDay.get(day) || 0) + expense.amount)
       })
@@ -248,7 +290,7 @@ export default function DashboardPage() {
 
       // Sum expenses by day of month
       filteredExpenses.forEach((expense) => {
-        const date = new Date(expense.date)
+        const date = parseDate(expense.date)
         const day = date.getDate().toString()
         expensesByDay.set(day, (expensesByDay.get(day) || 0) + expense.amount)
       })
@@ -324,6 +366,63 @@ export default function DashboardPage() {
     }
 
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
+  }
+
+  // Preparar datos para el balance detallado
+  const prepareBalanceDetailData = () => {
+    const filteredSales = getFilteredSales()
+    const filteredExpenses = getFilteredExpenses()
+
+    // Calcular totales
+    const totalSales = calculateTotalSales(filteredSales)
+    const totalExpenses = calculateTotalExpenses(filteredExpenses)
+    const balance = totalSales - totalExpenses
+
+    // Obtener datos de caja
+    const cajaData = getCajaData()
+
+    return {
+      sales: filteredSales,
+      expenses: filteredExpenses,
+      totalSales,
+      totalExpenses,
+      balance,
+      cajaData,
+    }
+  }
+
+  // Función para obtener datos de caja
+  const getCajaData = () => {
+    if (!storeId) return []
+
+    const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
+    if (!storedCajas) return []
+
+    const cajas = JSON.parse(storedCajas)
+
+    // Filtrar cajas según el período seleccionado
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay()) // Domingo como inicio de semana
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    return cajas.filter((caja: any) => {
+      const cajaDate = new Date(caja.fecha_apertura)
+
+      switch (activeTab) {
+        case "daily":
+          return cajaDate.toDateString() === today.toDateString()
+        case "weekly":
+          return cajaDate >= startOfWeek
+        case "monthly":
+          return cajaDate >= startOfMonth
+        default:
+          return true
+      }
+    })
   }
 
   // Format price in Colombian pesos
@@ -426,7 +525,7 @@ export default function DashboardPage() {
             <TabsContent value="balance" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Balance Financiero</CardTitle>
+                  <CardTitle className="text-lg">Balance Financiero Detallado</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{formatPrice(balance)}</div>
@@ -444,9 +543,74 @@ export default function DashboardPage() {
 
                   <Separator className="my-4" />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <h3 className="font-medium mb-2">Detalle de Ventas</h3>
+                      <h3 className="font-medium mb-2">Resumen de Caja</h3>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-text-secondary">Cajas Activas</p>
+                            <p className="font-medium">
+                              {getCajaData().filter((c: any) => c.estado === "abierta").length}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Cajas Cerradas</p>
+                            <p className="font-medium">
+                              {getCajaData().filter((c: any) => c.estado === "cerrada").length}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Saldo Inicial Total</p>
+                            <p className="font-medium">
+                              {formatPrice(
+                                getCajaData().reduce((sum: number, caja: any) => sum + Number(caja.saldo_inicial), 0),
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Saldo Final Total</p>
+                            <p className="font-medium">
+                              {formatPrice(
+                                getCajaData().reduce((sum: number, caja: any) => sum + Number(caja.saldo_final), 0),
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium mb-2">Detalle de Cajas</h3>
+                      <CajaDetailList cajas={getCajaData()} formatPrice={formatPrice} />
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium mb-2">Detalle de Ingresos</h3>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-text-secondary">Total Ventas</p>
+                            <p className="font-medium text-primary">{formatPrice(totalSales)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Número de Ventas</p>
+                            <p className="font-medium">{filteredSales.length}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Venta Promedio</p>
+                            <p className="font-medium">
+                              {formatPrice(filteredSales.length > 0 ? totalSales / filteredSales.length : 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Venta Máxima</p>
+                            <p className="font-medium">
+                              {formatPrice(Math.max(...filteredSales.map((sale) => sale.total), 0))}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                       <SalesList sales={filteredSales.slice(0, 3)} formatPrice={formatPrice} />
                       {filteredSales.length > 3 && (
                         <Link href="/sales" className="text-sm text-primary block mt-2">
@@ -454,8 +618,35 @@ export default function DashboardPage() {
                         </Link>
                       )}
                     </div>
+
                     <div>
-                      <h3 className="font-medium mb-2">Detalle de Gastos</h3>
+                      <h3 className="font-medium mb-2">Detalle de Egresos</h3>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-text-secondary">Total Gastos</p>
+                            <p className="font-medium text-danger">{formatPrice(totalExpenses)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Número de Gastos</p>
+                            <p className="font-medium">{filteredExpenses.length}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Categorías Principales</p>
+                            <p className="font-medium">
+                              {Array.from(new Set(filteredExpenses.map((expense) => expense.categoria)))
+                                .slice(0, 2)
+                                .join(", ")}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-secondary">Gasto Promedio</p>
+                            <p className="font-medium">
+                              {formatPrice(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                       <ExpensesList expenses={filteredExpenses.slice(0, 3)} formatPrice={formatPrice} />
                       {filteredExpenses.length > 3 && (
                         <Link href="/expenses" className="text-sm text-primary block mt-2">
@@ -645,5 +836,53 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
   }, [data])
 
   return <canvas ref={canvasRef} width={400} height={300} className="w-full h-full" />
+}
+
+// Añadir un componente para mostrar el detalle de cajas
+// Añadir después de la función BalanceChart
+
+function CajaDetailList({ cajas, formatPrice }: { cajas: any[]; formatPrice: (price: number) => string }) {
+  const [storeId, setStoreId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const selectedStoreId = localStorage.getItem("selectedStoreId")
+    if (selectedStoreId) {
+      setStoreId(selectedStoreId)
+    }
+  }, [])
+
+  if (cajas.length === 0) {
+    return <div className="text-center py-4 text-text-secondary">No hay cajas registradas en este período</div>
+  }
+
+  return (
+    <div className="space-y-3 mt-3">
+      {cajas.slice(0, 3).map((caja: any) => (
+        <div key={caja.id} className="border-b pb-2 last:border-0">
+          <div className="flex justify-between items-center">
+            <div>
+              <span className="font-medium">Caja #{caja.id}</span>
+              <span className="text-xs ml-2 text-text-secondary">{caja.usuario_nombre}</span>
+            </div>
+            <Badge
+              variant={caja.estado === "abierta" ? "default" : "secondary"}
+              className={caja.estado === "abierta" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+            >
+              {caja.estado}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-1 mt-1 text-sm">
+            <div>Inicial: {formatPrice(Number(caja.saldo_inicial))}</div>
+            <div>Final: {formatPrice(Number(caja.saldo_final))}</div>
+          </div>
+        </div>
+      ))}
+      {cajas.length > 3 && storeId && (
+        <Link href={`/stores/${storeId}/cajas`} className="text-sm text-primary block mt-2">
+          Ver todas las cajas
+        </Link>
+      )}
+    </div>
+  )
 }
 

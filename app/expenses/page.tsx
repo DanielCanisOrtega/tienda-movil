@@ -93,9 +93,12 @@ const formatDate = (dateString: string) => {
 
 // Filtrar gastos por fecha
 const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] => {
-  // Obtener la fecha actual y resetear la hora a 00:00:00
+  // Obtener la fecha actual
   const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  // Crear fecha de hoy a las 00:00:00
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
 
   // Calcular el inicio de la semana (domingo)
   const startOfWeek = new Date(today)
@@ -105,31 +108,43 @@ const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] =>
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
   return expenses.filter((expense) => {
-    // Convertir la fecha del gasto a un objeto Date para comparación correcta
-    const parts = expense.date.split("-")
-    // Asegurarse de que la fecha tenga el formato correcto (YYYY-MM-DD)
-    if (parts.length !== 3) {
-      return false
-    }
+    // Convertir la fecha del gasto a un objeto Date
+    let expenseDate: Date
 
-    const expenseDate = new Date(
-      Number.parseInt(parts[0]), // año
-      Number.parseInt(parts[1]) - 1, // mes (0-11)
-      Number.parseInt(parts[2]), // día
-    )
+    // Manejar diferentes formatos de fecha
+    if (typeof expense.date === "string") {
+      // Si es una cadena, intentar parsear
+      if (expense.date.includes("T")) {
+        // Formato ISO
+        expenseDate = new Date(expense.date)
+      } else {
+        // Formato YYYY-MM-DD
+        const parts = expense.date.split("-")
+        if (parts.length === 3) {
+          expenseDate = new Date(Number.parseInt(parts[0]), Number.parseInt(parts[1]) - 1, Number.parseInt(parts[2]))
+        } else {
+          // Si no se puede parsear, usar la fecha actual
+          expenseDate = new Date()
+        }
+      }
+    } else {
+      // Si ya es un objeto Date
+      expenseDate = new Date(expense.date)
+    }
 
     // Resetear la hora a 00:00:00 para comparar solo fechas
     expenseDate.setHours(0, 0, 0, 0)
 
+    // Comparar según el período seleccionado
     switch (period) {
       case "today":
-        // Comparar si la fecha del gasto es igual a hoy
-        return expenseDate.getTime() === today.getTime()
+        // Para vista diaria, comparar si la fecha es igual a hoy
+        return expenseDate.toDateString() === today.toDateString()
       case "week":
-        // Verificar si la fecha del gasto es posterior o igual al inicio de la semana
+        // Para vista semanal, verificar si la fecha es posterior o igual al inicio de la semana
         return expenseDate >= startOfWeek
       case "month":
-        // Verificar si la fecha del gasto es posterior o igual al inicio del mes
+        // Para vista mensual, verificar si la fecha es posterior o igual al inicio del mes
         return expenseDate >= startOfMonth
       default:
         return true
@@ -163,6 +178,9 @@ export default function ExpensesPage() {
     // Cargar gastos
     loadExpenses()
   }, [])
+
+  // Modificar la página de gastos para permitir acceso a vendedores
+  // Buscar la función loadExpenses y modificarla para permitir acceso a vendedores
 
   // Cargar gastos desde localStorage o generar datos de ejemplo
   const loadExpenses = () => {
