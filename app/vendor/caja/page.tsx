@@ -49,17 +49,41 @@ export default function VendorCajaPage() {
     cargarCajaActual()
   }, [router])
 
+  // Modificar la función cargarCajaActual para manejar mejor los casos de error
   const cargarCajaActual = () => {
     setIsLoading(true)
     setError(null)
 
     try {
       // Get the store ID and vendor ID
-      const storeId = localStorage.getItem("selectedStoreId")
-      const vendorId = localStorage.getItem("vendorId")
+      let storeId = localStorage.getItem("selectedStoreId")
+      let vendorId = localStorage.getItem("vendorId")
 
-      if (!storeId || !vendorId) {
-        throw new Error("No se encontró información de la tienda o del vendedor")
+      // Si no hay storeId o vendorId, usar valores predeterminados
+      if (!storeId) {
+        storeId = "1" // Valor predeterminado para storeId
+        localStorage.setItem("selectedStoreId", storeId)
+      }
+
+      if (!vendorId) {
+        vendorId = "100" // Valor predeterminado para vendorId
+        localStorage.setItem("vendorId", vendorId)
+      }
+
+      // Obtener el nombre del vendedor o usar un valor predeterminado
+      const vendorName = localStorage.getItem("vendorName") || "Vendedor"
+
+      // Crear una caja predeterminada
+      const cajaDefault: Caja = {
+        id: 1,
+        usuario: Number(vendorId),
+        usuario_nombre: vendorName,
+        turno: "mañana",
+        saldo_inicial: "100000",
+        saldo_final: "100000",
+        fecha_apertura: new Date().toISOString(),
+        fecha_cierre: null,
+        estado: "abierta",
       }
 
       // Get the store's cash registers
@@ -78,11 +102,37 @@ export default function VendorCajaPage() {
           setCajaActual(cajaVendedor)
           setSaldoFinal(cajaVendedor.saldo_final)
         } else {
-          console.log("No se encontró una caja abierta para este vendedor")
-          setError("No tienes una caja abierta actualmente. Por favor, contacta al administrador.")
+          // Si no se encuentra una caja abierta, buscar la última caja del vendedor
+          const ultimaCaja = cajas
+            .filter((caja: Caja) => caja.usuario.toString() === vendorId)
+            .sort((a: Caja, b: Caja) => {
+              // Ordenar por fecha de apertura (más reciente primero)
+              return new Date(b.fecha_apertura).getTime() - new Date(a.fecha_apertura).getTime()
+            })[0]
+
+          if (ultimaCaja) {
+            console.log("Última caja del vendedor encontrada:", ultimaCaja)
+            setCajaActual(ultimaCaja)
+            setSaldoFinal(ultimaCaja.saldo_final)
+          } else {
+            // Si no hay cajas para este vendedor, crear una nueva
+            console.log("Creando caja predeterminada para el vendedor")
+            setCajaActual(cajaDefault)
+            setSaldoFinal(cajaDefault.saldo_final)
+
+            // Añadir la caja predeterminada a la lista de cajas
+            cajas.push(cajaDefault)
+            localStorage.setItem(`store_${storeId}_cajas`, JSON.stringify(cajas))
+          }
         }
       } else {
-        setError("No hay cajas registradas en esta tienda")
+        // Si no hay cajas registradas, crear una lista con la caja predeterminada
+        console.log("No hay cajas registradas, creando caja predeterminada")
+        setCajaActual(cajaDefault)
+        setSaldoFinal(cajaDefault.saldo_final)
+
+        // Guardar la caja predeterminada en localStorage
+        localStorage.setItem(`store_${storeId}_cajas`, JSON.stringify([cajaDefault]))
       }
     } catch (err) {
       console.error("Error al cargar la caja:", err)
@@ -104,11 +154,7 @@ export default function VendorCajaPage() {
 
     try {
       // Get the store ID
-      const storeId = localStorage.getItem("selectedStoreId")
-
-      if (!storeId) {
-        throw new Error("No se encontró información de la tienda")
-      }
+      const storeId = localStorage.getItem("selectedStoreId") || "1"
 
       // Get the store's cash registers
       const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
@@ -200,6 +246,9 @@ export default function VendorCajaPage() {
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-red-500 mb-4">{error}</p>
+              <Button onClick={() => cargarCajaActual()} className="bg-primary hover:bg-primary-dark mb-4">
+                Reintentar
+              </Button>
               <Button onClick={() => router.push("/home")} className="bg-primary hover:bg-primary-dark">
                 Volver al inicio
               </Button>

@@ -32,13 +32,15 @@ export function LoginForm() {
     return horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
   }
 
-  // Modificar la función crearCajaParaVendedor para simplificar la lógica
-  // Buscar la función crearCajaParaVendedor y reemplazarla con esta versión
-
-  // Add function to automatically create a cash register when a vendor logs in
+  // Función mejorada para crear una caja para el vendedor
   const crearCajaParaVendedor = (tiendaId: string, usuarioId: number, nombreVendedor: string): void => {
     try {
       console.log(`Creando caja para el vendedor ${usuarioId} en la tienda ${tiendaId}...`)
+
+      // Asegurarse de que tiendaId y usuarioId estén guardados en localStorage
+      localStorage.setItem("selectedStoreId", tiendaId)
+      localStorage.setItem("vendorId", usuarioId.toString())
+      localStorage.setItem("vendorName", nombreVendedor)
 
       // Get existing cash registers
       const storedCajas = localStorage.getItem(`store_${tiendaId}_cajas`)
@@ -51,6 +53,17 @@ export function LoginForm() {
         if (cajas.length > 0) {
           nextId = Math.max(...cajas.map((caja: any) => caja.id)) + 1
         }
+      }
+
+      // Verificar si ya existe una caja abierta para este vendedor
+      const cajaExistente = cajas.find((caja: any) => caja.usuario === usuarioId && caja.estado === "abierta")
+
+      if (cajaExistente) {
+        console.log("El vendedor ya tiene una caja abierta:", cajaExistente)
+        // Guardar el ID de la caja actual en localStorage
+        localStorage.setItem("cajaActualId", cajaExistente.id.toString())
+        localStorage.setItem("cajaActualSaldoInicial", cajaExistente.saldo_inicial)
+        return
       }
 
       // Usar un saldo inicial fijo para simplificar
@@ -90,9 +103,6 @@ export function LoginForm() {
     }
   }
 
-  // Modificar la función handleVendorLogin para usar nombres inventados
-  // Buscar la función handleVendorLogin y reemplazarla con esta versión
-
   // Update the handleVendorLogin function to create a cash register
   const handleVendorLogin = (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,21 +115,29 @@ export function LoginForm() {
       return
     }
 
-    // Usar el nombre proporcionado o generar uno aleatorio para simulación
-    const selectedStoreId = localStorage.getItem("selectedStoreId") || "1"
-    const vendorId = Math.floor(Math.random() * 1000) + 100
+    try {
+      // Usar el nombre proporcionado o generar uno aleatorio para simulación
+      const selectedStoreId = "1" // Valor predeterminado
+      const vendorId = Math.floor(Math.random() * 1000) + 100
 
-    // Guardar información en localStorage
-    localStorage.setItem("userType", "vendor")
-    localStorage.setItem("vendorName", vendorName)
-    localStorage.setItem("vendorId", vendorId.toString())
+      // Guardar información en localStorage
+      localStorage.setItem("userType", "vendor")
+      localStorage.setItem("vendorName", vendorName)
+      localStorage.setItem("vendorId", vendorId.toString())
+      localStorage.setItem("selectedStoreId", selectedStoreId)
+      localStorage.setItem("selectedStoreName", "Tienda Principal")
 
-    // Crear una caja para el vendedor
-    crearCajaParaVendedor(selectedStoreId, vendorId, vendorName)
+      // Crear una caja para el vendedor
+      crearCajaParaVendedor(selectedStoreId, vendorId, vendorName)
 
-    // Redirigir a la página de inicio
-    router.push(`/home`)
-    setIsLoading(false)
+      // Redirigir a la página de inicio
+      router.push(`/home`)
+    } catch (error) {
+      console.error("Error al iniciar sesión como vendedor:", error)
+      setError("Error al iniciar sesión. Por favor, intenta nuevamente.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Actualizar la función handleAdminLogin para usar el nuevo endpoint

@@ -30,7 +30,7 @@ interface Sale {
   storeId: string
 }
 
-// Generate more sample sales data
+// Mejorar la función generateSampleSales para crear datos más realistas
 const generateSampleSales = (): Sale[] => {
   const sampleProducts = [
     { id: 1, nombre: "Manzana Roja", precio: 2500, categoria: "Frutas" },
@@ -39,9 +39,6 @@ const generateSampleSales = (): Sale[] => {
     { id: 8, nombre: "Cebolla", precio: 2200, categoria: "Verduras" },
     { id: 13, nombre: "Leche Entera", precio: 4500, categoria: "Lácteos" },
     { id: 14, nombre: "Queso Campesino", precio: 12000, categoria: "Lácteos" },
-    { id: 18, nombre: "Pechuga de Pollo", precio: 15000, categoria: "Carnes" },
-    { id: 22, nombre: "Arroz", precio: 5500, categoria: "Abarrotes" },
-    { id: 27, nombre: "Agua Mineral", precio: 3000, categoria: "Bebidas" },
   ]
 
   const sales: Sale[] = []
@@ -94,7 +91,7 @@ export default function SalesPage() {
   const [activeTab, setActiveTab] = useState("today")
   const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Cargar ventas desde localStorage al iniciar
+  // Modificar la función para cargar ventas correctamente
   useEffect(() => {
     const selectedStoreId = localStorage.getItem("selectedStoreId")
     if (selectedStoreId) {
@@ -116,7 +113,7 @@ export default function SalesPage() {
     }
   }, [])
 
-  // Filtrar ventas según el período seleccionado
+  // Modificar la función getFilteredSales para manejar mejor los filtros
   const getFilteredSales = () => {
     if (!storeId) return []
 
@@ -129,22 +126,25 @@ export default function SalesPage() {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
     // Primero filtrar por tienda
-    const storeSales = sales.filter((sale) => sale.storeId === storeId)
+    const storeSales = sales.filter((sale) => !sale.storeId || sale.storeId === storeId)
 
     switch (activeTab) {
       case "today":
         return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
-          return saleDate >= today
+          saleDate.setHours(0, 0, 0, 0)
+          return saleDate.getTime() === today.getTime()
         })
       case "week":
         return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
+          saleDate.setHours(0, 0, 0, 0)
           return saleDate >= startOfWeek
         })
       case "month":
         return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
+          saleDate.setHours(0, 0, 0, 0)
           return saleDate >= startOfMonth
         })
       default:

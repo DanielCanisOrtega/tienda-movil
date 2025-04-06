@@ -12,16 +12,17 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
+// Actualizar la interfaz Product para que coincida con la estructura de datos
 interface Product {
   id: number
   nombre: string
   precio: number
+  descripcion: string
   categoria: string
   imagen?: string
   cantidad: number
   disponible: boolean
   tienda: number
-  descripcion: string
 }
 
 interface CartItem {
@@ -39,7 +40,7 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Cargar productos y carrito
+  // Modificar la función para cargar productos correctamente
   useEffect(() => {
     // Obtener el ID de la tienda seleccionada
     const selectedStoreId = localStorage.getItem("selectedStoreId")
@@ -48,12 +49,20 @@ export default function CartPage() {
 
       // Cargar productos de la tienda
       const storedProducts = localStorage.getItem(`store_${selectedStoreId}_products`)
+
       if (storedProducts) {
         const parsedProducts = JSON.parse(storedProducts)
         // Solo mostrar productos disponibles
         const availableProducts = parsedProducts.filter((p: Product) => p.disponible && p.cantidad > 0)
         setProducts(availableProducts)
         setFilteredProducts(availableProducts)
+      } else {
+        // Si no hay productos en localStorage, cargar productos de ejemplo
+        const sampleProducts = generateSampleProducts(selectedStoreId)
+        setProducts(sampleProducts)
+        setFilteredProducts(sampleProducts)
+        // Guardar en localStorage para futuras visitas
+        localStorage.setItem(`store_${selectedStoreId}_products`, JSON.stringify(sampleProducts))
       }
 
       // Cargar carrito si existe
@@ -62,9 +71,91 @@ export default function CartPage() {
         setCartItems(JSON.parse(storedCart))
       }
     } else {
-      router.push("/home")
+      // Si no hay tienda seleccionada, usar ID predeterminado
+      const defaultStoreId = "1"
+      setStoreId(defaultStoreId)
+      localStorage.setItem("selectedStoreId", defaultStoreId)
+
+      // Cargar productos de ejemplo
+      const sampleProducts = generateSampleProducts(defaultStoreId)
+      setProducts(sampleProducts)
+      setFilteredProducts(sampleProducts)
+      // Guardar en localStorage para futuras visitas
+      localStorage.setItem(`store_${defaultStoreId}_products`, JSON.stringify(sampleProducts))
     }
   }, [router])
+
+  // Añadir función para generar productos de ejemplo
+  const generateSampleProducts = (storeId: string): Product[] => {
+    return [
+      {
+        id: 1,
+        nombre: "Manzana Roja",
+        precio: 2500,
+        descripcion: "Manzana roja fresca",
+        categoria: "Frutas",
+        imagen: "/placeholder.svg?height=200&width=200",
+        cantidad: 50,
+        disponible: true,
+        tienda: Number(storeId),
+      },
+      {
+        id: 2,
+        nombre: "Banano",
+        precio: 1800,
+        descripcion: "Banano maduro",
+        categoria: "Frutas",
+        imagen: "/placeholder.svg?height=200&width=200",
+        cantidad: 80,
+        disponible: true,
+        tienda: Number(storeId),
+      },
+      {
+        id: 3,
+        nombre: "Naranja",
+        precio: 2000,
+        descripcion: "Naranja jugosa",
+        categoria: "Frutas",
+        imagen: "/placeholder.svg?height=200&width=200",
+        cantidad: 60,
+        disponible: true,
+        tienda: Number(storeId),
+      },
+      {
+        id: 7,
+        nombre: "Tomate",
+        precio: 3000,
+        descripcion: "Tomate rojo maduro",
+        categoria: "Verduras",
+        imagen: "/placeholder.svg?height=200&width=200",
+        cantidad: 45,
+        disponible: true,
+        tienda: Number(storeId),
+      },
+      {
+        id: 13,
+        nombre: "Leche Entera",
+        precio: 4500,
+        descripcion: "Leche entera 1L",
+        categoria: "Lácteos",
+        imagen: "/placeholder.svg?height=200&width=200",
+        cantidad: 40,
+        disponible: true,
+        tienda: Number(storeId),
+      },
+      {
+        id: 14,
+        nombre: "Queso Campesino",
+        precio: 12000,
+        descripcion: "Queso campesino 500g",
+        categoria: "Lácteos",
+        imagen: "/placeholder.svg?height=200&width=200",
+        cantidad: 25,
+        disponible: true,
+        tienda: Number(storeId),
+      },
+    ]
+  }
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -102,7 +193,7 @@ export default function CartPage() {
     }).format(price)
   }
 
-  // Agregar producto al carrito
+  // Modificar la función addToCart para manejar la estructura de productos correcta
   const addToCart = (product: Product) => {
     // Verificar si hay suficiente stock
     const existingItem = cartItems.find((item) => item.product.id === product.id)

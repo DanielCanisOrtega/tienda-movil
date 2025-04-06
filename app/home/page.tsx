@@ -128,66 +128,73 @@ export default function HomePage() {
 
       <div className="container max-w-md mx-auto p-4">
         <div className="grid grid-cols-2 gap-4">
-          <MenuCard
-            icon={<ShoppingCart className="h-8 w-8 text-primary" />}
-            title="Nueva Venta"
-            description="Registrar venta"
-            href="/cart"
-          />
-
-          <MenuCard
-            icon={<ShoppingBag className="h-8 w-8 text-primary" />}
-            title="Historial"
-            description="Ver ventas"
-            href="/sales"
-          />
-
-          <MenuCard
-            icon={<Package className="h-8 w-8 text-primary" />}
-            title="Inventario"
-            description="Ver productos"
-            href={selectedStore ? `/stores/${selectedStore.id}/products` : "/products"}
-          />
-
           {userType === "vendor" ? (
-            <MenuCard
-              icon={<DollarSign className="h-8 w-8 text-primary" />}
-              title="Mi Caja"
-              description="Gestionar caja"
-              href="/vendor/caja"
-            />
-          ) : (
-            <MenuCard
-              icon={<DollarSign className="h-8 w-8 text-primary" />}
-              title="Gastos"
-              description="Gestionar gastos"
-              href="/expenses"
-            />
-          )}
-
-          {/* Solo mostrar Vendedores, Cajas y Reportes si es administrador */}
-          {userType === "admin" && (
             <>
               <MenuCard
-                icon={<Users className="h-8 w-8 text-primary" />}
-                title="Vendedores"
-                description="Gestionar equipo"
-                href={selectedStore ? `/stores/${selectedStore.id}/employees` : "/vendors"}
+                icon={<ShoppingCart className="h-8 w-8 text-primary" />}
+                title="Nueva Venta"
+                description="Registrar venta"
+                href="/cart"
+              />
+              <MenuCard
+                icon={<ShoppingBag className="h-8 w-8 text-primary" />}
+                title="Historial"
+                description="Ver ventas"
+                href="/sales"
+              />
+              <MenuCard
+                icon={<Package className="h-8 w-8 text-primary" />}
+                title="Inventario"
+                description="Ver productos"
+                href={selectedStore ? `/stores/${selectedStore.id}/products` : "/products"}
+              />
+              <MenuCard
+                icon={<DollarSign className="h-8 w-8 text-primary" />}
+                title="Mi Caja"
+                description="Gestionar caja"
+                href="/vendor/caja"
+              />
+              <MenuCard
+                icon={<DollarSign className="h-8 w-8 text-primary" />}
+                title="Gastos"
+                description="Gestionar gastos"
+                href="/expenses"
+              />
+            </>
+          ) : (
+            <>
+              <MenuCard
+                icon={<DollarSign className="h-8 w-8 text-primary" />}
+                title="Gastos"
+                description="Gestionar gastos"
+                href="/expenses"
               />
 
-              <MenuCard
-                icon={<CreditCard className="h-8 w-8 text-primary" />}
-                title="Cajas"
-                description="Gestionar cajas"
-                href={selectedStore ? `/stores/${selectedStore.id}/cajas` : "/vendors"}
-              />
+              {/* Solo mostrar Vendedores, Cajas y Reportes si es administrador */}
+              {userType === "admin" && (
+                <>
+                  <MenuCard
+                    icon={<Users className="h-8 w-8 text-primary" />}
+                    title="Vendedores"
+                    description="Gestionar equipo"
+                    href={selectedStore ? `/stores/${selectedStore.id}/employees` : "/vendors"}
+                  />
 
-              <MenuCard
-                icon={<BarChart2 className="h-8 w-8 text-primary" />}
-                title="Reportes"
-                description="Ver estadísticas"
-                href="/dashboard"
-              />
+                  <MenuCard
+                    icon={<CreditCard className="h-8 w-8 text-primary" />}
+                    title="Cajas"
+                    description="Gestionar cajas"
+                    href={selectedStore ? `/stores/${selectedStore.id}/cajas` : "/vendors"}
+                  />
+
+                  <MenuCard
+                    icon={<BarChart2 className="h-8 w-8 text-primary" />}
+                    title="Reportes"
+                    description="Ver estadísticas"
+                    href="/dashboard"
+                  />
+                </>
+              )}
             </>
           )}
         </div>
