@@ -108,44 +108,23 @@ export default function AddCajaPage() {
   const fetchUsuarios = async () => {
     setIsLoadingUsers(true)
     try {
-      // Primero seleccionar la tienda
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
-        setIsLoadingUsers(false)
-        return
-      }
+      // Generar usuarios de ejemplo en lugar de cargarlos del backend
+      const empleadosEjemplo = [
+        { id: 101, nombre: "Carlos Rodríguez" },
+        { id: 102, nombre: "María López" },
+        { id: 103, nombre: "Juan Pérez" },
+        { id: 104, nombre: "Ana Martínez" },
+        { id: 105, nombre: "Luis González" },
+      ]
 
-      console.log(`Obteniendo empleados de la tienda con ID: ${storeId}`)
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/empleados/`)
+      setUsuarios(empleadosEjemplo)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error al obtener empleados: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al obtener empleados: ${response.status} - ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Respuesta de empleados:", data)
-
-      if (data && data.empleados && Array.isArray(data.empleados)) {
-        const empleadosFormateados = data.empleados.map((emp: any) => ({
-          id: emp.id,
-          nombre:
-            emp.nombre ||
-            `${emp.first_name || ""} ${emp.last_name || ""}`.trim() ||
-            emp.username ||
-            `Usuario #${emp.id}`,
+      // Si hay empleados, seleccionar el primero por defecto
+      if (empleadosEjemplo.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          usuario: empleadosEjemplo[0].id,
         }))
-
-        setUsuarios(empleadosFormateados)
-
-        // Si hay empleados, seleccionar el primero por defecto
-        if (empleadosFormateados.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            usuario: empleadosFormateados[0].id,
-          }))
-        }
       }
     } catch (err) {
       console.error("Error al cargar los empleados:", err)

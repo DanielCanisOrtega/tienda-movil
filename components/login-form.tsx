@@ -32,6 +32,9 @@ export function LoginForm() {
     return horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
   }
 
+  // Modificar la función crearCajaParaVendedor para simplificar la lógica
+  // Buscar la función crearCajaParaVendedor y reemplazarla con esta versión
+
   // Add function to automatically create a cash register when a vendor logs in
   const crearCajaParaVendedor = (tiendaId: string, usuarioId: number, nombreVendedor: string): void => {
     try {
@@ -50,19 +53,8 @@ export function LoginForm() {
         }
       }
 
-      // Find the last closed cash register to use its final balance as initial balance
-      let saldoInicial = "100000" // Default value
-      if (cajas.length > 0) {
-        // Sort cash registers by closing date (from most recent to oldest)
-        const cajasCerradas = cajas
-          .filter((caja: any) => caja.estado === "cerrada" && caja.saldo_final)
-          .sort((a: any, b: any) => new Date(b.fecha_cierre).getTime() - new Date(a.fecha_cierre).getTime())
-
-        if (cajasCerradas.length > 0) {
-          saldoInicial = cajasCerradas[0].saldo_final
-          console.log(`Usando saldo final de caja anterior: ${saldoInicial}`)
-        }
-      }
+      // Usar un saldo inicial fijo para simplificar
+      const saldoInicial = "100000"
 
       // Determine current shift (morning or night)
       const turnoActual = determinarTurnoActual()
@@ -98,6 +90,9 @@ export function LoginForm() {
     }
   }
 
+  // Modificar la función handleVendorLogin para usar nombres inventados
+  // Buscar la función handleVendorLogin y reemplazarla con esta versión
+
   // Update the handleVendorLogin function to create a cash register
   const handleVendorLogin = (e: React.FormEvent) => {
     e.preventDefault()
@@ -110,45 +105,20 @@ export function LoginForm() {
       return
     }
 
-    // Look for the vendor in the stores
+    // Usar el nombre proporcionado o generar uno aleatorio para simulación
     const selectedStoreId = localStorage.getItem("selectedStoreId") || "1"
-    const storedEmployees = localStorage.getItem(`store_${selectedStoreId}_employees`)
+    const vendorId = Math.floor(Math.random() * 1000) + 100
 
-    if (storedEmployees) {
-      const employees = JSON.parse(storedEmployees)
-      const employee = employees.find((emp: any) => emp.activo && emp.nombre.toLowerCase() === vendorName.toLowerCase())
+    // Guardar información en localStorage
+    localStorage.setItem("userType", "vendor")
+    localStorage.setItem("vendorName", vendorName)
+    localStorage.setItem("vendorId", vendorId.toString())
 
-      if (employee) {
-        // Save information in localStorage
-        localStorage.setItem("userType", "vendor")
-        localStorage.setItem("vendorName", employee.nombre)
-        localStorage.setItem("vendorId", employee.id.toString())
+    // Crear una caja para el vendedor
+    crearCajaParaVendedor(selectedStoreId, vendorId, vendorName)
 
-        // Create a cash register for the vendor
-        crearCajaParaVendedor(selectedStoreId, employee.id, employee.nombre)
-
-        // Redirect to home page
-        router.push(`/home`)
-      } else {
-        setError("No se encontró ningún vendedor con ese nombre en esta tienda")
-        setIsLoading(false)
-      }
-    } else {
-      // If there are no registered employees, allow access with sample data
-      const vendorId = Math.floor(Math.random() * 1000) + 100
-
-      // Save information in localStorage
-      localStorage.setItem("userType", "vendor")
-      localStorage.setItem("vendorName", vendorName)
-      localStorage.setItem("vendorId", vendorId.toString())
-
-      // Create a cash register for the vendor
-      crearCajaParaVendedor(selectedStoreId, vendorId, vendorName)
-
-      // Redirect to home page
-      router.push(`/home`)
-    }
-
+    // Redirigir a la página de inicio
+    router.push(`/home`)
     setIsLoading(false)
   }
 
