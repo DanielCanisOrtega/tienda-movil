@@ -2,17 +2,18 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { User, Lock, LogIn, Store, ArrowLeft } from "lucide-react"
+import { User, Lock, LogIn, Store, ArrowLeft, Eye, EyeOff } from "lucide-react"
 
 export function LoginForm() {
   // Estados para el formulario de administrador
-  const [username, setUsername] = useState("admin")
-  const [password, setPassword] = useState("123456")
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
 
   // Estado para el formulario de vendedor
   const [vendorName, setVendorName] = useState("")
@@ -23,19 +24,6 @@ export function LoginForm() {
   const [loginMode, setLoginMode] = useState<"select" | "admin" | "vendor">("select")
 
   const router = useRouter()
-
-  // Inicializar la autenticación al cargar el componente
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // await loginToBackend() // Removed this line
-      } catch (err) {
-        console.error("Error al inicializar autenticación:", err)
-      }
-    }
-
-    initAuth()
-  }, [])
 
   // Función para determinar el turno actual (mañana o noche)
   const determinarTurnoActual = (): string => {
@@ -77,8 +65,7 @@ export function LoginForm() {
       }
 
       // Determine current shift (morning or night)
-      const horaActual = new Date().getHours()
-      const turnoActual = horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
+      const turnoActual = determinarTurnoActual()
 
       // Create the new cash register
       const nuevaCaja = {
@@ -165,7 +152,8 @@ export function LoginForm() {
     setIsLoading(false)
   }
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  // Actualizar la función handleAdminLogin para usar el nuevo endpoint
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
@@ -177,18 +165,81 @@ export function LoginForm() {
       return
     }
 
-    // Simulamos una verificación de credenciales
-    setTimeout(() => {
-      // Credenciales para administrador
-      if (username === "admin" && password === "123456") {
-        // Guardar el tipo de usuario en localStorage para mantener la sesión
-        localStorage.setItem("userType", "admin")
-        router.push("/stores") // Redirigir a la página de gestión de tiendas
-      } else {
-        setError("Credenciales de administrador incorrectas")
-        setIsLoading(false)
+    try {
+      console.log("Intentando iniciar sesión con:", { username })
+
+      // Usar el nuevo endpoint de token
+      const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      })
+
+      console.log("Respuesta del servidor:", response.status, response.statusText)
+
+      // Obtener el texto de la respuesta para depuración
+      const responseText = await response.text()
+      console.log("Respuesta completa:", responseText)
+
+      // Intentar parsear como JSON
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        console.error("Error al parsear respuesta JSON:", e)
+        throw new Error("Formato de respuesta inválido del servidor")
       }
-    }, 1000)
+
+      if (!response.ok) {
+        // Manejar errores de la API
+        console.error("Error de inicio de sesión:", data)
+
+        if (data.detail) {
+          setError(data.detail)
+        } else if (data.non_field_errors) {
+          setError(Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors)
+        } else {
+          setError("Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.")
+        }
+
+        throw new Error("Error de autenticación")
+      }
+
+      // Login exitoso, guardar tokens
+      if (data.access && data.refresh) {
+        localStorage.setItem("backendToken", data.access)
+        localStorage.setItem("refreshToken", data.refresh)
+        localStorage.setItem("userType", "admin")
+
+        // Establecer expiración del token (asumiendo 1 hora)
+        const expiresAt = new Date()
+        expiresAt.setHours(expiresAt.getHours() + 1)
+        localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
+
+        console.log("Tokens guardados correctamente:", {
+          access: data.access.substring(0, 10) + "...",
+          refresh: data.refresh.substring(0, 10) + "...",
+        })
+
+        // Redirigir a la página de tiendas
+        router.push("/stores")
+      } else {
+        console.error("No se recibieron los tokens esperados:", data)
+        throw new Error("No se recibieron los tokens de acceso y refresco")
+      }
+    } catch (error) {
+      console.error("Error de inicio de sesión:", error)
+      if (!error) {
+        setError("Error al iniciar sesión. Por favor, intenta nuevamente.")
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -267,13 +318,20 @@ export function LoginForm() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary h-5 w-5" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Contraseña"
-                    className="pl-10 bg-input-bg border-0 h-12 text-base"
+                    className="pl-10 pr-10 bg-input-bg border-0 h-12 text-base"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
@@ -304,18 +362,6 @@ export function LoginForm() {
                   Iniciar como vendedor
                 </button>
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setUsername("admin")
-                  setPassword("123456")
-                }}
-                className="w-full text-sm h-10 border-primary/30 text-primary hover:bg-primary/5"
-              >
-                Usar credenciales de prueba
-              </Button>
             </form>
           ) : (
             // Formulario de vendedor
@@ -393,4 +439,6 @@ export function LoginForm() {
     </div>
   )
 }
+
+export default LoginForm
 

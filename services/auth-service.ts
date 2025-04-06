@@ -1,59 +1,74 @@
-// Servicio para manejar la autenticación con el backend
-export interface AuthResponse {
-  refresh: string
-  access: string
-  user?: {
-    id: string
-    username: string
-    email?: string
-  }
-}
-
-// Función para iniciar sesión y obtener el token
-export async function loginToBackend(): Promise<string | null> {
+// Función para iniciar sesión en el backend
+export async function loginToBackend(username?: string, password?: string): Promise<string | null> {
   try {
-    console.log("Iniciando sesión en el backend...")
+    // Si no se proporcionan credenciales, verificar si tenemos un token válido
+    if (!username || !password) {
+      const existingToken = localStorage.getItem("backendToken")
+      const tokenExpiresAt = localStorage.getItem("tokenExpiresAt")
+
+      if (existingToken && tokenExpiresAt) {
+        const expiresAt = new Date(tokenExpiresAt)
+        if (expiresAt > new Date()) {
+          console.log("Usando token existente")
+          return existingToken
+        }
+      }
+
+      // Si no hay credenciales y el token expiró, no podemos hacer nada
+      console.error("No se proporcionaron credenciales y no hay token válido")
+      return null
+    }
+
+    console.log("Iniciando sesión con credenciales proporcionadas:", username)
+
+    // Usar el nuevo endpoint de token
     const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        username: "admin",
-        password: "clave_seminario",
+        username,
+        password,
       }),
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error de autenticación: ${response.status} - ${response.statusText}`, errorText)
-      throw new Error(`Error de autenticación: ${response.status} - ${response.statusText}`)
+      console.error(`Error al iniciar sesión: ${response.status}`)
+      return null
     }
 
-    const data: AuthResponse = await response.json()
-    console.log("Autenticación exitosa, token obtenido")
+    const data = await response.json()
+    console.log("Respuesta de login:", data)
 
-    // Guardar ambos tokens en localStorage
+    // Guardar tokens en localStorage
     if (data.access) {
       localStorage.setItem("backendToken", data.access)
+
       if (data.refresh) {
+        console.log("Guardando refresh token:", data.refresh)
         localStorage.setItem("refreshToken", data.refresh)
-        // Guardar también la fecha de expiración (asumiendo que el token dura 1 hora)
+
+        // Establecer expiración del token (asumiendo 1 hora)
         const expiresAt = new Date()
         expiresAt.setHours(expiresAt.getHours() + 1)
         localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
+      } else {
+        console.warn("No se recibió refresh token del servidor")
       }
+
       return data.access
     }
 
+    console.warn("No se recibió token de acceso")
     return null
   } catch (error) {
-    console.error("Error al iniciar sesión en el backend:", error)
+    console.error("Error al iniciar sesión:", error)
     return null
   }
 }
 
-// Función para refrescar el token
+// Actualizar la función refreshToken para usar el mismo formato de endpoint
 export async function refreshToken(): Promise<string | null> {
   try {
     const refreshToken = localStorage.getItem("refreshToken")
@@ -74,12 +89,12 @@ export async function refreshToken(): Promise<string | null> {
     })
 
     if (!response.ok) {
-      console.error(`Error al refrescar token: ${response.status} - ${response.statusText}`)
-      // Si hay un error al refrescar, limpiar tokens y volver a iniciar sesión
+      console.error(`Error al refrescar token: ${response.status}`)
+      // Si hay un error al refrescar, limpiar tokens
       localStorage.removeItem("backendToken")
       localStorage.removeItem("refreshToken")
       localStorage.removeItem("tokenExpiresAt")
-      return await loginToBackend()
+      return null
     }
 
     const data = await response.json()
@@ -100,80 +115,70 @@ export async function refreshToken(): Promise<string | null> {
   }
 }
 
-// Verificar si el token ha expirado
-function isTokenExpired(): boolean {
-  const expiresAtStr = localStorage.getItem("tokenExpiresAt")
-  if (!expiresAtStr) return true
-
-  const expiresAt = new Date(expiresAtStr)
-  const now = new Date()
-
-  // Considerar el token expirado 5 minutos antes para evitar problemas
-  const fiveMinutes = 5 * 60 * 1000
-  return now.getTime() > expiresAt.getTime() - fiveMinutes
-}
-
-// Función para obtener el token almacenado o iniciar sesión si no existe
-export async function getAuthToken(): Promise<string | null> {
-  // Verificar si ya tenemos un token almacenado
-  const storedToken = localStorage.getItem("backendToken")
-
-  if (storedToken) {
-    // Verificar si el token ha expirado
-    if (isTokenExpired()) {
-      console.log("Token expirado, intentando refrescar...")
-      return await refreshToken()
-    }
-    return storedToken
-  }
-
-  // Si no hay token, iniciar sesión para obtener uno nuevo
-  return await loginToBackend()
-}
-
-// Función para realizar solicitudes autenticadas
+// Modificar la función fetchWithAuth para manejar mejor el caso cuando no hay refresh token
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-  let token = await getAuthToken()
-
-  if (!token) {
-    console.error("No se pudo obtener un token de autenticación")
-    throw new Error("No se pudo obtener un token de autenticación")
-  }
-
-  // Añadir el token a los headers
-  const authOptions: RequestInit = {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-    },
-  }
-
-  console.log(`Realizando solicitud a ${url}`)
-  let response = await fetch(url, authOptions)
-
-  // Si recibimos un 401 o 403, intentar refrescar el token y reintentar
-  if (response.status === 401 || response.status === 403) {
-    console.log(`Recibido ${response.status}, intentando refrescar token y reintentar...`)
-
-    // Forzar la obtención de un nuevo token
-    localStorage.removeItem("backendToken")
-    token = await loginToBackend()
+  try {
+    // Obtener token de autenticación
+    const token = localStorage.getItem("backendToken")
 
     if (!token) {
-      throw new Error("No se pudo renovar la autenticación")
+      console.log("No hay token disponible, intentando iniciar sesión automáticamente")
+      // Si no hay token, intentar iniciar sesión con credenciales almacenadas
+      // o redirigir al usuario a la página de login
+      throw new Error("No hay token de autenticación disponible. Por favor, inicia sesión nuevamente.")
     }
 
-    // Reintentar con el nuevo token
-    authOptions.headers = {
-      ...authOptions.headers,
-      Authorization: `Bearer ${token}`,
+    // Configurar opciones con el token
+    const authOptions: RequestInit = {
+      ...options,
+      headers: {
+        ...options.headers,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     }
 
-    console.log("Reintentando solicitud con nuevo token...")
-    response = await fetch(url, authOptions)
+    console.log(`Realizando solicitud a ${url}`)
+    let response = await fetch(url, authOptions)
+
+    // Si recibimos un 401 o 403, el token puede haber expirado
+    if (response.status === 401 || response.status === 403) {
+      console.log(`Recibido ${response.status}, posible token expirado`)
+
+      // Verificar si tenemos refresh token antes de intentar renovar
+      const refreshTokenValue = localStorage.getItem("refreshToken")
+
+      if (refreshTokenValue) {
+        // Intentar renovar el token
+        const newToken = await refreshToken()
+
+        if (newToken) {
+          // Reintentar con el nuevo token
+          authOptions.headers = {
+            ...authOptions.headers,
+            Authorization: `Bearer ${newToken}`,
+          }
+
+          console.log(`Reintentando solicitud con nuevo token`)
+          response = await fetch(url, authOptions)
+        } else {
+          // Si no se pudo renovar, limpiar tokens y notificar
+          localStorage.removeItem("backendToken")
+          localStorage.removeItem("refreshToken")
+          localStorage.removeItem("tokenExpiresAt")
+          throw new Error("La sesión ha expirado. Por favor, inicia sesión nuevamente.")
+        }
+      } else {
+        // Si no hay refresh token, limpiar tokens y notificar
+        localStorage.removeItem("backendToken")
+        throw new Error("No hay refresh token disponible. Por favor, inicia sesión nuevamente.")
+      }
+    }
+
+    return response
+  } catch (error) {
+    console.error(`Error en fetchWithAuth para URL ${url}:`, error)
+    throw error
   }
-
-  return response
 }
 

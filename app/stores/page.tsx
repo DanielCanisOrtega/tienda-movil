@@ -80,10 +80,13 @@ export default function StoresPage() {
           const errorText = await response.text()
           console.error(`Error al obtener tiendas: ${response.status} - ${response.statusText}`, errorText)
 
-          if (response.status === 403) {
-            throw new Error(
-              `Error de permisos (403): No tienes acceso a este recurso. Intenta cerrar sesión y volver a iniciar.`,
-            )
+          if (response.status === 401 || response.status === 403) {
+            // Si hay un error de autenticación, redirigir al login
+            localStorage.removeItem("backendToken")
+            localStorage.removeItem("refreshToken")
+            localStorage.removeItem("tokenExpiresAt")
+            router.push("/")
+            throw new Error(`Error de autenticación: Tu sesión ha expirado. Por favor, inicia sesión nuevamente.`)
           } else {
             throw new Error(`Error: ${response.status} - ${response.statusText}`)
           }
@@ -94,9 +97,18 @@ export default function StoresPage() {
         setStores(data)
       } catch (err) {
         console.error("Error al cargar las tiendas:", err)
-        setError(
-          `No se pudieron cargar las tiendas: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
-        )
+
+        // Verificar si es un error de autenticación
+        const errorMessage = err instanceof Error ? err.message : "Error desconocido"
+        if (
+          errorMessage.includes("sesión ha expirado") ||
+          errorMessage.includes("No hay token") ||
+          errorMessage.includes("No hay refresh token")
+        ) {
+          setError("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.")
+        } else {
+          setError(`No se pudieron cargar las tiendas: ${errorMessage}. Por favor, intenta de nuevo más tarde.`)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -167,21 +179,36 @@ export default function StoresPage() {
     }
   }
 
+  // FUNCIÓN CLAVE: Simplificada para seleccionar tienda correctamente
   const handleSelectStore = async (storeId: string, storeName: string) => {
     try {
-      const response = await fetchWithAuth(
+      console.log(`Seleccionando tienda con ID: ${storeId}`)
+
+      // Obtener token fresco
+      const token = localStorage.getItem("backendToken")
+      if (!token) {
+        throw new Error("No hay token de autenticación disponible")
+      }
+
+      // Hacer la solicitud para seleccionar la tienda
+      const response = await fetch(
         `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         },
       )
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al seleccionar tienda: ${response.status} - ${response.statusText}`)
       }
+
+      console.log("Tienda seleccionada correctamente")
 
       // Guardar la tienda seleccionada en localStorage
       localStorage.setItem("selectedStoreId", storeId)

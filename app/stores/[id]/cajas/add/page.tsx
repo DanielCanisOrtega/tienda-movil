@@ -10,7 +10,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { fetchWithAuth } from "@/services/auth-service"
+import { fetchWithAuth } from "@/lib/utils"
 
 interface CajaFormData {
   usuario: number
@@ -219,7 +219,6 @@ export default function AddCajaPage() {
     return isValid
   }
 
-  // Modificar la función handleSubmit para asegurarnos de que se seleccione la tienda correctamente
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -230,38 +229,25 @@ export default function AddCajaPage() {
     setIsSubmitting(true)
 
     try {
-      // First select the store - IMPORTANT MODIFICATION HERE
-      console.log(`Selecting store with ID: ${storeId}`)
-      const selectResponse = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      if (!selectResponse.ok) {
-        const errorText = await selectResponse.text()
-        console.error(`Error selecting store: ${selectResponse.status} - ${selectResponse.statusText}`, errorText)
-        throw new Error(`Error selecting store: ${selectResponse.status} - ${selectResponse.statusText}`)
+      // Primero seleccionar la tienda
+      const storeSelected = await selectStore()
+      if (!storeSelected) {
+        setIsSubmitting(false)
+        return
       }
 
-      console.log("Store selected successfully")
-
-      // Prepare data to send
+      // Preparar datos para enviar
       const cajaData = {
-        usuario: formData.usuario,
-        turno: formData.turno,
+        ...formData,
+        // Convertir saldos a números si es necesario
         saldo_inicial: formData.saldo_inicial,
         saldo_final: formData.saldo_final,
-        estado: formData.estado,
+        // Añadir fechas actuales si no se proporcionan
         fecha_apertura: new Date().toISOString(),
         fecha_cierre: formData.estado === "cerrada" ? new Date().toISOString() : null,
       }
 
-      console.log("Creating new cash register:", cajaData)
+      console.log("Creando nueva caja:", cajaData)
 
       const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/", {
         method: "POST",
@@ -273,16 +259,16 @@ export default function AddCajaPage() {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`Error creating cash register: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error creating cash register: ${response.status} - ${errorText}`)
+        console.error(`Error al crear caja: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al crear caja: ${response.status} - ${response.statusText}`)
       }
 
-      alert("Cash register created successfully")
+      alert("Caja creada con éxito")
       router.push(`/stores/${storeId}/cajas`)
     } catch (err) {
-      console.error("Error creating cash register:", err)
+      console.error("Error al crear la caja:", err)
       alert(
-        `Could not create cash register: ${err instanceof Error ? err.message : "Unknown error"}. Please try again later.`,
+        `No se pudo crear la caja: ${err instanceof Error ? err.message : "Error desconocido"}. Por favor, intenta de nuevo más tarde.`,
       )
     } finally {
       setIsSubmitting(false)

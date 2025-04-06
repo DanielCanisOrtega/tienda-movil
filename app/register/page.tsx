@@ -14,7 +14,7 @@ export default function RegisterPage() {
 
       {/* Formulario centrado */}
       <div className="flex-1 flex items-center justify-center p-6">
-        <RegisterForm />
+        <RegisterForm/>
       </div>
     </main>
   )

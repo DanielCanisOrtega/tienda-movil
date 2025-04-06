@@ -10,7 +10,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { fetchWithAuth } from "@/services/auth-service"
+import { fetchWithAuth } from "@/lib/utils"
 
 interface CajaData {
   id: number
@@ -126,23 +126,17 @@ export default function EditCajaPage() {
   // Obtener datos de la caja
   const fetchCaja = async () => {
     try {
-      // First select the store
-      const storeSelected = await selectStore()
-      if (!storeSelected) {
-        return
-      }
-
-      console.log(`Getting cash register with ID: ${cajaId}`)
+      console.log(`Obteniendo caja con ID: ${cajaId}`)
       const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/cajas/${cajaId}/`)
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`Error getting cash register: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error getting cash register: ${response.status} - ${response.statusText}`)
+        console.error(`Error al obtener caja: ${response.status} - ${response.statusText}`, errorText)
+        throw new Error(`Error al obtener caja: ${response.status} - ${response.statusText}`)
       }
 
       const data = await response.json()
-      console.log("Cash register data obtained:", data)
+      console.log("Datos de caja obtenidos:", data)
 
       setFormData({
         id: data.id,
@@ -155,8 +149,10 @@ export default function EditCajaPage() {
         estado: data.estado || "abierta",
       })
     } catch (err) {
-      console.error("Error loading cash register:", err)
-      setError(`Could not load cash register information: ${err instanceof Error ? err.message : "Unknown error"}`)
+      console.error("Error al cargar la caja:", err)
+      setError(
+        `No se pudo cargar la información de la caja: ${err instanceof Error ? err.message : "Error desconocido"}`,
+      )
     }
   }
 
@@ -265,7 +261,6 @@ export default function EditCajaPage() {
     return isValid
   }
 
-  // Modificar la función handleSubmit para asegurarnos de que se seleccione la tienda correctamente
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -276,25 +271,12 @@ export default function EditCajaPage() {
     setIsSubmitting(true)
 
     try {
-      // Primero seleccionar la tienda - MODIFICACIÓN IMPORTANTE AQUÍ
-      console.log(`Seleccionando tienda con ID: ${storeId}`)
-      const selectResponse = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      if (!selectResponse.ok) {
-        const errorText = await selectResponse.text()
-        console.error(`Error al seleccionar tienda: ${selectResponse.status} - ${selectResponse.statusText}`, errorText)
-        throw new Error(`Error al seleccionar tienda: ${selectResponse.status} - ${selectResponse.statusText}`)
+      // Primero seleccionar la tienda
+      const storeSelected = await selectStore()
+      if (!storeSelected) {
+        setIsSubmitting(false)
+        return
       }
-
-      console.log("Tienda seleccionada correctamente")
 
       // Preparar datos para enviar
       const cajaData = {
@@ -317,7 +299,7 @@ export default function EditCajaPage() {
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Error al actualizar caja: ${response.status} - ${response.statusText}`, errorText)
-        throw new Error(`Error al actualizar caja: ${response.status} - ${errorText}`)
+        throw new Error(`Error al actualizar caja: ${response.status} - ${response.statusText}`)
       }
 
       alert("Caja actualizada con éxito")

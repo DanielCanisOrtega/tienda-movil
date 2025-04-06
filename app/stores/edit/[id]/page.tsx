@@ -10,7 +10,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
-import { fetchWithAuth } from "@/services/auth-service"
+import { fetchWithAuth } from "@/lib/utils"
 
 interface StoreData {
   id: string
