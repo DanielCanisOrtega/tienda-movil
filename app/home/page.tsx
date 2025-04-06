@@ -154,25 +154,39 @@ export default function HomePage() {
                 description="Gestionar caja"
                 href="/vendor/caja"
               />
-              <MenuCard
-                icon={<DollarSign className="h-8 w-8 text-primary" />}
-                title="Gastos"
-                description="Gestionar gastos"
-                href="/expenses"
-              />
             </>
           ) : (
             <>
-              <MenuCard
-                icon={<DollarSign className="h-8 w-8 text-primary" />}
-                title="Gastos"
-                description="Gestionar gastos"
-                href="/expenses"
-              />
-
-              {/* Solo mostrar Vendedores, Cajas y Reportes si es administrador */}
               {userType === "admin" && (
                 <>
+                  <MenuCard
+                    icon={<ShoppingCart className="h-8 w-8 text-primary" />}
+                    title="Ventas"
+                    description="Registrar venta"
+                    href="/cart"
+                  />
+
+                  <MenuCard
+                    icon={<ShoppingBag className="h-8 w-8 text-primary" />}
+                    title="Historial"
+                    description="Ver ventas"
+                    href="/sales"
+                  />
+
+                  <MenuCard
+                    icon={<Package className="h-8 w-8 text-primary" />}
+                    title="Inventario"
+                    description="Ver productos"
+                    href={selectedStore ? `/stores/${selectedStore.id}/products` : "/products"}
+                  />
+
+                  <MenuCard
+                    icon={<DollarSign className="h-8 w-8 text-primary" />}
+                    title="Gastos"
+                    description="Gestionar gastos"
+                    href="/expenses"
+                  />
+
                   <MenuCard
                     icon={<Users className="h-8 w-8 text-primary" />}
                     title="Vendedores"
