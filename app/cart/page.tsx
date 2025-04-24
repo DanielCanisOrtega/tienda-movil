@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2, Mic, Barcode } from "lucide-react"
 import Link from "next/link"
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
+import Quagga from "@ericblade/quagga2" // Importamos quagga2 que es una versión mantenida de quagga
 
 interface Product {
   id: number
@@ -67,6 +68,8 @@ declare global {
 export default function CartPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const scannerRef = useRef<HTMLDivElement>(null)
+
   const [searchQuery, setSearchQuery] = useState("")
   const [products, setProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
@@ -82,7 +85,8 @@ export default function CartPage() {
   // Estado para el escáner de códigos de barras
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [scannerActive, setScannerActive] = useState(false)
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
+  const [scannerInitialized, setScannerInitialized] = useState(false)
+  const [scanning, setScanning] = useState(false)
 
   // Cargar productos y carrito
   useEffect(() => {
@@ -143,14 +147,14 @@ export default function CartPage() {
     }
   }, [router, toast])
 
-  // Limpiar el stream de video cuando se desmonta el componente
+  // Limpiar el escáner cuando se desmonta el componente
   useEffect(() => {
     return () => {
-      if (videoStream) {
-        videoStream.getTracks().forEach((track) => track.stop())
+      if (scannerInitialized) {
+        Quagga.stop()
       }
     }
-  }, [videoStream])
+  }, [scannerInitialized])
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -522,91 +526,189 @@ export default function CartPage() {
   }
 
   // Función para iniciar el escáner de códigos de barras
-  const startBarcodeScanner = async () => {
-    try {
-      setShowBarcodeScanner(true)
-      setScannerActive(true)
+  const startBarcodeScanner = () => {
+    setShowBarcodeScanner(true)
+    setScannerActive(true)
+    setScanning(true)
 
-      // Acceder a la cámara
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      })
-
-      setVideoStream(stream)
-
-      // Obtener el elemento de video
-      const videoElement = document.getElementById("barcode-scanner") as HTMLVideoElement
-      if (videoElement) {
-        videoElement.srcObject = stream
-        videoElement.play()
-
-        // Iniciar la detección de códigos de barras
-        startBarcodeDetection(videoElement)
-      }
-    } catch (error) {
-      console.error("Error al acceder a la cámara:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo acceder a la cámara. Verifica los permisos.",
-        variant: "destructive",
-      })
-      setShowBarcodeScanner(false)
-      setScannerActive(false)
-    }
+    // Inicializar el escáner después de que el modal esté visible
+    setTimeout(() => {
+      initQuagga()
+    }, 100)
   }
 
   // Función para detener el escáner
   const stopBarcodeScanner = () => {
-    if (videoStream) {
-      videoStream.getTracks().forEach((track) => track.stop())
-      setVideoStream(null)
+    if (scannerInitialized) {
+      Quagga.stop()
+      setScannerInitialized(false)
     }
     setShowBarcodeScanner(false)
     setScannerActive(false)
+    setScanning(false)
   }
 
-  // Función para procesar la detección de códigos de barras
-  const startBarcodeDetection = (videoElement: HTMLVideoElement) => {
-    // Esta es una implementación simulada
-    // En una implementación real, usarías una biblioteca como quagga.js o zxing
+  // Inicializar Quagga
+  const initQuagga = () => {
+    if (!scannerRef.current) return
 
-    // Simulamos la detección después de 3 segundos
-    setTimeout(() => {
-      if (scannerActive) {
-        // Simulamos la detección de un código de barras aleatorio de los productos
-        const productsWithBarcodes = products.filter((p) => p.codigo_barras && p.codigo_barras.trim() !== "")
+    Quagga.init(
+      {
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: scannerRef.current,
+          constraints: {
+            facingMode: "environment", // Usar cámara trasera
+            width: { min: 450 },
+            height: { min: 300 },
+            aspectRatio: { min: 1, max: 2 },
+          },
+          area: {
+            // Definir un área más pequeña para el escaneo puede mejorar la precisión
+            top: "25%",
+            right: "10%",
+            left: "10%",
+            bottom: "25%",
+          },
+        },
+        locator: {
+          patchSize: "medium",
+          halfSample: true,
+        },
+        numOfWorkers: 2, // Reducir el número de workers para evitar problemas de rendimiento
+        frequency: 10, // Reducir la frecuencia de escaneo
+        decoder: {
+          readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"],
+          debug: {
+            drawBoundingBox: false,
+            showFrequency: false,
+            drawScanline: false,
+            showPattern: false,
+          },
+        },
+        locate: true,
+      },
+      (err) => {
+        if (err) {
+          console.error("Error al inicializar Quagga:", err)
+          toast({
+            title: "Error",
+            description: "No se pudo inicializar el escáner. Verifica los permisos de la cámara.",
+            variant: "destructive",
+          })
+          stopBarcodeScanner()
+          return
+        }
 
-        if (productsWithBarcodes.length > 0) {
-          const randomProduct = productsWithBarcodes[Math.floor(Math.random() * productsWithBarcodes.length)]
-          handleBarcodeDetected(randomProduct.codigo_barras!)
-        } else {
-          // Si no hay productos con códigos de barras, simulamos uno
-          handleBarcodeDetected("7707123456789")
+        setScannerInitialized(true)
+        Quagga.start()
+
+        // Añadir detector de códigos de barras con manejo de errores
+        Quagga.onDetected((result) => {
+          try {
+            handleBarcodeDetected(result)
+          } catch (error) {
+            console.error("Error al procesar el código detectado:", error)
+          }
+        })
+
+        // Añadir procesamiento de cada fotograma para mostrar el cuadro de detección
+        Quagga.onProcessed((result) => {
+          try {
+            handleProcessed(result)
+          } catch (error) {
+            console.error("Error al procesar el fotograma:", error)
+          }
+        })
+      },
+    )
+  }
+
+  // Función para manejar el procesamiento de cada fotograma
+  const handleProcessed = (result: any) => {
+    try {
+      const drawingCtx = Quagga.canvas.ctx.overlay
+      const drawingCanvas = Quagga.canvas.dom.overlay
+
+      if (!drawingCtx || !drawingCanvas) return
+
+      if (result) {
+        if (result.boxes) {
+          drawingCtx.clearRect(
+            0,
+            0,
+            Number.parseInt(drawingCanvas.getAttribute("width") || "0"),
+            Number.parseInt(drawingCanvas.getAttribute("height") || "0"),
+          )
+          result.boxes
+            .filter((box: any) => box !== result.box)
+            .forEach((box: any) => {
+              if (box) {
+                try {
+                  Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: "green", lineWidth: 2 })
+                } catch (error) {
+                  console.error("Error al dibujar caja:", error)
+                }
+              }
+            })
+        }
+
+        if (result.box) {
+          try {
+            Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: "#00F", lineWidth: 2 })
+          } catch (error) {
+            console.error("Error al dibujar caja principal:", error)
+          }
+        }
+
+        if (result.codeResult && result.codeResult.code) {
+          try {
+            Quagga.ImageDebug.drawPath(result.line, { x: "x", y: "y" }, drawingCtx, { color: "red", lineWidth: 3 })
+          } catch (error) {
+            console.error("Error al dibujar línea de código:", error)
+          }
         }
       }
-    }, 3000)
+    } catch (error) {
+      console.error("Error en handleProcessed:", error)
+    }
   }
 
   // Función para manejar la detección de un código de barras
-  const handleBarcodeDetected = (barcode: string) => {
-    // Detener el escáner
-    stopBarcodeScanner()
+  const handleBarcodeDetected = (result: any) => {
+    try {
+      if (!result || !result.codeResult) {
+        console.log("Detección sin resultado válido")
+        return
+      }
 
-    // Buscar el producto por código de barras
-    const foundProduct = products.find((p) => p.codigo_barras === barcode)
+      // Obtener el código detectado
+      const code = result.codeResult.code
 
-    if (foundProduct) {
-      // Si encontramos el producto, lo añadimos directamente al carrito
-      addToCart(foundProduct)
+      // Mostrar el código en la consola sin importar qué sea
+      console.log("CÓDIGO DETECTADO EN CARRITO:", code)
+      console.log("RESULTADO COMPLETO:", result)
+
+      // Notificar al usuario que se detectó un código
       toast({
         title: "Código detectado",
-        description: `Producto añadido: ${foundProduct.nombre}`,
+        description: `Código: ${code}`,
         variant: "success",
       })
-    } else {
+
+      // Establecer el término de búsqueda como el código
+      setSearchQuery(code)
+
+      // Detener el escáner después de una detección exitosa
+      stopBarcodeScanner()
+    } catch (error) {
+      console.error("Error en handleBarcodeDetected:", error)
+      console.log("Resultado que causó el error:", result)
+      stopBarcodeScanner()
       toast({
-        title: "Código detectado",
-        description: `Código ${barcode} no corresponde a ningún producto`,
+        title: "Error",
+        description: "Error al procesar el código de barras",
         variant: "destructive",
       })
     }
@@ -802,15 +904,21 @@ export default function CartPage() {
             <p className="text-sm text-gray-500 mb-4">Apunta la cámara al código de barras del producto</p>
 
             <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
-              <video id="barcode-scanner" className="w-full h-full object-cover" playsInline muted></video>
-              <div className="absolute inset-0 border-2 border-primary opacity-50 pointer-events-none"></div>
+              <div ref={scannerRef} className="w-full h-full">
+                {/* Quagga insertará el video aquí */}
+              </div>
+
+              {/* Línea de escaneo animada */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="h-0.5 w-full bg-red-500 absolute top-1/2 transform -translate-y-1/2 animate-pulse"></div>
+                <div className="absolute inset-0 border-2 border-primary opacity-50"></div>
+              </div>
             </div>
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={stopBarcodeScanner}>
                 Cancelar
               </Button>
-              <Button onClick={stopBarcodeScanner}>Cerrar</Button>
             </div>
           </div>
         </div>

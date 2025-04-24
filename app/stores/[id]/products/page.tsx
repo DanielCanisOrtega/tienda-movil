@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
+import BarcodeScanner from "@/components/barcode-scanner" // Importar el componente de escáner
 
 interface Producto {
   id: number
@@ -50,8 +51,6 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [nextId, setNextId] = useState(1) // Para generar IDs únicos
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
-  const [scannerActive, setScannerActive] = useState(false)
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
 
   // Cargar productos
   useEffect(() => {
@@ -71,15 +70,6 @@ export default function ProductsPage() {
     // Cargar productos
     loadProducts()
   }, [storeId, router])
-
-  // Limpiar el stream de video cuando se desmonta el componente
-  useEffect(() => {
-    return () => {
-      if (videoStream) {
-        videoStream.getTracks().forEach((track) => track.stop())
-      }
-    }
-  }, [videoStream])
 
   // Cargar productos desde el backend
   const loadProducts = async () => {
@@ -107,7 +97,10 @@ export default function ProductsPage() {
       setFilteredProductos(adaptedProducts)
 
       // Extraer categorías únicas
-      const uniqueCategories = Array.from(new Set(adaptedProducts.map((producto) => producto.categoria)))
+      const uniqueCategories = Array.from(
+        new Set(adaptedProducts.map((producto: Producto) => producto.categoria)),
+      ) as string[]
+
       setCategories(["Todos", ...uniqueCategories])
 
       // Encontrar el ID más alto para nuevos productos
@@ -125,13 +118,16 @@ export default function ProductsPage() {
       // Fallback a localStorage si el endpoint falla
       const storedProducts = localStorage.getItem(`store_${storeId}_products`)
       if (storedProducts) {
-        const parsedProducts = JSON.parse(storedProducts)
+        const parsedProducts = JSON.parse(storedProducts) as Producto[]
         setProductos(parsedProducts)
         setFilteredProductos(parsedProducts)
 
-          // Extraer categorías únicas
-          const uniqueCategories = Array.from(new Set(parsedProducts.map((producto:Producto) => producto.categoria)))
-          setCategories(["Todos", ...uniqueCategories])
+        // Extraer categorías únicas - Corregido el error de tipado
+        const uniqueCategories = Array.from(
+          new Set(parsedProducts.map((producto: Producto) => producto.categoria)),
+        ) as string[]
+
+        setCategories(["Todos", ...uniqueCategories])
 
         if (parsedProducts.length > 0) {
           setNextId(Math.max(...parsedProducts.map((p: Producto) => p.id)) + 1)
@@ -183,94 +179,23 @@ export default function ProductsPage() {
   }
 
   // Función para iniciar el escáner de códigos de barras
-  const startBarcodeScanner = async () => {
-    try {
-      setShowBarcodeScanner(true)
-      setScannerActive(true)
-
-      // Acceder a la cámara
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      })
-
-      setVideoStream(stream)
-
-      // Obtener el elemento de video
-      const videoElement = document.getElementById("barcode-scanner") as HTMLVideoElement
-      if (videoElement) {
-        videoElement.srcObject = stream
-        videoElement.play()
-
-        // Iniciar la detección de códigos de barras
-        startBarcodeDetection(videoElement)
-      }
-    } catch (error) {
-      console.error("Error al acceder a la cámara:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo acceder a la cámara. Verifica los permisos.",
-        variant: "destructive",
-      })
-      setShowBarcodeScanner(false)
-      setScannerActive(false)
-    }
-  }
-
-  // Función para detener el escáner
-  const stopBarcodeScanner = () => {
-    if (videoStream) {
-      videoStream.getTracks().forEach((track) => track.stop())
-      setVideoStream(null)
-    }
-    setShowBarcodeScanner(false)
-    setScannerActive(false)
-  }
-
-  // Función para procesar la detección de códigos de barras
-  const startBarcodeDetection = (videoElement: HTMLVideoElement) => {
-    // Esta es una implementación simulada
-    // En una implementación real, usarías una biblioteca como quagga.js o zxing
-
-    // Simulamos la detección después de 3 segundos
-    setTimeout(() => {
-      if (scannerActive) {
-        // Simulamos la detección de un código de barras aleatorio de los productos
-        const productsWithBarcodes = productos.filter((p) => p.codigo_barras && p.codigo_barras.trim() !== "")
-
-        if (productsWithBarcodes.length > 0) {
-          const randomProduct = productsWithBarcodes[Math.floor(Math.random() * productsWithBarcodes.length)]
-          handleBarcodeDetected(randomProduct.codigo_barras!)
-        } else {
-          // Si no hay productos con códigos de barras, simulamos uno
-          handleBarcodeDetected("7707123456789")
-        }
-      }
-    }, 3000)
+  const startBarcodeScanner = () => {
+    setShowBarcodeScanner(true)
   }
 
   // Función para manejar la detección de un código de barras
-  const handleBarcodeDetected = (barcode: string) => {
-    // Detener el escáner
-    stopBarcodeScanner()
+  const handleBarcodeDetected = (code: string) => {
+    console.log("CÓDIGO RECIBIDO EN LA PÁGINA:", code)
 
-    // Buscar el producto por código de barras
-    const foundProduct = productos.find((p) => p.codigo_barras === barcode)
+    // Mostrar un toast con el código detectado
+    toast({
+      title: "Código detectado",
+      description: `Código: ${code}`,
+      variant: "success",
+    })
 
-    if (foundProduct) {
-      // Si encontramos el producto, establecemos el término de búsqueda
-      setSearchTerm(barcode)
-      toast({
-        title: "Código detectado",
-        description: `Producto encontrado: ${foundProduct.nombre}`,
-        variant: "success",
-      })
-    } else {
-      toast({
-        title: "Código detectado",
-        description: `Código ${barcode} no corresponde a ningún producto`,
-        variant: "destructive",
-      })
-    }
+    // Establecer el término de búsqueda como el código
+    setSearchTerm(code)
   }
 
   if (isLoading) {
@@ -406,26 +331,9 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* Modal para el escáner de códigos de barras */}
+      {/* Componente de escáner de códigos de barras */}
       {showBarcodeScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-2">Escanear código de barras</h3>
-            <p className="text-sm text-gray-500 mb-4">Apunta la cámara al código de barras del producto</p>
-
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
-              <video id="barcode-scanner" className="w-full h-full object-cover" playsInline muted></video>
-              <div className="absolute inset-0 border-2 border-primary opacity-50 pointer-events-none"></div>
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={stopBarcodeScanner}>
-                Cancelar
-              </Button>
-              <Button onClick={stopBarcodeScanner}>Cerrar</Button>
-            </div>
-          </div>
-        </div>
+        <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />
       )}
     </main>
   )
