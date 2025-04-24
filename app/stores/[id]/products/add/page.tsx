@@ -13,18 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
+import { type Producto, createProducto } from "@/services/product-service"
 
-interface ProductFormData {
-  nombre: string
-  descripcion: string
-  precio: number
-  cantidad: number
-  categoria: string
-  disponible: boolean
-  tienda: number
-}
-
-export default function AddProductPage() {
+export default function AddProductoPage() {
   const router = useRouter()
   const params = useParams()
   const storeId = params.id as string
@@ -34,14 +25,15 @@ export default function AddProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [storeName, setStoreName] = useState<string>("")
 
-  const [formData, setFormData] = useState<ProductFormData>({
+  const [formData, setFormData] = useState<Producto>({
     nombre: "",
     descripcion: "",
     precio: 0,
     cantidad: 0,
     categoria: "",
     disponible: true,
-    tienda: Number.parseInt(storeId),
+    tienda_id: Number(storeId),
+    codigo_barras: "",
   })
 
   const [errors, setErrors] = useState({
@@ -69,7 +61,15 @@ export default function AddProductPage() {
     if (selectedStoreName) {
       setStoreName(selectedStoreName)
     }
-  }, [router])
+
+    // Actualizar tienda_id en formData
+    setFormData((prev) => ({
+      ...prev,
+      tienda_id: Number(storeId),
+    }))
+
+    console.log(`Página de añadir producto inicializada para tienda_id=${storeId}`)
+  }, [router, storeId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -141,8 +141,7 @@ export default function AddProductPage() {
     return isValid
   }
 
-  // Modificar la función handleSubmit para trabajar localmente
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -152,24 +151,16 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     try {
-      // Obtener productos existentes del localStorage
-      const existingProducts = localStorage.getItem(`store_${storeId}_products`)
-      const products = existingProducts ? JSON.parse(existingProducts) : []
-
-      // Generar un nuevo ID (el más alto + 1)
-      const newId = products.length > 0 ? Math.max(...products.map((p: any) => p.id)) + 1 : 1
-
-      // Crear el nuevo producto con el ID generado
-      const newProduct = {
+      // Asegurarnos de que tienda_id sea un número
+      const productoData = {
         ...formData,
-        id: newId,
+        tienda_id: Number(storeId),
       }
 
-      // Agregar el nuevo producto a la lista
-      products.push(newProduct)
+      console.log("Enviando producto:", productoData)
 
-      // Guardar en localStorage
-      localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
+      // Crear producto en la API
+      await createProducto(productoData)
 
       toast({
         title: "Producto creado",
@@ -178,7 +169,7 @@ export default function AddProductPage() {
       })
 
       setTimeout(() => {
-        router.push(`/stores/${storeId}/products`)
+        router.push(`/stores/${storeId}/productos`)
       }, 1000)
     } catch (err) {
       console.error("Error al crear el producto:", err)
@@ -195,7 +186,7 @@ export default function AddProductPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-white p-4 flex items-center">
-        <Link href={`/stores/${storeId}/products`} className="mr-4">
+        <Link href={`/stores/${storeId}/productos`} className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
         <h1 className="text-xl font-semibold">Añadir Producto a {storeName}</h1>
@@ -259,6 +250,20 @@ export default function AddProductPage() {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="codigo_barras" className="text-base">
+              Código de Barras (opcional)
+            </Label>
+            <Input
+              id="codigo_barras"
+              name="codigo_barras"
+              value={formData.codigo_barras || ""}
+              onChange={handleChange}
+              placeholder="Ej: 7501234567890"
+              className="bg-input-bg border-0 h-12 text-base"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="categoria" className="text-base">
               Categoría
             </Label>
@@ -292,7 +297,7 @@ export default function AddProductPage() {
             <Textarea
               id="descripcion"
               name="descripcion"
-              value={formData.descripcion}
+              value={formData.descripcion || ""}
               onChange={handleChange}
               placeholder="Descripción del producto"
               className="bg-input-bg border-0 min-h-[100px] text-base"
@@ -316,4 +321,3 @@ export default function AddProductPage() {
     </main>
   )
 }
-

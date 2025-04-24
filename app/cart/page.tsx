@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2 } from "lucide-react"
+// Importar el icono de micrófono
+import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2, Mic } from "lucide-react"
 import Link from "next/link"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,22 +13,54 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
-// Actualizar la interfaz Product para que coincida con la estructura de datos
 interface Product {
   id: number
   nombre: string
   precio: number
-  descripcion: string
   categoria: string
   imagen?: string
   cantidad: number
   disponible: boolean
   tienda: number
+  descripcion: string
 }
 
 interface CartItem {
   product: Product
   quantity: number
+}
+
+// Agregar estas interfaces después de las interfaces existentes
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number
+  [index: number]: SpeechRecognitionAlternative
+  isFinal: boolean
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string
+  confidence: number
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string
+}
+
+// Extender la interfaz Window para incluir SpeechRecognition
+declare global {
+  interface Window {
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
+  }
 }
 
 export default function CartPage() {
@@ -40,7 +73,12 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Modificar la función para cargar productos correctamente
+  // Agregar el estado para el reconocimiento de voz después de los otros estados
+  const [isListening, setIsListening] = useState(false)
+  const [transcript, setTranscript] = useState("")
+  const [processingVoice, setProcessingVoice] = useState(false)
+
+  // Cargar productos y carrito
   useEffect(() => {
     // Obtener el ID de la tienda seleccionada
     const selectedStoreId = localStorage.getItem("selectedStoreId")
@@ -49,20 +87,12 @@ export default function CartPage() {
 
       // Cargar productos de la tienda
       const storedProducts = localStorage.getItem(`store_${selectedStoreId}_products`)
-
       if (storedProducts) {
         const parsedProducts = JSON.parse(storedProducts)
         // Solo mostrar productos disponibles
         const availableProducts = parsedProducts.filter((p: Product) => p.disponible && p.cantidad > 0)
         setProducts(availableProducts)
         setFilteredProducts(availableProducts)
-      } else {
-        // Si no hay productos en localStorage, cargar productos de ejemplo
-        const sampleProducts = generateSampleProducts(selectedStoreId)
-        setProducts(sampleProducts)
-        setFilteredProducts(sampleProducts)
-        // Guardar en localStorage para futuras visitas
-        localStorage.setItem(`store_${selectedStoreId}_products`, JSON.stringify(sampleProducts))
       }
 
       // Cargar carrito si existe
@@ -71,91 +101,9 @@ export default function CartPage() {
         setCartItems(JSON.parse(storedCart))
       }
     } else {
-      // Si no hay tienda seleccionada, usar ID predeterminado
-      const defaultStoreId = "1"
-      setStoreId(defaultStoreId)
-      localStorage.setItem("selectedStoreId", defaultStoreId)
-
-      // Cargar productos de ejemplo
-      const sampleProducts = generateSampleProducts(defaultStoreId)
-      setProducts(sampleProducts)
-      setFilteredProducts(sampleProducts)
-      // Guardar en localStorage para futuras visitas
-      localStorage.setItem(`store_${defaultStoreId}_products`, JSON.stringify(sampleProducts))
+      router.push("/home")
     }
   }, [router])
-
-  // Añadir función para generar productos de ejemplo
-  const generateSampleProducts = (storeId: string): Product[] => {
-    return [
-      {
-        id: 1,
-        nombre: "Manzana Roja",
-        precio: 2500,
-        descripcion: "Manzana roja fresca",
-        categoria: "Frutas",
-        imagen: "/placeholder.svg?height=200&width=200",
-        cantidad: 50,
-        disponible: true,
-        tienda: Number(storeId),
-      },
-      {
-        id: 2,
-        nombre: "Banano",
-        precio: 1800,
-        descripcion: "Banano maduro",
-        categoria: "Frutas",
-        imagen: "/placeholder.svg?height=200&width=200",
-        cantidad: 80,
-        disponible: true,
-        tienda: Number(storeId),
-      },
-      {
-        id: 3,
-        nombre: "Naranja",
-        precio: 2000,
-        descripcion: "Naranja jugosa",
-        categoria: "Frutas",
-        imagen: "/placeholder.svg?height=200&width=200",
-        cantidad: 60,
-        disponible: true,
-        tienda: Number(storeId),
-      },
-      {
-        id: 7,
-        nombre: "Tomate",
-        precio: 3000,
-        descripcion: "Tomate rojo maduro",
-        categoria: "Verduras",
-        imagen: "/placeholder.svg?height=200&width=200",
-        cantidad: 45,
-        disponible: true,
-        tienda: Number(storeId),
-      },
-      {
-        id: 13,
-        nombre: "Leche Entera",
-        precio: 4500,
-        descripcion: "Leche entera 1L",
-        categoria: "Lácteos",
-        imagen: "/placeholder.svg?height=200&width=200",
-        cantidad: 40,
-        disponible: true,
-        tienda: Number(storeId),
-      },
-      {
-        id: 14,
-        nombre: "Queso Campesino",
-        precio: 12000,
-        descripcion: "Queso campesino 500g",
-        categoria: "Lácteos",
-        imagen: "/placeholder.svg?height=200&width=200",
-        cantidad: 25,
-        disponible: true,
-        tienda: Number(storeId),
-      },
-    ]
-  }
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -193,7 +141,7 @@ export default function CartPage() {
     }).format(price)
   }
 
-  // Modificar la función addToCart para manejar la estructura de productos correcta
+  // Agregar producto al carrito
   const addToCart = (product: Product) => {
     // Verificar si hay suficiente stock
     const existingItem = cartItems.find((item) => item.product.id === product.id)
@@ -330,6 +278,202 @@ export default function CartPage() {
     }, 1000)
   }
 
+  // Agregar la función de reconocimiento de voz después de la función processCheckout
+  // Función para manejar el reconocimiento de voz
+  const handleVoiceRecognition = () => {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      toast({
+        title: "No soportado",
+        description: "Tu navegador no soporta reconocimiento de voz",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SpeechRecognition()
+
+    recognition.lang = "es-ES"
+    recognition.continuous = false
+    recognition.interimResults = false
+
+    recognition.onstart = () => {
+      setIsListening(true)
+      setTranscript("")
+    }
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript.toLowerCase()
+      setTranscript(transcript)
+      processVoiceCommand(transcript)
+    }
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("Error de reconocimiento:", event.error)
+      setIsListening(false)
+      toast({
+        title: "Error",
+        description: `Error en el reconocimiento: ${event.error}`,
+        variant: "destructive",
+      })
+    }
+
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+
+    recognition.start()
+  }
+
+  // Función para procesar el comando de voz
+  const processVoiceCommand = (text: string) => {
+    setProcessingVoice(true)
+
+    try {
+      // Normalizar el texto: eliminar acentos, convertir a minúsculas
+      const normalizedText = text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+
+      // Patrones para diferentes comandos
+      const addPatterns = [
+        /(agregar|añadir|poner|quiero|dame|agrega|añade|pon)\s+(\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(.+)/i,
+        /(agregar|añadir|poner|quiero|dame|agrega|añade|pon)\s+(.+)/i, // Sin cantidad específica
+      ]
+
+      // Diccionario para convertir palabras de números a dígitos
+      const numberWords: Record<string, number> = {
+        un: 1,
+        una: 1,
+        dos: 2,
+        tres: 3,
+        cuatro: 4,
+        cinco: 5,
+        seis: 6,
+        siete: 7,
+        ocho: 8,
+        nueve: 9,
+        diez: 10,
+      }
+
+      // Probar con el primer patrón (con cantidad)
+      let match = normalizedText.match(addPatterns[0])
+      let quantity = 1
+      let productName = ""
+
+      if (match) {
+        // Extraer cantidad
+        const quantityText = match[2].toLowerCase()
+        quantity = isNaN(Number.parseInt(quantityText)) ? numberWords[quantityText] || 1 : Number.parseInt(quantityText)
+
+        productName = match[3].trim()
+      } else {
+        // Probar con el segundo patrón (sin cantidad específica)
+        match = normalizedText.match(addPatterns[1])
+        if (match) {
+          quantity = 1
+          productName = match[2].trim()
+        }
+      }
+
+      if (match && productName) {
+        // Buscar el producto en el inventario
+        // Primero intentamos una coincidencia exacta
+        let foundProduct = filteredProducts.find(
+          (product) => product.nombre.toLowerCase() === productName.toLowerCase(),
+        )
+
+        // Si no hay coincidencia exacta, buscamos coincidencias parciales
+        if (!foundProduct) {
+          foundProduct = filteredProducts.find((product) => {
+            const normalizedProductName = product.nombre
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+
+            return normalizedProductName.includes(productName) || productName.includes(normalizedProductName)
+          })
+        }
+
+        if (foundProduct) {
+          // Verificar si hay suficiente stock
+          const existingItem = cartItems.find((item) => item.product.id === foundProduct!.id)
+          const currentQuantity = existingItem ? existingItem.quantity : 0
+
+          if (currentQuantity + quantity > foundProduct.cantidad) {
+            toast({
+              title: "Stock insuficiente",
+              description: `Solo hay ${foundProduct.cantidad} unidades de ${foundProduct.nombre} disponibles`,
+              variant: "destructive",
+            })
+          } else {
+            // Agregar el producto al carrito con la cantidad especificada
+            const existingItem = cartItems.find((item) => item.product.id === foundProduct!.id)
+            if (existingItem) {
+              // Si el producto ya está en el carrito, actualizar la cantidad
+              updateQuantity(foundProduct.id, existingItem.quantity + quantity)
+            } else {
+              // Si no está en el carrito, agregarlo con la cantidad especificada
+              setCartItems((prevItems) => [...prevItems, { product: foundProduct!, quantity }])
+            }
+
+            toast({
+              title: "Producto añadido por voz",
+              description: `Se ${quantity === 1 ? "agregó" : "agregaron"} ${quantity} ${foundProduct.nombre} al carrito`,
+              variant: "success",
+            })
+          }
+        } else {
+          // Si no encontramos el producto, mostramos los productos similares
+          const similarProducts = filteredProducts.filter((product) => {
+            const normalizedProductName = product.nombre
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+
+            // Dividir el nombre del producto en palabras y buscar coincidencias parciales
+            const productWords = normalizedProductName.split(" ")
+            const searchWords = productName.split(" ")
+
+            return searchWords.some(
+              (word) => word.length > 2 && productWords.some((prodWord) => prodWord.includes(word)),
+            )
+          })
+
+          if (similarProducts.length > 0) {
+            toast({
+              title: "Producto no encontrado",
+              description: `¿Quisiste decir "${similarProducts[0].nombre}"?`,
+              variant: "destructive",
+            })
+          } else {
+            toast({
+              title: "Producto no encontrado",
+              description: `No se encontró "${productName}" en el inventario`,
+              variant: "destructive",
+            })
+          }
+        }
+      } else {
+        toast({
+          title: "Comando no reconocido",
+          description: "Intenta decir: 'agregar [cantidad] [producto]'",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error procesando comando de voz:", error)
+      toast({
+        title: "Error",
+        description: "Error al procesar el comando de voz",
+        variant: "destructive",
+      })
+    }
+
+    setProcessingVoice(false)
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
       <div className="bg-white p-4 flex items-center">
@@ -417,6 +561,19 @@ export default function CartPage() {
                 >
                   {isProcessing ? "Procesando..." : "Finalizar Venta"}
                 </Button>
+                <div className="mt-4 flex items-center justify-center">
+                  <Button
+                    variant="outline"
+                    className={`flex items-center gap-2 ${isListening ? "bg-red-100 text-red-600 border-red-300" : ""}`}
+                    onClick={handleVoiceRecognition}
+                    disabled={processingVoice}
+                  >
+                    <Mic className={`h-5 w-5 ${isListening ? "animate-pulse text-red-600" : ""}`} />
+                    {isListening ? "Escuchando..." : "Agregar por voz"}
+                  </Button>
+                </div>
+
+                {transcript && <div className="mt-2 text-sm text-center text-muted-foreground">"{transcript}"</div>}
               </div>
             )}
           </CardContent>
@@ -478,8 +635,18 @@ export default function CartPage() {
         </Card>
       </div>
 
+      <div className="fixed bottom-20 right-4 z-10">
+        <Button
+          size="lg"
+          className={`rounded-full w-14 h-14 shadow-lg ${isListening ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary-dark"}`}
+          onClick={handleVoiceRecognition}
+          disabled={processingVoice}
+        >
+          <Mic className={`h-6 w-6 ${isListening ? "animate-pulse" : ""}`} />
+        </Button>
+      </div>
+
       <BottomNavigation />
     </main>
   )
 }
-
