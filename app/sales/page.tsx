@@ -8,6 +8,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
 
 // Definición de interfaces
 interface Product {
@@ -15,6 +16,12 @@ interface Product {
   nombre: string
   precio: number
   categoria: string
+  imagen?: string
+  cantidad?: number
+  disponible?: boolean
+  tienda?: number
+  descripcion?: string
+  codigo_barras?: string
 }
 
 interface CartItem {
@@ -30,58 +37,73 @@ interface Sale {
   storeId: string
 }
 
-// Mejorar la función generateSampleSales para crear datos más realistas
-const generateSampleSales = (): Sale[] => {
-  const sampleProducts = [
-    { id: 1, nombre: "Manzana Roja", precio: 2500, categoria: "Frutas" },
-    { id: 2, nombre: "Banano", precio: 1800, categoria: "Frutas" },
-    { id: 7, nombre: "Tomate", precio: 3000, categoria: "Verduras" },
-    { id: 8, nombre: "Cebolla", precio: 2200, categoria: "Verduras" },
-    { id: 13, nombre: "Leche Entera", precio: 4500, categoria: "Lácteos" },
-    { id: 14, nombre: "Queso Campesino", precio: 12000, categoria: "Lácteos" },
-  ]
+// Reemplazar la función generateSampleSales con esta nueva implementación
+const generateSampleSales = async (storeId: string): Promise<Sale[]> => {
+  try {
+    // Obtener productos reales desde el endpoint
+    const fetchedProducts = await getProductsByStore(storeId)
 
-  const sales: Sale[] = []
-  const storeId = localStorage.getItem("selectedStoreId") || "1"
+    // Si no hay productos, devolver un array vacío
+    if (!fetchedProducts || fetchedProducts.length === 0) {
+      return []
+    }
 
-  // Generate sales for the last 30 days
-  const today = new Date()
+    const sales: Sale[] = []
+    const today = new Date()
 
-  for (let i = 0; i < 30; i++) {
-    const date = new Date(today)
-    date.setDate(today.getDate() - i)
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
 
-    // Generate between 1 and 5 sales per day
-    const salesPerDay = Math.floor(Math.random() * 5) + 1
+      // Generate between 1 and 5 sales per day
+      const salesPerDay = Math.floor(Math.random() * 5) + 1
 
-    for (let j = 0; j < salesPerDay; j++) {
-      const items: CartItem[] = []
-      // Generate between 1 and 4 products per sale
-      const itemsCount = Math.floor(Math.random() * 4) + 1
+      for (let j = 0; j < salesPerDay; j++) {
+        const items: CartItem[] = []
+        // Generate between 1 and 4 products per sale
+        const itemsCount = Math.floor(Math.random() * 4) + 1
 
-      for (let k = 0; k < itemsCount; k++) {
-        const product = sampleProducts[Math.floor(Math.random() * sampleProducts.length)]
-        const quantity = Math.floor(Math.random() * 5) + 1
+        for (let k = 0; k < itemsCount; k++) {
+          const rawProduct = fetchedProducts[Math.floor(Math.random() * fetchedProducts.length)]
+          const quantity = Math.floor(Math.random() * 5) + 1
 
-        items.push({
-          product,
-          quantity,
+          // Adaptar el producto al formato esperado por CartItem
+          const product = {
+            id: rawProduct.id || 0,
+            nombre: rawProduct.nombre,
+            precio: rawProduct.precio,
+            categoria: rawProduct.categoria,
+            imagen: rawProduct.imagen,
+            cantidad: rawProduct.cantidad,
+            disponible: rawProduct.cantidad > 0,
+            tienda: Number(rawProduct.tienda_id),
+            descripcion: rawProduct.descripcion || "",
+            codigo_barras: rawProduct.codigo_barras || "",
+          }
+
+          items.push({
+            product,
+            quantity,
+          })
+        }
+
+        const total = items.reduce((sum, item) => sum + item.product.precio * item.quantity, 0)
+
+        sales.push({
+          id: `sample-sale-${i}-${j}`,
+          items,
+          total,
+          date: date.toISOString(),
+          storeId,
         })
       }
-
-      const total = items.reduce((sum, item) => sum + item.product.precio * item.quantity, 0)
-
-      sales.push({
-        id: `sample-sale-${i}-${j}`,
-        items,
-        total,
-        date: date.toISOString(),
-        storeId,
-      })
     }
-  }
 
-  return sales
+    return sales
+  } catch (error) {
+    console.error("Error al generar ventas de ejemplo:", error)
+    return []
+  }
 }
 
 export default function SalesPage() {
@@ -91,7 +113,7 @@ export default function SalesPage() {
   const [activeTab, setActiveTab] = useState("today")
   const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Modificar la función para cargar ventas correctamente
+  // Modificar el useEffect que carga las ventas
   useEffect(() => {
     const selectedStoreId = localStorage.getItem("selectedStoreId")
     if (selectedStoreId) {
@@ -101,19 +123,23 @@ export default function SalesPage() {
     // Intentar cargar ventas del localStorage
     const storedSales = localStorage.getItem("sales")
 
-    if (storedSales) {
-      const parsedSales = JSON.parse(storedSales)
-      setSales(parsedSales)
-    } else {
-      // Si no hay ventas guardadas, generar datos de ejemplo
-      const sampleSales = generateSampleSales()
-      setSales(sampleSales)
-      // Guardar en localStorage para futuras visitas
-      localStorage.setItem("sales", JSON.stringify(sampleSales))
+    const loadSales = async () => {
+      if (storedSales) {
+        const parsedSales = JSON.parse(storedSales)
+        setSales(parsedSales)
+      } else {
+        // Si no hay ventas guardadas, generar datos de ejemplo con productos reales
+        const sampleSales = await generateSampleSales(selectedStoreId || "1")
+        setSales(sampleSales)
+        // Guardar en localStorage para futuras visitas
+        localStorage.setItem("sales", JSON.stringify(sampleSales))
+      }
     }
+
+    loadSales()
   }, [])
 
-  // Modificar la función getFilteredSales para manejar mejor los filtros
+  // Filtrar ventas según el período seleccionado
   const getFilteredSales = () => {
     if (!storeId) return []
 
@@ -126,25 +152,22 @@ export default function SalesPage() {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
     // Primero filtrar por tienda
-    const storeSales = sales.filter((sale) => !sale.storeId || sale.storeId === storeId)
+    const storeSales = sales.filter((sale) => sale.storeId === storeId)
 
     switch (activeTab) {
       case "today":
         return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
-          saleDate.setHours(0, 0, 0, 0)
-          return saleDate.getTime() === today.getTime()
+          return saleDate >= today
         })
       case "week":
         return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
-          saleDate.setHours(0, 0, 0, 0)
           return saleDate >= startOfWeek
         })
       case "month":
         return storeSales.filter((sale) => {
           const saleDate = new Date(sale.date)
-          saleDate.setHours(0, 0, 0, 0)
           return saleDate >= startOfMonth
         })
       default:
@@ -237,11 +260,16 @@ export default function SalesPage() {
 
                     <div className="space-y-1">
                       {sale.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <div>
-                            {item.quantity} x {item.product.nombre}
+                        <div key={index} className="flex flex-col">
+                          <div className="flex justify-between text-sm">
+                            <div>
+                              {item.quantity} x {item.product.nombre}
+                            </div>
+                            <div>{formatPrice(item.product.precio * item.quantity)}</div>
                           </div>
-                          <div>{formatPrice(item.product.precio * item.quantity)}</div>
+                          {item.product.codigo_barras && item.product.codigo_barras.trim() !== "" && (
+                            <div className="text-xs text-gray-500">Código: {item.product.codigo_barras}</div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -257,4 +285,3 @@ export default function SalesPage() {
     </main>
   )
 }
-

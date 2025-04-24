@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-// Importar el icono de micrófono
-import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2, Mic } from "lucide-react"
+import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2, Mic, Barcode } from "lucide-react"
 import Link from "next/link"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
 
 interface Product {
   id: number
@@ -23,6 +23,7 @@ interface Product {
   disponible: boolean
   tienda: number
   descripcion: string
+  codigo_barras?: string
 }
 
 interface CartItem {
@@ -73,10 +74,15 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [storeId, setStoreId] = useState<string | null>(null)
 
-  // Agregar el estado para el reconocimiento de voz después de los otros estados
+  // Estado para el reconocimiento de voz
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState("")
   const [processingVoice, setProcessingVoice] = useState(false)
+
+  // Estado para el escáner de códigos de barras
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [scannerActive, setScannerActive] = useState(false)
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
 
   // Cargar productos y carrito
   useEffect(() => {
@@ -85,15 +91,47 @@ export default function CartPage() {
     if (selectedStoreId) {
       setStoreId(selectedStoreId)
 
-      // Cargar productos de la tienda
-      const storedProducts = localStorage.getItem(`store_${selectedStoreId}_products`)
-      if (storedProducts) {
-        const parsedProducts = JSON.parse(storedProducts)
-        // Solo mostrar productos disponibles
-        const availableProducts = parsedProducts.filter((p: Product) => p.disponible && p.cantidad > 0)
-        setProducts(availableProducts)
-        setFilteredProducts(availableProducts)
+      // Cargar productos desde el endpoint
+      const fetchProducts = async () => {
+        try {
+          const fetchedProducts = await getProductsByStore(selectedStoreId)
+          // Solo mostrar productos disponibles, adaptando la estructura
+          const availableProducts = fetchedProducts
+            .map((p) => ({
+              id: p.id || 0,
+              nombre: p.nombre,
+              precio: p.precio,
+              categoria: p.categoria,
+              imagen: p.imagen,
+              cantidad: p.cantidad,
+              disponible: p.cantidad > 0,
+              tienda: Number(p.tienda_id),
+              descripcion: p.descripcion || "",
+              codigo_barras: p.codigo_barras || "",
+            }))
+            .filter((p) => p.cantidad > 0)
+          setProducts(availableProducts)
+          setFilteredProducts(availableProducts)
+        } catch (error) {
+          console.error("Error al cargar productos:", error)
+          toast({
+            title: "Error",
+            description: "No se pudieron cargar los productos. Usando datos en caché si están disponibles.",
+            variant: "destructive",
+          })
+
+          // Fallback a localStorage si el endpoint falla
+          const storedProducts = localStorage.getItem(`store_${selectedStoreId}_products`)
+          if (storedProducts) {
+            const parsedProducts = JSON.parse(storedProducts)
+            const availableProducts = parsedProducts.filter((p: Product) => p.disponible && p.cantidad > 0)
+            setProducts(availableProducts)
+            setFilteredProducts(availableProducts)
+          }
+        }
       }
+
+      fetchProducts()
 
       // Cargar carrito si existe
       const storedCart = localStorage.getItem(`store_${selectedStoreId}_cart`)
@@ -103,7 +141,16 @@ export default function CartPage() {
     } else {
       router.push("/home")
     }
-  }, [router])
+  }, [router, toast])
+
+  // Limpiar el stream de video cuando se desmonta el componente
+  useEffect(() => {
+    return () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach((track) => track.stop())
+      }
+    }
+  }, [videoStream])
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -114,7 +161,8 @@ export default function CartPage() {
         (product) =>
           product.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
           product.categoria.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.descripcion.toLowerCase().includes(searchQuery.toLowerCase()),
+          product.descripcion.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (product.codigo_barras && product.codigo_barras.includes(searchQuery)),
       )
       setFilteredProducts(filtered)
     }
@@ -278,7 +326,6 @@ export default function CartPage() {
     }, 1000)
   }
 
-  // Agregar la función de reconocimiento de voz después de la función processCheckout
   // Función para manejar el reconocimiento de voz
   const handleVoiceRecognition = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
@@ -474,6 +521,97 @@ export default function CartPage() {
     setProcessingVoice(false)
   }
 
+  // Función para iniciar el escáner de códigos de barras
+  const startBarcodeScanner = async () => {
+    try {
+      setShowBarcodeScanner(true)
+      setScannerActive(true)
+
+      // Acceder a la cámara
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      })
+
+      setVideoStream(stream)
+
+      // Obtener el elemento de video
+      const videoElement = document.getElementById("barcode-scanner") as HTMLVideoElement
+      if (videoElement) {
+        videoElement.srcObject = stream
+        videoElement.play()
+
+        // Iniciar la detección de códigos de barras
+        startBarcodeDetection(videoElement)
+      }
+    } catch (error) {
+      console.error("Error al acceder a la cámara:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo acceder a la cámara. Verifica los permisos.",
+        variant: "destructive",
+      })
+      setShowBarcodeScanner(false)
+      setScannerActive(false)
+    }
+  }
+
+  // Función para detener el escáner
+  const stopBarcodeScanner = () => {
+    if (videoStream) {
+      videoStream.getTracks().forEach((track) => track.stop())
+      setVideoStream(null)
+    }
+    setShowBarcodeScanner(false)
+    setScannerActive(false)
+  }
+
+  // Función para procesar la detección de códigos de barras
+  const startBarcodeDetection = (videoElement: HTMLVideoElement) => {
+    // Esta es una implementación simulada
+    // En una implementación real, usarías una biblioteca como quagga.js o zxing
+
+    // Simulamos la detección después de 3 segundos
+    setTimeout(() => {
+      if (scannerActive) {
+        // Simulamos la detección de un código de barras aleatorio de los productos
+        const productsWithBarcodes = products.filter((p) => p.codigo_barras && p.codigo_barras.trim() !== "")
+
+        if (productsWithBarcodes.length > 0) {
+          const randomProduct = productsWithBarcodes[Math.floor(Math.random() * productsWithBarcodes.length)]
+          handleBarcodeDetected(randomProduct.codigo_barras!)
+        } else {
+          // Si no hay productos con códigos de barras, simulamos uno
+          handleBarcodeDetected("7707123456789")
+        }
+      }
+    }, 3000)
+  }
+
+  // Función para manejar la detección de un código de barras
+  const handleBarcodeDetected = (barcode: string) => {
+    // Detener el escáner
+    stopBarcodeScanner()
+
+    // Buscar el producto por código de barras
+    const foundProduct = products.find((p) => p.codigo_barras === barcode)
+
+    if (foundProduct) {
+      // Si encontramos el producto, lo añadimos directamente al carrito
+      addToCart(foundProduct)
+      toast({
+        title: "Código detectado",
+        description: `Producto añadido: ${foundProduct.nombre}`,
+        variant: "success",
+      })
+    } else {
+      toast({
+        title: "Código detectado",
+        description: `Código ${barcode} no corresponde a ningún producto`,
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
       <div className="bg-white p-4 flex items-center">
@@ -513,6 +651,9 @@ export default function CartPage() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium truncate">{item.product.nombre}</h3>
                       <p className="text-sm text-muted-foreground">{formatPrice(item.product.precio)}</p>
+                      {item.product.codigo_barras && item.product.codigo_barras.trim() !== "" && (
+                        <p className="text-xs text-gray-500">Código: {item.product.codigo_barras}</p>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
@@ -561,7 +702,7 @@ export default function CartPage() {
                 >
                   {isProcessing ? "Procesando..." : "Finalizar Venta"}
                 </Button>
-                <div className="mt-4 flex items-center justify-center">
+                <div className="mt-4 flex items-center justify-center gap-2">
                   <Button
                     variant="outline"
                     className={`flex items-center gap-2 ${isListening ? "bg-red-100 text-red-600 border-red-300" : ""}`}
@@ -570,6 +711,10 @@ export default function CartPage() {
                   >
                     <Mic className={`h-5 w-5 ${isListening ? "animate-pulse text-red-600" : ""}`} />
                     {isListening ? "Escuchando..." : "Agregar por voz"}
+                  </Button>
+                  <Button variant="outline" className="flex items-center gap-2" onClick={startBarcodeScanner}>
+                    <Barcode className="h-5 w-5" />
+                    Escanear código
                   </Button>
                 </div>
 
@@ -621,6 +766,9 @@ export default function CartPage() {
                       <div className="ml-3 flex-1">
                         <h3 className="font-medium">{product.nombre}</h3>
                         <p className="text-sm text-muted-foreground">{product.categoria}</p>
+                        {product.codigo_barras && product.codigo_barras.trim() !== "" && (
+                          <p className="text-xs text-gray-500">Código: {product.codigo_barras}</p>
+                        )}
                       </div>
                       <div className="font-medium">{formatPrice(product.precio)}</div>
                       <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 p-0 text-primary">
@@ -645,6 +793,28 @@ export default function CartPage() {
           <Mic className={`h-6 w-6 ${isListening ? "animate-pulse" : ""}`} />
         </Button>
       </div>
+
+      {/* Modal para el escáner de códigos de barras */}
+      {showBarcodeScanner && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-2">Escanear código de barras</h3>
+            <p className="text-sm text-gray-500 mb-4">Apunta la cámara al código de barras del producto</p>
+
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
+              <video id="barcode-scanner" className="w-full h-full object-cover" playsInline muted></video>
+              <div className="absolute inset-0 border-2 border-primary opacity-50 pointer-events-none"></div>
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={stopBarcodeScanner}>
+                Cancelar
+              </Button>
+              <Button onClick={stopBarcodeScanner}>Cerrar</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNavigation />
     </main>
