@@ -1,13 +1,16 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import BottomNavigation from "@/components/BottomNavigation"
+import { ChevronLeft } from "lucide-react"
 
 export default function AdminPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
-      <div className="bg-white p-5">
-        <h1 className="text-xl font-semibold">Administrador</h1>
-        <p className="text-sm text-text-secondary mt-1">Se puede de todo aquí controlarlo</p>
+      <div className="bg-white p-4 flex items-center">
+        <Link href="/" className="mr-4">
+          <ChevronLeft className="h-6 w-6" />
+        </Link>
+        <h1 className="text-xl font-semibold">Panel de Administrador</h1>
       </div>
 
       <div className="container max-w-md mx-auto p-4">
@@ -50,4 +53,3 @@ export default function AdminPage() {
     </main>
   )
 }
-

@@ -737,58 +737,59 @@ export default function CartPage() {
               <div className="text-center py-6 text-muted-foreground">No hay productos en el carrito</div>
             ) : (
               <div className="space-y-4">
-                {cartItems.map((item) => (
-                  <div key={item.product.id} className="flex items-center space-x-4">
-                    <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
-                      {item.product.imagen ? (
-                        <img
-                          src={item.product.imagen || "/placeholder.svg"}
-                          alt={item.product.nombre}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="text-xl text-gray-400">📦</div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{item.product.nombre}</h3>
-                      <p className="text-sm text-muted-foreground">{formatPrice(item.product.precio)}</p>
-                      {item.product.codigo_barras && item.product.codigo_barras.trim() !== "" && (
-                        <p className="text-xs text-gray-500">Código: {item.product.codigo_barras}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-full p-0"
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-full p-0"
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="text-right w-20 font-medium">
-                      {formatPrice(item.product.precio * item.quantity)}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 p-0 text-red-500"
-                      onClick={() => removeFromCart(item.product.id)}
+                {/* Mejorar la visualización de productos en el carrito */}
+                <div className="space-y-4 mt-4">
+                  {cartItems.map((item, index) => (
+                    <div
+                      key={`${item.product.id}-${index}`}
+                      className="bg-white rounded-lg p-4 flex items-center justify-between"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-1">
+                          <h3 className="font-medium text-base truncate max-w-[200px]">{item.product.nombre}</h3>
+                          <span className="font-semibold">
+                            ${(item.product.precio * item.quantity).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-sm text-gray-500">
+                            <p>Precio: ${item.product.precio.toLocaleString()}</p>
+                            {item.product.codigo_barras && (
+                              <p className="text-xs">Código: {item.product.codigo_barras}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={() => updateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-8 text-center">{item.quantity}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-full"
+                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => removeFromCart(item.product.id)}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
 
                 <Separator className="my-4" />
 
@@ -865,14 +866,14 @@ export default function CartPage() {
                           <div className="text-xl text-gray-400">📦</div>
                         )}
                       </div>
-                      <div className="ml-3 flex-1">
-                        <h3 className="font-medium">{product.nombre}</h3>
-                        <p className="text-sm text-muted-foreground">{product.categoria}</p>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <h3 className="font-medium text-sm line-clamp-1">{product.nombre}</h3>
+                        <p className="text-xs text-muted-foreground truncate">{product.categoria}</p>
                         {product.codigo_barras && product.codigo_barras.trim() !== "" && (
-                          <p className="text-xs text-gray-500">Código: {product.codigo_barras}</p>
+                          <p className="text-xs text-gray-500 truncate">Código: {product.codigo_barras}</p>
                         )}
                       </div>
-                      <div className="font-medium">{formatPrice(product.precio)}</div>
+                      <div className="font-medium text-sm whitespace-nowrap ml-2">{formatPrice(product.precio)}</div>
                       <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 p-0 text-primary">
                         <Plus className="h-4 w-4" />
                       </Button>

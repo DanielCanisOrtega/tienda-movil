@@ -151,6 +151,7 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [storeId, setStoreId] = useState<string | null>(null)
   const [timePeriod, setTimePeriod] = useState<"today" | "week" | "month">("today")
+  const [error, setError] = useState<string | null>(null)
 
   // Cargar gastos
   useEffect(() => {
@@ -163,9 +164,6 @@ export default function ExpensesPage() {
     // Cargar gastos
     loadExpenses()
   }, [])
-
-  // Modificar la página de gastos para permitir acceso a vendedores
-  // Buscar la función loadExpenses y modificarla para permitir acceso a vendedores
 
   // Cargar gastos desde localStorage o generar datos de ejemplo
   const loadExpenses = () => {
@@ -220,8 +218,6 @@ export default function ExpensesPage() {
       setIsLoading(false)
     }
   }
-
-  const [error, setError] = useState<string | null>(null)
 
   // Filtrar gastos cuando cambia el término de búsqueda o la categoría
   useEffect(() => {
@@ -360,6 +356,7 @@ export default function ExpensesPage() {
         {categories.length > 0 && (
           <div className="flex overflow-x-auto py-2 gap-2 no-scrollbar">
             <Badge
+              key="all-categories"
               variant={activeCategory === null ? "default" : "outline"}
               className={`cursor-pointer px-3 py-1 ${
                 activeCategory === null ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -386,6 +383,7 @@ export default function ExpensesPage() {
         {/* Filtro de período */}
         <div className="flex justify-between mt-4 mb-2">
           <Badge
+            key="period-today"
             variant={timePeriod === "today" ? "default" : "outline"}
             className={`cursor-pointer px-3 py-1 flex-1 text-center ${
               timePeriod === "today" ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -395,6 +393,7 @@ export default function ExpensesPage() {
             Hoy
           </Badge>
           <Badge
+            key="period-week"
             variant={timePeriod === "week" ? "default" : "outline"}
             className={`cursor-pointer px-3 py-1 flex-1 text-center ${
               timePeriod === "week" ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -404,6 +403,7 @@ export default function ExpensesPage() {
             Semana
           </Badge>
           <Badge
+            key="period-month"
             variant={timePeriod === "month" ? "default" : "outline"}
             className={`cursor-pointer px-3 py-1 flex-1 text-center ${
               timePeriod === "month" ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -500,4 +500,3 @@ export default function ExpensesPage() {
     </main>
   )
 }
-

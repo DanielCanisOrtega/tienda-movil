@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { VendorNavigation } from "@/components/vendor-navigation"
-import { LogOut, Plus } from "lucide-react"
+import { LogOut, Plus, ChevronLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -23,9 +23,11 @@ export default function VendorPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
-      <div className="bg-white p-5">
+      <div className="bg-white p-4 flex items-center">
+        <Link href="/" className="mr-4">
+          <ChevronLeft className="h-6 w-6" />
+        </Link>
         <h1 className="text-xl font-semibold">Panel de Vendedor</h1>
-        <p className="text-sm text-text-secondary mt-1">Gestiona ventas e inventario</p>
       </div>
 
       <div className="container max-w-md mx-auto p-4">
@@ -33,14 +35,14 @@ export default function VendorPage() {
           <div className="bg-white rounded-lg p-5">
             <h2 className="font-medium text-lg mb-4">Inventario</h2>
             <div className="space-y-3">
-              <Link href="/products">
+              <Link href="/add-product">
                 <Button className="w-full h-12 text-base bg-primary hover:bg-primary-dark android-ripple">
-                  Ver Productos
+                  Añadir Producto
                 </Button>
               </Link>
-              <Link href="/cart">
+              <Link href="/search">
                 <Button className="w-full h-12 text-base bg-white text-primary border border-primary hover:bg-primary/10 android-ripple">
-                  Registrar Venta
+                  Ver Inventario
                 </Button>
               </Link>
             </div>
@@ -51,12 +53,7 @@ export default function VendorPage() {
             <div className="space-y-3">
               <Link href="/sales">
                 <Button className="w-full h-12 text-base bg-primary hover:bg-primary-dark android-ripple">
-                  Ver Ventas
-                </Button>
-              </Link>
-              <Link href="/expenses">
-                <Button className="w-full h-12 text-base bg-white text-primary border border-primary hover:bg-primary/10 android-ripple">
-                  Registrar Gastos
+                  Registrar Venta
                 </Button>
               </Link>
             </div>
@@ -86,4 +83,3 @@ export default function VendorPage() {
     </main>
   )
 }
-

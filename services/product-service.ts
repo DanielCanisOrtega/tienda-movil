@@ -7,12 +7,74 @@ export interface Producto {
   categoria: string
   precio: number
   cantidad: number
-  codigo_barras?: string
+  codigo_barras?: string | null
   // Campos adicionales que usamos en el frontend pero no están en el serializador
   descripcion?: string
   disponible?: boolean
   tienda_id: number
   imagen?: string
+}
+
+// Crear un nuevo producto
+export async function createProducto(producto: Producto): Promise<Producto> {
+  try {
+    // Asegurarse de que tienda_id sea un número
+    const tiendaId = Number(producto.tienda_id)
+
+    // Crear un objeto que solo contenga los campos que espera el serializador
+    // Asegurarse de que los campos obligatorios tengan valores válidos
+    const productoData = {
+      nombre: producto.nombre,
+      categoria: producto.categoria,
+      precio: producto.precio || 0, // Asegurar que no sea null
+      cantidad: producto.cantidad || 0, // Asegurar que no sea null
+      codigo_barras: producto.codigo_barras || null, // Este sí puede ser null
+      tienda_id: tiendaId,
+    }
+
+    console.log(`Creando producto para tienda_id=${tiendaId}`, productoData)
+
+    // Usar fetch directamente para depurar mejor
+    const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Incluir token de autenticación si está disponible
+        ...(localStorage.getItem("authToken") ? { Authorization: `Token ${localStorage.getItem("authToken")}` } : {}),
+      },
+      body: JSON.stringify(productoData),
+    })
+
+    // Registrar la respuesta completa para depuración
+    console.log("Respuesta del servidor:", {
+      status: response.status,
+      statusText: response.statusText,
+    })
+
+    // Si la respuesta no es exitosa, mostrar detalles del error
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error ${response.status} al crear producto:`, errorText)
+
+      try {
+        // Intentar parsear como JSON para obtener más detalles
+        const errorJson = JSON.parse(errorText)
+        console.error("Detalles del error:", errorJson)
+      } catch (e) {
+        // Si no es JSON, usar el texto tal cual
+        console.error("Respuesta de error (texto plano):", errorText)
+      }
+
+      throw new Error(`Error al crear producto: ${response.status} - ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log("Producto creado:", data)
+    return data
+  } catch (error) {
+    console.error("Error en createProducto:", error)
+    throw error
+  }
 }
 
 // Obtener todos los productos de una tienda
@@ -93,51 +155,6 @@ export async function getProducto(productoId: number, tiendaId: number): Promise
   }
 }
 
-// Crear un nuevo producto
-export async function createProducto(producto: Producto): Promise<Producto> {
-  try {
-    // Asegurarse de que tienda_id sea un número
-    const tiendaId = Number(producto.tienda_id)
-
-    // Crear un objeto que solo contenga los campos que espera el serializador
-    // y añadir tienda_id que es necesario para perform_create
-    const productoData = {
-      nombre: producto.nombre,
-      categoria: producto.categoria,
-      precio: producto.precio,
-      cantidad: producto.cantidad,
-      codigo_barras: producto.codigo_barras || "",
-      tienda_id: tiendaId,
-    }
-
-    console.log(`Creando producto para tienda_id=${tiendaId}`, productoData)
-
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productoData),
-      },
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error ${response.status} al crear producto:`, errorText)
-      throw new Error(`Error al crear producto: ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log("Producto creado:", data)
-    return data
-  } catch (error) {
-    console.error("Error en createProducto:", error)
-    throw error
-  }
-}
-
 // Actualizar un producto existente
 export async function updateProducto(productoId: number, producto: Producto): Promise<Producto> {
   try {
@@ -145,13 +162,12 @@ export async function updateProducto(productoId: number, producto: Producto): Pr
     const tiendaId = Number(producto.tienda_id)
 
     // Crear un objeto que solo contenga los campos que espera el serializador
-    // y añadir tienda_id que es necesario para la actualización
     const productoData = {
       nombre: producto.nombre,
       categoria: producto.categoria,
-      precio: producto.precio,
-      cantidad: producto.cantidad,
-      codigo_barras: producto.codigo_barras || "",
+      precio: producto.precio || 0,
+      cantidad: producto.cantidad || 0,
+      codigo_barras: producto.codigo_barras || null,
       tienda_id: tiendaId,
     }
 
