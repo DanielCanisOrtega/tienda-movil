@@ -13,7 +13,6 @@ import { BottomNavigation } from "@/components/bottom-navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { fetchWithAuth } from "@/services/auth-service"
 
 // Interfaz para los empleados
 interface Employee {
@@ -103,53 +102,88 @@ export default function StoreEmployeesPage() {
     fetchEmployees()
   }, [router, storeId])
 
-  // Cargar empleados desde la API o localStorage
+  // Corregir la función fetchEmployees para usar el endpoint correcto y procesar la respuesta adecuadamente
   const fetchEmployees = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Intentar obtener empleados de la API
-      console.log(`Obteniendo empleados para tienda_id=${storeId}`)
+      // Obtener token directamente
+      const token = localStorage.getItem("backendToken")
+      if (!token) {
+        throw new Error("No hay token de autenticación disponible")
+      }
 
-      const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/empleados/`)
+      // Usar el endpoint correcto con https
+      const apiUrl = `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/empleados/`
+      console.log("Intentando acceder a:", apiUrl)
+
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      console.log("Respuesta del servidor:", response.status, response.statusText)
 
       if (response.ok) {
-        const data = await response.json()
-        console.log("Empleados obtenidos de la API:", data)
+        const responseData = await response.json()
+        console.log("Empleados obtenidos de la API:", responseData)
 
-        // Transformar los datos si es necesario para que coincidan con nuestra interfaz
-        const formattedEmployees = data.map((emp: any) => ({
-          id: emp.id || emp.usuario_id,
-          nombre: emp.nombre || emp.usuario_nombre,
-          email: emp.email,
-          telefono: emp.telefono,
-          cargo: emp.cargo || "Vendedor",
-          activo: emp.activo !== false,
+        // Extraer los empleados de la respuesta
+        const empleadosData = responseData.empleados || []
+
+        // Transformar los datos para que coincidan con nuestra interfaz
+        const formattedEmployees = empleadosData.map((emp: any) => ({
+          id: emp.id,
+          nombre: emp.nombre,
+          activo: true,
         }))
 
         setEmployees(formattedEmployees)
-        setFilteredEmployees(formattedEmployees.filter((emp: Employee) => emp.activo !== false))
+        setFilteredEmployees(formattedEmployees)
 
         // Guardar en localStorage para uso futuro
         localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(formattedEmployees))
-      } else {
-        // Si la API falla, intentar cargar desde localStorage
-        console.log("Error al obtener empleados de la API, intentando desde localStorage")
-        const storedEmployees = localStorage.getItem(`store_${storeId}_employees`)
+      } else if (response.status === 403) {
+        console.log("Error 403: Acceso denegado. Verificando token...")
 
-        if (storedEmployees) {
-          const parsedEmployees = JSON.parse(storedEmployees)
-          setEmployees(parsedEmployees)
-          setFilteredEmployees(parsedEmployees.filter((emp: Employee) => emp.activo !== false))
-        } else {
-          // Si no hay datos en localStorage, generar datos de ejemplo
-          const sampleEmployees = generateSampleEmployees()
-          setEmployees(sampleEmployees)
-          setFilteredEmployees(sampleEmployees)
-          // Guardar en localStorage para futuras visitas
-          localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(sampleEmployees))
+        // Intentar refrescar el token
+        const refreshToken = localStorage.getItem("refreshToken")
+        if (refreshToken) {
+          try {
+            const refreshResponse = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/refresh/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                refresh: refreshToken,
+              }),
+            })
+
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json()
+              if (refreshData.access) {
+                localStorage.setItem("backendToken", refreshData.access)
+                console.log("Token refrescado exitosamente, reintentando...")
+
+                // Reintentar con el nuevo token
+                await fetchEmployees()
+                return
+              }
+            }
+          } catch (refreshError) {
+            console.error("Error al refrescar token:", refreshError)
+          }
         }
+
+        throw new Error(`Error 403: No tienes permisos para acceder a los empleados de esta tienda`)
+      } else {
+        console.log(`Error al obtener empleados: ${response.status} ${response.statusText}`)
+        throw new Error(`Error al obtener empleados: ${response.status} ${response.statusText}`)
       }
     } catch (err) {
       console.error("Error al cargar los empleados:", err)
@@ -161,6 +195,13 @@ export default function StoreEmployeesPage() {
         const parsedEmployees = JSON.parse(storedEmployees)
         setEmployees(parsedEmployees)
         setFilteredEmployees(parsedEmployees.filter((emp: Employee) => emp.activo !== false))
+      } else {
+        // Si no hay datos en localStorage, generar datos de ejemplo
+        const sampleEmployees = generateSampleEmployees()
+        setEmployees(sampleEmployees)
+        setFilteredEmployees(sampleEmployees)
+        // Guardar en localStorage para futuras visitas
+        localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(sampleEmployees))
       }
     } finally {
       setIsLoading(false)
@@ -185,7 +226,7 @@ export default function StoreEmployeesPage() {
     }
   }, [employees, searchQuery])
 
-  // Añadir empleado usando la API
+  // Modificar la función handleAddEmployee para enviar el formato correcto
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -198,52 +239,65 @@ export default function StoreEmployeesPage() {
     setError(null)
 
     try {
-      // Intentar añadir empleado a través de la API
-      console.log(`Añadiendo empleado a tienda_id=${storeId}`)
+      // Obtener token directamente
+      const token = localStorage.getItem("backendToken")
+      if (!token) {
+        throw new Error("No hay token de autenticación disponible")
+      }
 
+      // Usar exactamente el formato que espera el servidor
       const employeeData = {
         nombre: newEmployeeName,
-        email: newEmployeeEmail || undefined,
-        telefono: newEmployeePhone || undefined,
-        cargo: "Vendedor",
+        telefono: "",
+        direccion: "",
       }
 
       console.log("Datos del empleado a añadir:", employeeData)
 
-      const response = await fetchWithAuth(
+      // Usar el endpoint correcto con https
+      const response = await fetch(
         `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/agregar_empleado/`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(employeeData),
         },
       )
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Empleado añadido exitosamente:", data)
+      // Intentar obtener más información sobre el error
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Error del servidor:", errorText)
+        throw new Error(`Error al añadir empleado: ${response.status} ${response.statusText}. Detalles: ${errorText}`)
+      }
 
-        // Actualizar la lista de empleados
-        await fetchEmployees()
+      const data = await response.json()
+      console.log("Empleado añadido exitosamente:", data)
 
-        // Limpiar formulario y cerrar diálogo
-        setNewEmployeeName("")
-        setNewEmployeeEmail("")
-        setNewEmployeePhone("")
-        setIsAddDialogOpen(false)
+      // Actualizar la lista de empleados
+      await fetchEmployees()
 
-        // Mostrar mensaje de éxito
-        toast({
-          title: "Vendedor añadido",
-          description: "El vendedor ha sido añadido con éxito",
-          variant: "success",
-        })
-      } else {
-        // Si la API falla, añadir localmente
-        console.log("Error al añadir empleado a través de la API, añadiendo localmente")
+      // Limpiar formulario y cerrar diálogo
+      setNewEmployeeName("")
+      setNewEmployeeEmail("")
+      setNewEmployeePhone("")
+      setIsAddDialogOpen(false)
 
+      // Mostrar mensaje de éxito
+      toast({
+        title: "Vendedor añadido",
+        description: "El vendedor ha sido añadido con éxito",
+        variant: "success",
+      })
+    } catch (err) {
+      console.error("Error al añadir el empleado:", err)
+      setError(`No se pudo añadir el empleado: ${err instanceof Error ? err.message : "Error desconocido"}`)
+
+      // Añadir localmente como fallback
+      try {
         // Obtener empleados actuales
         const currentEmployees = [...employees]
 
@@ -254,9 +308,6 @@ export default function StoreEmployeesPage() {
         const newEmployee: Employee = {
           id: newId,
           nombre: newEmployeeName,
-          email: newEmployeeEmail || undefined,
-          telefono: newEmployeePhone || undefined,
-          cargo: "Vendedor",
           activo: true,
         }
 
@@ -282,41 +333,84 @@ export default function StoreEmployeesPage() {
           description: "El vendedor ha sido añadido con éxito (modo local)",
           variant: "success",
         })
+      } catch (localError) {
+        console.error("Error al añadir localmente:", localError)
       }
-    } catch (err) {
-      console.error("Error al añadir el empleado:", err)
-      setError(`No se pudo añadir el empleado: ${err instanceof Error ? err.message : "Error desconocido"}`)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Eliminar empleado localmente
-  const handleRemoveEmployee = (employeeId: number, nombre: string) => {
+  // Corregir la función handleRemoveEmployee para usar el endpoint correcto
+  const handleRemoveEmployee = async (employeeId: number, nombre: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar al vendedor ${nombre} de esta tienda?`)) {
       try {
-        // Marcar como inactivo en lugar de eliminar completamente
-        const updatedEmployees = employees.map((emp) => (emp.id === employeeId ? { ...emp, activo: false } : emp))
+        setIsLoading(true)
 
-        // Actualizar estado
-        setEmployees(updatedEmployees)
-        setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo !== false))
+        // Obtener token directamente
+        const token = localStorage.getItem("backendToken")
+        if (!token) {
+          throw new Error("No hay token de autenticación disponible")
+        }
 
-        // Guardar en localStorage
-        localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(updatedEmployees))
+        // Usar el endpoint correcto con https y enviar el ID del empleado en el cuerpo
+        const response = await fetch(
+          `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/remover_empleado/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ empleado_id: employeeId }),
+          },
+        )
 
-        toast({
-          title: "Vendedor eliminado",
-          description: "El vendedor ha sido eliminado con éxito",
-          variant: "success",
-        })
+        if (response.ok) {
+          console.log("Empleado eliminado exitosamente de la API")
+
+          // Actualizar la lista de empleados
+          await fetchEmployees()
+
+          toast({
+            title: "Vendedor eliminado",
+            description: "El vendedor ha sido eliminado con éxito",
+            variant: "success",
+          })
+        } else {
+          console.log(`Error al eliminar empleado: ${response.status} ${response.statusText}`)
+          throw new Error(`Error al eliminar empleado: ${response.status} ${response.statusText}`)
+        }
       } catch (err) {
         console.error("Error al eliminar el empleado:", err)
-        toast({
-          title: "Error",
-          description: `No se pudo eliminar el empleado: ${err instanceof Error ? err.message : "Error desconocido"}`,
-          variant: "destructive",
-        })
+
+        // Eliminar localmente como fallback
+        try {
+          // Marcar como inactivo en lugar de eliminar completamente
+          const updatedEmployees = employees.map((emp) => (emp.id === employeeId ? { ...emp, activo: false } : emp))
+
+          // Actualizar estado
+          setEmployees(updatedEmployees)
+          setFilteredEmployees(updatedEmployees.filter((emp) => emp.activo !== false))
+
+          // Guardar en localStorage
+          localStorage.setItem(`store_${storeId}_employees`, JSON.stringify(updatedEmployees))
+
+          toast({
+            title: "Vendedor eliminado localmente",
+            description: "El vendedor ha sido eliminado con éxito (modo local)",
+            variant: "default",
+          })
+        } catch (localError) {
+          console.error("Error al eliminar localmente:", localError)
+          toast({
+            title: "Error",
+            description: "No se pudo eliminar el vendedor",
+            variant: "destructive",
+          })
+        }
+      } finally {
+        setIsLoading(false)
       }
     }
   }
@@ -383,12 +477,9 @@ export default function StoreEmployeesPage() {
             {filteredEmployees.map((employee) => (
               <Card key={employee.id} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-center">
                     <div>
                       <h3 className="font-medium">{employee.nombre}</h3>
-                      {employee.email && <p className="text-sm text-text-secondary">{employee.email}</p>}
-                      {employee.telefono && <p className="text-sm text-text-secondary">{employee.telefono}</p>}
-                      {employee.cargo && <p className="text-xs text-primary mt-1">{employee.cargo}</p>}
                     </div>
                     <Button
                       variant="ghost"
@@ -431,27 +522,6 @@ export default function StoreEmployeesPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="employeeEmail">Correo Electrónico</Label>
-                <Input
-                  id="employeeEmail"
-                  type="email"
-                  value={newEmployeeEmail}
-                  onChange={(e) => setNewEmployeeEmail(e.target.value)}
-                  placeholder="correo@ejemplo.com"
-                  className="bg-input-bg border-0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employeePhone">Teléfono</Label>
-                <Input
-                  id="employeePhone"
-                  value={newEmployeePhone}
-                  onChange={(e) => setNewEmployeePhone(e.target.value)}
-                  placeholder="+57 3123456789"
-                  className="bg-input-bg border-0"
-                />
-              </div>
             </div>
             <DialogFooter>
               <Button
@@ -460,8 +530,6 @@ export default function StoreEmployeesPage() {
                 onClick={() => {
                   setIsAddDialogOpen(false)
                   setNewEmployeeName("")
-                  setNewEmployeeEmail("")
-                  setNewEmployeePhone("")
                   setError(null)
                 }}
               >

@@ -43,12 +43,12 @@ export function ExpensesList({ expenses, formatPrice }: ExpensesListProps) {
             {dateExpenses.map((expense) => (
               <div key={expense.id} className="border-b pb-3 last:border-0">
                 <div className="flex justify-between items-center mb-2">
-                  <div className="text-sm text-text-secondary">{expense.category}</div>
+                  <div className="text-sm text-text-secondary">{expense.categoria}</div>
                   <div className="font-medium text-danger">{formatPrice(expense.amount)}</div>
                 </div>
 
                 <div className="space-y-1">
-                  <div className="font-medium">{expense.description}</div>
+                  <div className="font-medium">{expense.descripcion}</div>
                   {expense.notes && <div className="text-sm text-text-secondary">{expense.notes}</div>}
                   <div className="text-xs text-text-secondary">{expense.paymentMethod}</div>
                 </div>

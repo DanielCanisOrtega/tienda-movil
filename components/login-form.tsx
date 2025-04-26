@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { User, Lock, LogIn, Store, ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { User, Lock, LogIn, Store, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react"
 
 export function LoginForm() {
   // Estados para el formulario de administrador
@@ -15,8 +15,10 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
 
-  // Estado para el formulario de vendedor
+  // Estados para el formulario de vendedor
   const [vendorName, setVendorName] = useState("")
+  const [vendorPassword, setVendorPassword] = useState("")
+  const [showVendorPassword, setShowVendorPassword] = useState(false)
 
   // Estados generales
   const [isLoading, setIsLoading] = useState(false)
@@ -32,15 +34,11 @@ export function LoginForm() {
     return horaActual >= 6 && horaActual < 18 ? "mañana" : "noche"
   }
 
-  // Función mejorada para crear una caja para el vendedor
-  const crearCajaParaVendedor = (tiendaId: string, usuarioId: number, nombreVendedor: string): void => {
+  // Función para crear una caja para el vendedor
+  const crearCajaParaVendedor = (usuarioId: number, nombreVendedor: string): void => {
     try {
-      console.log(`Creando caja para el vendedor ${usuarioId} en la tienda ${tiendaId}...`)
-
-      // Asegurarse de que tiendaId y usuarioId estén guardados en localStorage
-      localStorage.setItem("selectedStoreId", tiendaId)
-      localStorage.setItem("vendorId", usuarioId.toString())
-      localStorage.setItem("vendorName", nombreVendedor)
+      console.log(`Creando caja para el vendedor ${usuarioId}...`)
+      const tiendaId = "3" // Siempre usamos la tienda 3
 
       // Get existing cash registers
       const storedCajas = localStorage.getItem(`store_${tiendaId}_cajas`)
@@ -55,19 +53,19 @@ export function LoginForm() {
         }
       }
 
-      // Verificar si ya existe una caja abierta para este vendedor
-      const cajaExistente = cajas.find((caja: any) => caja.usuario === usuarioId && caja.estado === "abierta")
+      // Find the last closed cash register to use its final balance as initial balance
+      let saldoInicial = "100000" // Default value
+      if (cajas.length > 0) {
+        // Sort cash registers by closing date (from most recent to oldest)
+        const cajasCerradas = cajas
+          .filter((caja: any) => caja.estado === "cerrada" && caja.saldo_final)
+          .sort((a: any, b: any) => new Date(b.fecha_cierre).getTime() - new Date(a.fecha_cierre).getTime())
 
-      if (cajaExistente) {
-        console.log("El vendedor ya tiene una caja abierta:", cajaExistente)
-        // Guardar el ID de la caja actual en localStorage
-        localStorage.setItem("cajaActualId", cajaExistente.id.toString())
-        localStorage.setItem("cajaActualSaldoInicial", cajaExistente.saldo_inicial)
-        return
+        if (cajasCerradas.length > 0) {
+          saldoInicial = cajasCerradas[0].saldo_final
+          console.log(`Usando saldo final de caja anterior: ${saldoInicial}`)
+        }
       }
-
-      // Usar un saldo inicial fijo para simplificar
-      const saldoInicial = "100000"
 
       // Determine current shift (morning or night)
       const turnoActual = determinarTurnoActual()
@@ -103,44 +101,146 @@ export function LoginForm() {
     }
   }
 
-  // Update the handleVendorLogin function to create a cash register
-  const handleVendorLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
-
-    if (!vendorName.trim()) {
-      setError("Por favor ingresa tu nombre")
-      setIsLoading(false)
-      return
-    }
-
+  // Función para autenticar como administrador y obtener token
+  const getAdminToken = async (): Promise<string | null> => {
     try {
-      // Usar el nombre proporcionado o generar uno aleatorio para simulación
-      const selectedStoreId = "1" // Valor predeterminado
-      const vendorId = Math.floor(Math.random() * 1000) + 100
+      // Usar credenciales hardcodeadas para admin
+      const adminUsername = "admin";
+      const adminPassword = "clave_seminario";
+      
+      console.log("Autenticando como administrador para acceder a vendedores...");
 
-      // Guardar información en localStorage
-      localStorage.setItem("userType", "vendor")
-      localStorage.setItem("vendorName", vendorName)
-      localStorage.setItem("vendorId", vendorId.toString())
-      localStorage.setItem("selectedStoreId", selectedStoreId)
-      localStorage.setItem("selectedStoreName", "Tienda Principal")
+      const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: adminUsername,
+          password: adminPassword,
+        }),
+      });
 
-      // Crear una caja para el vendedor
-      crearCajaParaVendedor(selectedStoreId, vendorId, vendorName)
+      if (!response.ok) {
+        console.error("Error al obtener token de administrador:", response.status, response.statusText);
+        return null;
+      }
 
-      // Redirigir a la página de inicio
-      router.push(`/home`)
+      const data = await response.json();
+      
+      if (data.access) {
+        console.log("Token de administrador obtenido correctamente.");
+        return data.access;
+      }
+      
+      return null;
     } catch (error) {
-      console.error("Error al iniciar sesión como vendedor:", error)
-      setError("Error al iniciar sesión. Por favor, intenta nuevamente.")
-    } finally {
-      setIsLoading(false)
+      console.error("Error al autenticar como administrador:", error);
+      return null;
     }
   }
 
-  // Actualizar la función handleAdminLogin para usar el nuevo endpoint
+  // Función para obtener vendedores usando token de admin
+  const obtenerVendedores = async (token: string, tiendaId: string) => {
+    try {
+      const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${tiendaId}/empleados/`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al obtener empleados: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error al obtener vendedores:", error);
+      throw error;
+    }
+  }
+
+  // Función actualizada para login de vendedor - con autenticación automática
+  const handleVendorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    // Validar que los campos no estén vacíos
+    if (!vendorName.trim()) {
+      setError("Por favor ingresa tu nombre");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!vendorPassword.trim()) {
+      setError("Por favor ingresa tu contraseña");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Primero obtener token de administrador
+      const adminToken = await getAdminToken();
+      
+      if (!adminToken) {
+        setError("No se pudo conectar con el servidor. Por favor, intenta más tarde.");
+        return;
+      }
+
+      // Usar directamente el endpoint de la tienda 3
+      const tiendaId = "3";
+      console.log(`Verificando si ${vendorName} existe en tienda ${tiendaId}...`);
+
+      // Usar el token para obtener la lista de vendedores
+      const data = await obtenerVendedores(adminToken, tiendaId);
+
+      // Buscar el vendedor en la respuesta
+      let vendedorEncontrado = false;
+      let vendedorData = null;
+
+      if (data && data.empleados && Array.isArray(data.empleados)) {
+        // Buscar por nombre (ignorando mayúsculas/minúsculas)
+        vendedorData = data.empleados.find(
+          (emp: any) => emp.nombre && emp.nombre.toLowerCase() === vendorName.toLowerCase(),
+        );
+
+        if (vendedorData) {
+          vendedorEncontrado = true;
+        }
+      }
+
+      if (vendedorEncontrado && vendedorData) {
+        console.log("Vendedor encontrado:", vendedorData);
+
+        // Guardar información en localStorage
+        localStorage.setItem("userType", "vendor");
+        localStorage.setItem("vendorName", vendedorData.nombre);
+        localStorage.setItem("vendorId", vendedorData.id.toString());
+
+        // Establecer la tienda asociada al vendedor (siempre tienda 3)
+        localStorage.setItem("selectedStoreId", tiendaId);
+        localStorage.setItem("selectedStoreName", "Tienda Principal"); // Nombre fijo para la tienda 3
+
+        // Crear una caja para el vendedor
+        crearCajaParaVendedor(vendedorData.id, vendedorData.nombre);
+
+        // Redirigir a home
+        router.push(`/home`);
+      } else {
+        console.log("Vendedor no encontrado");
+        setError("No se encontró ningún vendedor con ese nombre");
+      }
+    } catch (error) {
+      console.error("Error en login de vendedor:", error);
+      setError("Error al verificar credenciales. Por favor, intenta nuevamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Función para manejar el login de administrador
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -329,7 +429,10 @@ export function LoginForm() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  "Iniciando sesión..."
+                  <span className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Iniciando sesión...
+                  </span>
                 ) : (
                   <span className="flex items-center justify-center">
                     <LogIn className="mr-2 h-5 w-5" />
@@ -352,7 +455,7 @@ export function LoginForm() {
               </div>
             </form>
           ) : (
-            // Formulario de vendedor
+            // Formulario de vendedor simplificado (nombre + contraseña dummy)
             <form onSubmit={handleVendorLogin} className="space-y-4">
               <div className="flex items-center mb-2">
                 <button
@@ -380,13 +483,36 @@ export function LoginForm() {
                 />
               </div>
 
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary h-5 w-5" />
+                <Input
+                  id="vendorPassword"
+                  type={showVendorPassword ? "text" : "password"}
+                  placeholder="Contraseña"
+                  className="pl-10 pr-10 bg-input-bg border-0 h-12 text-base"
+                  value={vendorPassword}
+                  onChange={(e) => setVendorPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary"
+                  onClick={() => setShowVendorPassword(!showVendorPassword)}
+                >
+                  {showVendorPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full h-12 text-base bg-primary hover:bg-primary-dark text-white android-ripple"
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  "Buscando tu tienda..."
+                  <span className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Verificando...
+                  </span>
                 ) : (
                   <span className="flex items-center justify-center">
                     <Store className="mr-2 h-5 w-5" />
@@ -429,4 +555,3 @@ export function LoginForm() {
 }
 
 export default LoginForm
-

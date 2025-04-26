@@ -151,17 +151,68 @@ export default function DashboardPage() {
     switch (activeTab) {
       case "daily":
         return storeExpenses.filter((expense) => {
-          const expenseDate = new Date(expense.date)
-          return expenseDate >= today
+          // Convertir la fecha del gasto a un objeto Date para comparación correcta
+          let expenseDate: Date
+
+          if (typeof expense.date === "string") {
+            // Si la fecha es una cadena, intentamos convertirla a Date
+            // Primero verificamos si es formato ISO (YYYY-MM-DD)
+            if (expense.date.includes("-")) {
+              const [year, month, day] = expense.date.split("-").map(Number)
+              expenseDate = new Date(year, month - 1, day)
+            } else {
+              // Si no es formato ISO, intentamos parsear directamente
+              expenseDate = new Date(expense.date)
+            }
+          } else {
+            // Si ya es un objeto Date, lo usamos directamente
+            expenseDate = new Date(expense.date)
+          }
+
+          // Resetear la hora a 00:00:00 para comparar solo fechas
+          expenseDate.setHours(0, 0, 0, 0)
+
+          // Comparar si la fecha del gasto es igual a hoy
+          return expenseDate.getTime() === today.getTime()
         })
       case "weekly":
         return storeExpenses.filter((expense) => {
-          const expenseDate = new Date(expense.date)
+          let expenseDate: Date
+
+          if (typeof expense.date === "string") {
+            if (expense.date.includes("-")) {
+              const [year, month, day] = expense.date.split("-").map(Number)
+              expenseDate = new Date(year, month - 1, day)
+            } else {
+              expenseDate = new Date(expense.date)
+            }
+          } else {
+            expenseDate = new Date(expense.date)
+          }
+
+          expenseDate.setHours(0, 0, 0, 0)
+
+          // Verificar si la fecha del gasto es posterior o igual al inicio de la semana
           return expenseDate >= startOfWeek
         })
       case "monthly":
         return storeExpenses.filter((expense) => {
-          const expenseDate = new Date(expense.date)
+          let expenseDate: Date
+
+          if (typeof expense.date === "string") {
+            if (expense.date.includes("-")) {
+              const [year, month, day] = expense.date.split("-").map(Number)
+              expenseDate = new Date(year, month - 1, day)
+            } else {
+              expenseDate = new Date(expense.date)
+            }
+          } else {
+            expenseDate = new Date(expense.date)
+          }
+
+          expenseDate.setHours(0, 0, 0, 0)
+
+          // Verificar si la fecha del gasto es posterior o igual al inicio del mes
           return expenseDate >= startOfMonth
         })
       default:
@@ -795,7 +846,8 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
     if (!canvasRef.current) return
 
     const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
+    // Usar aserción de tipo para evitar el error de TypeScript
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
     if (!ctx) return
 
     // Clear canvas
@@ -923,7 +975,8 @@ function PieChartComponent({
     if (!canvasRef.current || data.length === 0) return
 
     const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
+    // Usar aserción de tipo para evitar el error de TypeScript
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
     if (!ctx) return
 
     // Clear canvas
