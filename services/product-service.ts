@@ -13,9 +13,10 @@ export interface Producto {
   disponible?: boolean
   tienda_id: number
   imagen?: string
+  oculto?: boolean
 }
 
-// Crear un nuevo producto
+// Crear un nuevo producto - Corregido para usar fetchWithAuth
 export async function createProducto(producto: Producto): Promise<Producto> {
   try {
     // Asegurarse de que tienda_id sea un número
@@ -34,16 +35,17 @@ export async function createProducto(producto: Producto): Promise<Producto> {
 
     console.log(`Creando producto para tienda_id=${tiendaId}`, productoData)
 
-    // Usar fetch directamente para depurar mejor
-    const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Incluir token de autenticación si está disponible
-        ...(localStorage.getItem("authToken") ? { Authorization: `Token ${localStorage.getItem("authToken")}` } : {}),
+    // CORREGIDO: Usar fetchWithAuth en lugar de fetch directo
+    const response = await fetchWithAuth(
+      `https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(productoData),
       },
-      body: JSON.stringify(productoData),
-    })
+    )
 
     // Registrar la respuesta completa para depuración
     console.log("Respuesta del servidor:", {
@@ -129,10 +131,15 @@ export async function getProductsByStore(tiendaId: string): Promise<Producto[]> 
   }
 }
 
-// Obtener un producto específico
+// Obtener un producto específico - Mejorado con más logs
 export async function getProducto(productoId: number, tiendaId: number): Promise<Producto> {
   try {
     console.log(`Obteniendo producto con id=${productoId} para tienda_id=${tiendaId}`)
+
+    // Verificar si tenemos el producto en localStorage para fallback
+    const localStorageKey = `producto_${tiendaId}_${productoId}`
+    const cachedProducto = localStorage.getItem(localStorageKey)
+
     const response = await fetchWithAuth(
       `https://tienda-backend-p9ms.onrender.com/api/productos/${productoId}/?tienda_id=${tiendaId}`,
       {
@@ -143,11 +150,22 @@ export async function getProducto(productoId: number, tiendaId: number): Promise
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Error ${response.status} al obtener producto:`, errorText)
+
+      // Si hay un error pero tenemos datos en caché, usarlos como fallback
+      if (cachedProducto) {
+        console.log("Usando datos en caché para el producto:", cachedProducto)
+        return JSON.parse(cachedProducto)
+      }
+
       throw new Error(`Error al obtener producto: ${response.status}`)
     }
 
     const data = await response.json()
     console.log("Producto obtenido:", data)
+
+    // Guardar en localStorage para uso futuro
+    localStorage.setItem(localStorageKey, JSON.stringify(data))
+
     return data
   } catch (error) {
     console.error("Error en getProducto:", error)
@@ -155,7 +173,7 @@ export async function getProducto(productoId: number, tiendaId: number): Promise
   }
 }
 
-// Actualizar un producto existente
+// Actualizar un producto existente - Mejorado con más logs
 export async function updateProducto(productoId: number, producto: Producto): Promise<Producto> {
   try {
     // Asegurarse de que tienda_id sea un número
@@ -169,9 +187,21 @@ export async function updateProducto(productoId: number, producto: Producto): Pr
       cantidad: producto.cantidad || 0,
       codigo_barras: producto.codigo_barras || null,
       tienda_id: tiendaId,
+      // No incluimos oculto aquí porque el backend podría no tener este campo
     }
 
     console.log(`Actualizando producto con id=${productoId} para tienda_id=${tiendaId}`, productoData)
+
+    // Guardar una copia en localStorage antes de enviar la actualización
+    const localStorageKey = `producto_${tiendaId}_${productoId}`
+    localStorage.setItem(
+      localStorageKey,
+      JSON.stringify({
+        ...productoData,
+        id: productoId,
+        oculto: producto.oculto || false, // Asegurarse de preservar el estado oculto
+      }),
+    )
 
     const response = await fetchWithAuth(
       `https://tienda-backend-p9ms.onrender.com/api/productos/${productoId}/?tienda_id=${tiendaId}`,
@@ -192,14 +222,16 @@ export async function updateProducto(productoId: number, producto: Producto): Pr
 
     const data = await response.json()
     console.log("Producto actualizado:", data)
-    return data
+
+    // Asegurarse de que el campo oculto se preserve en los datos devueltos
+    return { ...data, oculto: producto.oculto || false }
   } catch (error) {
     console.error("Error en updateProducto:", error)
     throw error
   }
 }
 
-// Eliminar un producto
+// Eliminar un producto - Mejorado con más logs
 export async function deleteProducto(productoId: number, tiendaId: number): Promise<void> {
   try {
     console.log(`Eliminando producto con id=${productoId} para tienda_id=${tiendaId}`)
@@ -217,9 +249,13 @@ export async function deleteProducto(productoId: number, tiendaId: number): Prom
 
       // Si el error es 400, podría ser porque el producto tiene ventas asociadas
       if (response.status === 400) {
-        const errorData = await response.json()
-        if (errorData.error && errorData.error.includes("ventas asociadas")) {
-          throw new Error("No se puede eliminar un producto con ventas asociadas.")
+        try {
+          const errorData = JSON.parse(errorText)
+          if (errorData.error && errorData.error.includes("ventas asociadas")) {
+            throw new Error("No se puede eliminar un producto con ventas asociadas.")
+          }
+        } catch (e) {
+          // Si no se puede parsear como JSON, usar el mensaje genérico
         }
       }
 
@@ -227,6 +263,10 @@ export async function deleteProducto(productoId: number, tiendaId: number): Prom
     }
 
     console.log("Producto eliminado con éxito")
+
+    // Eliminar del localStorage si existe
+    const localStorageKey = `producto_${tiendaId}_${productoId}`
+    localStorage.removeItem(localStorageKey)
   } catch (error) {
     console.error("Error en deleteProducto:", error)
     throw error
@@ -263,6 +303,15 @@ export async function actualizarCantidadProducto(
     }
 
     console.log("Cantidad actualizada con éxito")
+
+    // Actualizar en localStorage si existe
+    const localStorageKey = `producto_${tiendaId}_${productoId}`
+    const cachedProducto = localStorage.getItem(localStorageKey)
+    if (cachedProducto) {
+      const producto = JSON.parse(cachedProducto)
+      producto.cantidad = nuevaCantidad
+      localStorage.setItem(localStorageKey, JSON.stringify(producto))
+    }
   } catch (error) {
     console.error("Error en actualizarCantidadProducto:", error)
     throw error

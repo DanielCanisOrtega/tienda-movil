@@ -1,18 +1,26 @@
 "use client"
-import { ChevronLeft } from "lucide-react"
-import React from "react"
+import {
+  ChevronLeft,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Calendar,
+  BarChart2,
+  PieChart,
+  ArrowRight,
+} from "lucide-react"
+import React, { useState, useEffect, useCallback } from "react"
 
 import Link from "next/link"
-import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
 import { BarChart } from "@/components/bar-chart"
 import { LineChart } from "@/components/line-chart"
 import { SalesList } from "@/components/sales-list"
 import { ExpensesList } from "@/components/expenses-list"
 import type { Expense } from "../expenses/page"
-import { Badge } from "@/components/ui/badge"
 
 // Interfaces
 interface Sale {
@@ -37,9 +45,12 @@ export default function DashboardPage() {
   const [expensesData, setExpensesData] = useState<Expense[]>([])
   const [reportView, setReportView] = useState<"sales" | "expenses" | "balance">("sales")
   const [storeId, setStoreId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [animateCharts, setAnimateCharts] = useState(false)
 
   // Load data from localStorage
   useEffect(() => {
+    setIsLoading(true)
     // Get the selected store ID
     const selectedStoreId = localStorage.getItem("selectedStoreId")
     if (selectedStoreId) {
@@ -73,136 +84,103 @@ export default function DashboardPage() {
         setExpensesData([])
       }
     }
+
+    setIsLoading(false)
+
+    // Trigger animation after a short delay
+    setTimeout(() => {
+      setAnimateCharts(true)
+    }, 300)
   }, [])
 
-  // Función para convertir una fecha string a objeto Date
-  const parseDate = (dateStr: string | Date): Date => {
-    if (dateStr instanceof Date) {
-      return new Date(dateStr)
-    }
-
-    // Si es string, intentar parsear
-    if (dateStr.includes("T")) {
-      // Formato ISO
-      return new Date(dateStr)
-    } else {
-      // Formato YYYY-MM-DD
-      const parts = dateStr.split("-")
-      if (parts.length === 3) {
-        return new Date(Number.parseInt(parts[0]), Number.parseInt(parts[1]) - 1, Number.parseInt(parts[2]))
-      }
-    }
-
-    // Si no se puede parsear, devolver fecha actual
-    return new Date()
-  }
-
   // Filter sales by store ID
-  const getFilteredSales = () => {
+  const getFilteredSales = useCallback(() => {
     if (!storeId) return []
 
     const storeSales = salesData.filter((sale) => {
       // Check if sale has storeId property and it matches the current storeId
-      return !sale.storeId || sale.storeId === storeId
+      return "storeId" in sale ? sale.storeId === storeId : true
     })
 
-    // Obtener la fecha actual en Colombia (UTC-5)
-    const now = new Date()
-
-    // Crear fecha de hoy a las 00:00:00
-    const today = new Date(now)
+    const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Calcular el inicio de la semana (domingo)
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
+    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
 
-    // Calcular el inicio del mes
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-    return storeSales.filter((sale) => {
-      // Convertir la fecha de la venta a un objeto Date
-      const saleDate = parseDate(sale.date)
-
-      // Resetear la hora a 00:00:00 para comparar solo fechas
-      saleDate.setHours(0, 0, 0, 0)
-
-      // Comparar según el período seleccionado
-      switch (activeTab) {
-        case "daily":
-          // Para vista diaria, comparar si la fecha es igual a hoy
-          return saleDate.toDateString() === today.toDateString()
-        case "weekly":
-          // Para vista semanal, verificar si la fecha es posterior o igual al inicio de la semana
+    switch (activeTab) {
+      case "daily":
+        return storeSales.filter((sale) => {
+          const saleDate = new Date(sale.date)
+          return saleDate >= today
+        })
+      case "weekly":
+        return storeSales.filter((sale) => {
+          const saleDate = new Date(sale.date)
           return saleDate >= startOfWeek
-        case "monthly":
-          // Para vista mensual, verificar si la fecha es posterior o igual al inicio del mes
+        })
+      case "monthly":
+        return storeSales.filter((sale) => {
+          const saleDate = new Date(sale.date)
           return saleDate >= startOfMonth
-        default:
-          return true
-      }
-    })
-  }
+        })
+      default:
+        return storeSales
+    }
+  }, [salesData, storeId, activeTab])
 
   // Filter expenses by store ID
-  const getFilteredExpenses = () => {
+  const getFilteredExpenses = useCallback(() => {
     if (!storeId || !expensesData.length) return []
 
     const storeExpenses = expensesData.filter((expense) => {
       // Check if expense has storeId property and it matches the current storeId
-      return !expense.storeId || expense.storeId === storeId
+      return "storeId" in expense ? expense.storeId === storeId : true
     })
 
-    // Obtener la fecha actual
-    const now = new Date()
-
-    // Crear fecha de hoy a las 00:00:00
-    const today = new Date(now)
+    const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Calcular el inicio de la semana (domingo)
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
+    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
 
-    // Calcular el inicio del mes
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-    return storeExpenses.filter((expense) => {
-      // Convertir la fecha del gasto a un objeto Date
-      const expenseDate = parseDate(expense.date)
-
-      // Resetear la hora a 00:00:00 para comparar solo fechas
-      expenseDate.setHours(0, 0, 0, 0)
-
-      // Comparar según el período seleccionado
-      switch (activeTab) {
-        case "daily":
-          // Para vista diaria, comparar si la fecha es igual a hoy
-          return expenseDate.toDateString() === today.toDateString()
-        case "weekly":
-          // Para vista semanal, verificar si la fecha es posterior o igual al inicio de la semana
+    switch (activeTab) {
+      case "daily":
+        return storeExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.date)
+          return expenseDate >= today
+        })
+      case "weekly":
+        return storeExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.date)
           return expenseDate >= startOfWeek
-        case "monthly":
-          // Para vista mensual, verificar si la fecha es posterior o igual al inicio del mes
+        })
+      case "monthly":
+        return storeExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.date)
           return expenseDate >= startOfMonth
-        default:
-          return true
-      }
-    })
-  }
+        })
+      default:
+        return storeExpenses
+    }
+  }, [expensesData, storeId, activeTab])
 
   // Calculate total sales
-  const calculateTotalSales = (sales: Sale[]) => {
+  const calculateTotalSales = useCallback((sales: Sale[]) => {
     return sales.reduce((sum, sale) => sum + sale.total, 0)
-  }
+  }, [])
 
   // Calculate total expenses
-  const calculateTotalExpenses = (expenses: Expense[]) => {
+  const calculateTotalExpenses = useCallback((expenses: Expense[]) => {
     return expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  }
+  }, [])
 
   // Prepare data for bar chart (sales by day)
-  const prepareSalesBarChartData = () => {
+  const prepareSalesBarChartData = useCallback(() => {
     const filteredSales = getFilteredSales()
     const salesByDay = new Map<string, number>()
 
@@ -247,10 +225,10 @@ export default function DashboardPage() {
 
     // Convert Map to array for chart
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
-  }
+  }, [getFilteredSales, activeTab])
 
   // Prepare data for bar chart (expenses by day)
-  const prepareExpensesBarChartData = () => {
+  const prepareExpensesBarChartData = useCallback(() => {
     const filteredExpenses = getFilteredExpenses()
     const expensesByDay = new Map<string, number>()
 
@@ -263,7 +241,7 @@ export default function DashboardPage() {
 
       // Sum expenses by hour
       filteredExpenses.forEach((expense) => {
-        const date = parseDate(expense.date)
+        const date = new Date(expense.date)
         const hour = date.getHours()
         const hourKey = hour < 10 ? `0${hour}:00` : `${hour}:00`
         expensesByDay.set(hourKey, (expensesByDay.get(hourKey) || 0) + expense.amount)
@@ -275,7 +253,7 @@ export default function DashboardPage() {
 
       // Sum expenses by day of week
       filteredExpenses.forEach((expense) => {
-        const date = parseDate(expense.date)
+        const date = new Date(expense.date)
         const day = days[date.getDay()]
         expensesByDay.set(day, (expensesByDay.get(day) || 0) + expense.amount)
       })
@@ -290,7 +268,7 @@ export default function DashboardPage() {
 
       // Sum expenses by day of month
       filteredExpenses.forEach((expense) => {
-        const date = parseDate(expense.date)
+        const date = new Date(expense.date)
         const day = date.getDate().toString()
         expensesByDay.set(day, (expensesByDay.get(day) || 0) + expense.amount)
       })
@@ -298,10 +276,10 @@ export default function DashboardPage() {
 
     // Convert Map to array for chart
     return Array.from(expensesByDay).map(([name, value]) => ({ name, value }))
-  }
+  }, [getFilteredExpenses, activeTab])
 
   // Prepare data for balance chart (income vs expenses)
-  const prepareBalanceBarChartData = () => {
+  const prepareBalanceBarChartData = useCallback(() => {
     const salesData = prepareSalesBarChartData()
     const expensesData = prepareExpensesBarChartData()
 
@@ -324,10 +302,10 @@ export default function DashboardPage() {
     })
 
     return combinedData
-  }
+  }, [prepareSalesBarChartData, prepareExpensesBarChartData])
 
   // Prepare data for line chart (trend)
-  const prepareLineChartData = () => {
+  const prepareLineChartData = useCallback(() => {
     const filteredSales = getFilteredSales()
     const salesByDay = new Map<string, number>()
 
@@ -366,64 +344,40 @@ export default function DashboardPage() {
     }
 
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
-  }
+  }, [getFilteredSales, activeTab])
 
-  // Preparar datos para el balance detallado
-  const prepareBalanceDetailData = () => {
+  // Prepare data for pie chart (sales by category)
+  const prepareSalesByCategoryData = useCallback(() => {
     const filteredSales = getFilteredSales()
-    const filteredExpenses = getFilteredExpenses()
+    const salesByCategory = new Map<string, number>()
 
-    // Calcular totales
-    const totalSales = calculateTotalSales(filteredSales)
-    const totalExpenses = calculateTotalExpenses(filteredExpenses)
-    const balance = totalSales - totalExpenses
-
-    // Obtener datos de caja
-    const cajaData = getCajaData()
-
-    return {
-      sales: filteredSales,
-      expenses: filteredExpenses,
-      totalSales,
-      totalExpenses,
-      balance,
-      cajaData,
-    }
-  }
-
-  // Función para obtener datos de caja
-  const getCajaData = () => {
-    if (!storeId) return []
-
-    const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
-    if (!storedCajas) return []
-
-    const cajas = JSON.parse(storedCajas)
-
-    // Filtrar cajas según el período seleccionado
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Domingo como inicio de semana
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
-    return cajas.filter((caja: any) => {
-      const cajaDate = new Date(caja.fecha_apertura)
-
-      switch (activeTab) {
-        case "daily":
-          return cajaDate.toDateString() === today.toDateString()
-        case "weekly":
-          return cajaDate >= startOfWeek
-        case "monthly":
-          return cajaDate >= startOfMonth
-        default:
-          return true
-      }
+    // Sum sales by category
+    filteredSales.forEach((sale) => {
+      sale.items.forEach((item) => {
+        const category = item.product.category || "Sin categoría"
+        const amount = item.product.price * item.quantity
+        salesByCategory.set(category, (salesByCategory.get(category) || 0) + amount)
+      })
     })
-  }
+
+    // Convert Map to array for chart
+    return Array.from(salesByCategory).map(([name, value]) => ({ name, value }))
+  }, [getFilteredSales])
+
+  // Prepare data for pie chart (expenses by category)
+  const prepareExpensesByCategoryData = useCallback(() => {
+    const filteredExpenses = getFilteredExpenses()
+    const expensesByCategory = new Map<string, number>()
+
+    // Sum expenses by category
+    filteredExpenses.forEach((expense) => {
+      const category = expense.categoria || "Sin categoría"
+      expensesByCategory.set(category, (expensesByCategory.get(category) || 0) + expense.amount)
+    })
+
+    // Convert Map to array for chart
+    return Array.from(expensesByCategory).map(([name, value]) => ({ name, value }))
+  }, [getFilteredExpenses])
 
   // Format price in Colombian pesos
   const formatPrice = (price: number) => {
@@ -444,6 +398,31 @@ export default function DashboardPage() {
   const expensesBarChartData = prepareExpensesBarChartData()
   const balanceBarChartData = prepareBalanceBarChartData()
   const lineChartData = prepareLineChartData()
+  const salesByCategoryData = prepareSalesByCategoryData()
+  const expensesByCategoryData = prepareExpensesByCategoryData()
+
+  // Get period text
+  const getPeriodText = () => {
+    switch (activeTab) {
+      case "daily":
+        return "hoy"
+      case "weekly":
+        return "esta semana"
+      case "monthly":
+        return "este mes"
+      default:
+        return ""
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background-light">
+        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-text-primary">Cargando reportes...</p>
+      </div>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
@@ -455,43 +434,125 @@ export default function DashboardPage() {
       </div>
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
-        <Tabs defaultValue="daily" value={activeTab} onValueChange={setActiveTab}>
+        <Tabs
+          defaultValue="daily"
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value)
+            setAnimateCharts(false)
+            setTimeout(() => setAnimateCharts(true), 300)
+          }}
+        >
           <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="daily">Diario</TabsTrigger>
-            <TabsTrigger value="weekly">Semanal</TabsTrigger>
-            <TabsTrigger value="monthly">Mensual</TabsTrigger>
+            <TabsTrigger value="daily" className="relative overflow-hidden">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>Diario</span>
+              </div>
+              {activeTab === "daily" && (
+                <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="weekly" className="relative overflow-hidden">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>Semanal</span>
+              </div>
+              {activeTab === "weekly" && (
+                <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="monthly" className="relative overflow-hidden">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>Mensual</span>
+              </div>
+              {activeTab === "monthly" && (
+                <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
+              )}
+            </TabsTrigger>
           </TabsList>
 
-          <Card>
+          <Card
+            className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          >
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Resumen Financiero</CardTitle>
+              <CardTitle className="text-lg flex items-center">
+                <DollarSign className="h-5 w-5 mr-2 text-primary" />
+                Resumen Financiero
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-text-secondary">Ingresos</p>
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-text-secondary flex items-center">
+                    <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
+                    Ingresos
+                  </p>
                   <p className="text-xl font-bold text-primary">{formatPrice(totalSales)}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-text-secondary">Gastos</p>
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <p className="text-sm text-text-secondary flex items-center">
+                    <TrendingDown className="h-4 w-4 mr-1 text-red-500" />
+                    Gastos
+                  </p>
                   <p className="text-xl font-bold text-danger">{formatPrice(totalExpenses)}</p>
                 </div>
               </div>
               <Separator className="my-4" />
-              <div>
+              <div className={`p-3 rounded-lg ${balance >= 0 ? "bg-green-50" : "bg-red-50"}`}>
                 <p className="text-sm text-text-secondary">Balance</p>
-                <p className={`text-2xl font-bold ${balance >= 0 ? "text-primary" : "text-danger"}`}>
-                  {formatPrice(balance)}
-                </p>
+                <div className="flex items-center">
+                  <p className={`text-2xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {formatPrice(balance)}
+                  </p>
+                  {balance >= 0 ? (
+                    <TrendingUp className="h-5 w-5 ml-2 text-green-500" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5 ml-2 text-red-500" />
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="sales" value={reportView} onValueChange={(value) => setReportView(value as any)}>
+          <Tabs
+            defaultValue="sales"
+            value={reportView}
+            onValueChange={(value) => {
+              setReportView(value as any)
+              setAnimateCharts(false)
+              setTimeout(() => setAnimateCharts(true), 300)
+            }}
+          >
             <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="sales">Ventas</TabsTrigger>
-              <TabsTrigger value="expenses">Gastos</TabsTrigger>
-              <TabsTrigger value="balance">Balance</TabsTrigger>
+              <TabsTrigger value="sales" className="relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4" />
+                  <span>Ventas</span>
+                </div>
+                {reportView === "sales" && (
+                  <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="expenses" className="relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4" />
+                  <span>Gastos</span>
+                </div>
+                {reportView === "expenses" && (
+                  <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="balance" className="relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <PieChart className="h-4 w-4" />
+                  <span>Balance</span>
+                </div>
+                {reportView === "balance" && (
+                  <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="sales" className="space-y-4">
@@ -502,9 +563,11 @@ export default function DashboardPage() {
                 total={totalSales}
                 barChartData={salesBarChartData}
                 lineChartData={lineChartData}
+                pieChartData={salesByCategoryData}
                 formatPrice={formatPrice}
-                period={activeTab === "daily" ? "hoy" : activeTab === "weekly" ? "esta semana" : "este mes"}
+                period={getPeriodText()}
                 type="sales"
+                animateCharts={animateCharts}
               />
             </TabsContent>
 
@@ -516,143 +579,78 @@ export default function DashboardPage() {
                 total={totalExpenses}
                 barChartData={expensesBarChartData}
                 lineChartData={[]}
+                pieChartData={expensesByCategoryData}
                 formatPrice={formatPrice}
-                period={activeTab === "daily" ? "hoy" : activeTab === "weekly" ? "esta semana" : "este mes"}
+                period={getPeriodText()}
                 type="expenses"
+                animateCharts={animateCharts}
               />
             </TabsContent>
 
             <TabsContent value="balance" className="space-y-4">
-              <Card>
+              <Card
+                className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+              >
                 <CardHeader>
-                  <CardTitle className="text-lg">Balance Financiero Detallado</CardTitle>
+                  <CardTitle className="text-lg flex items-center">
+                    <PieChart className="h-5 w-5 mr-2 text-primary" />
+                    Balance Financiero
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{formatPrice(balance)}</div>
-                  <p className="text-sm text-text-secondary">
-                    Balance{" "}
-                    {activeTab === "daily" ? "de hoy" : activeTab === "weekly" ? "de esta semana" : "de este mes"}
-                  </p>
+                  <div
+                    className={`text-3xl font-bold flex items-center ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {formatPrice(balance)}
+                    {balance >= 0 ? <TrendingUp className="h-6 w-6 ml-2" /> : <TrendingDown className="h-6 w-6 ml-2" />}
+                  </div>
+                  <p className="text-sm text-text-secondary">Balance {getPeriodText()}</p>
 
-                  <div className="mt-4">
-                    <h3 className="font-medium mb-2">Ingresos vs Gastos</h3>
-                    <div className="h-64">
+                  <div className="mt-6">
+                    <h3 className="font-medium mb-2 flex items-center">
+                      <BarChart2 className="h-4 w-4 mr-2 text-primary" />
+                      Ingresos vs Gastos
+                    </h3>
+                    <div className="h-64 rounded-lg overflow-hidden bg-gray-50 p-2">
                       <BalanceChart data={balanceBarChartData} />
                     </div>
                   </div>
 
-                  <Separator className="my-4" />
+                  <Separator className="my-6" />
 
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 gap-6">
                     <div>
-                      <h3 className="font-medium mb-2">Resumen de Caja</h3>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-xs text-text-secondary">Cajas Activas</p>
-                            <p className="font-medium">
-                              {getCajaData().filter((c: any) => c.estado === "abierta").length}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Cajas Cerradas</p>
-                            <p className="font-medium">
-                              {getCajaData().filter((c: any) => c.estado === "cerrada").length}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Saldo Inicial Total</p>
-                            <p className="font-medium">
-                              {formatPrice(
-                                getCajaData().reduce((sum: number, caja: any) => sum + Number(caja.saldo_inicial), 0),
-                              )}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Saldo Final Total</p>
-                            <p className="font-medium">
-                              {formatPrice(
-                                getCajaData().reduce((sum: number, caja: any) => sum + Number(caja.saldo_final), 0),
-                              )}
-                            </p>
-                          </div>
-                        </div>
+                      <h3 className="font-medium mb-3 flex items-center">
+                        <TrendingUp className="h-4 w-4 mr-2 text-green-500" />
+                        Detalle de Ventas
+                      </h3>
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <SalesList sales={filteredSales.slice(0, 3)} formatPrice={formatPrice} />
+                        {filteredSales.length > 3 && (
+                          <Link href="/sales" className="text-sm text-primary flex items-center mt-2 hover:underline">
+                            Ver todas las ventas
+                            <ArrowRight className="h-3 w-3 ml-1" />
+                          </Link>
+                        )}
                       </div>
                     </div>
-
                     <div>
-                      <h3 className="font-medium mb-2">Detalle de Cajas</h3>
-                      <CajaDetailList cajas={getCajaData()} formatPrice={formatPrice} />
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium mb-2">Detalle de Ingresos</h3>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-xs text-text-secondary">Total Ventas</p>
-                            <p className="font-medium text-primary">{formatPrice(totalSales)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Número de Ventas</p>
-                            <p className="font-medium">{filteredSales.length}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Venta Promedio</p>
-                            <p className="font-medium">
-                              {formatPrice(filteredSales.length > 0 ? totalSales / filteredSales.length : 0)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Venta Máxima</p>
-                            <p className="font-medium">
-                              {formatPrice(Math.max(...filteredSales.map((sale) => sale.total), 0))}
-                            </p>
-                          </div>
-                        </div>
+                      <h3 className="font-medium mb-3 flex items-center">
+                        <TrendingDown className="h-4 w-4 mr-2 text-red-500" />
+                        Detalle de Gastos
+                      </h3>
+                      <div className="bg-red-50 rounded-lg p-3">
+                        <ExpensesList expenses={filteredExpenses.slice(0, 3)} formatPrice={formatPrice} />
+                        {filteredExpenses.length > 3 && (
+                          <Link
+                            href="/expenses"
+                            className="text-sm text-primary flex items-center mt-2 hover:underline"
+                          >
+                            Ver todos los gastos
+                            <ArrowRight className="h-3 w-3 ml-1" />
+                          </Link>
+                        )}
                       </div>
-                      <SalesList sales={filteredSales.slice(0, 3)} formatPrice={formatPrice} />
-                      {filteredSales.length > 3 && (
-                        <Link href="/sales" className="text-sm text-primary block mt-2">
-                          Ver todas las ventas
-                        </Link>
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium mb-2">Detalle de Egresos</h3>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-xs text-text-secondary">Total Gastos</p>
-                            <p className="font-medium text-danger">{formatPrice(totalExpenses)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Número de Gastos</p>
-                            <p className="font-medium">{filteredExpenses.length}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Categorías Principales</p>
-                            <p className="font-medium">
-                              {Array.from(new Set(filteredExpenses.map((expense) => expense.categoria)))
-                                .slice(0, 2)
-                                .join(", ")}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-text-secondary">Gasto Promedio</p>
-                            <p className="font-medium">
-                              {formatPrice(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <ExpensesList expenses={filteredExpenses.slice(0, 3)} formatPrice={formatPrice} />
-                      {filteredExpenses.length > 3 && (
-                        <Link href="/expenses" className="text-sm text-primary block mt-2">
-                          Ver todos los gastos
-                        </Link>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -672,9 +670,11 @@ interface ReportContentProps {
   total: number
   barChartData: { name: string; value: number }[]
   lineChartData: { name: string; value: number }[]
+  pieChartData: { name: string; value: number }[]
   formatPrice: (price: number) => string
   period: string
   type: "sales" | "expenses"
+  animateCharts: boolean
 }
 
 function ReportContent({
@@ -684,52 +684,103 @@ function ReportContent({
   total,
   barChartData,
   lineChartData,
+  pieChartData,
   formatPrice,
   period,
   type,
+  animateCharts,
 }: ReportContentProps) {
   return (
     <>
-      <Card>
+      <Card
+        className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+      >
         <CardHeader>
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle className="text-lg flex items-center">
+            {type === "sales" ? (
+              <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
+            ) : (
+              <TrendingDown className="h-5 w-5 mr-2 text-red-500" />
+            )}
+            {title}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold">{formatPrice(total)}</div>
+          <div
+            className={`text-3xl font-bold ${type === "sales" ? "text-green-600" : "text-red-600"} flex items-center`}
+          >
+            {formatPrice(total)}
+            {type === "sales" ? <TrendingUp className="h-6 w-6 ml-2" /> : <TrendingDown className="h-6 w-6 ml-2" />}
+          </div>
           <p className="text-sm text-text-secondary">
             Total de {type === "sales" ? "ventas" : "gastos"} {period}
           </p>
 
-          <div className="mt-4">
-            <h3 className="font-medium mb-2">{type === "sales" ? "Ventas" : "Gastos"} por período</h3>
-            <div className="h-64">
+          <div className="mt-6">
+            <h3 className="font-medium mb-2 flex items-center">
+              <BarChart2 className="h-4 w-4 mr-2 text-primary" />
+              {type === "sales" ? "Ventas" : "Gastos"} por período
+            </h3>
+            <div className="h-64 rounded-lg overflow-hidden bg-gray-50 p-2">
               <BarChart data={barChartData} />
             </div>
           </div>
 
+          {pieChartData.length > 0 && (
+            <div className="mt-6">
+              <h3 className="font-medium mb-2 flex items-center">
+                <PieChart className="h-4 w-4 mr-2 text-primary" />
+                {type === "sales" ? "Ventas" : "Gastos"} por categoría
+              </h3>
+              <div className="h-64 rounded-lg overflow-hidden bg-gray-50 p-2">
+                <PieChartComponent data={pieChartData} formatPrice={formatPrice} />
+              </div>
+            </div>
+          )}
+
           {type === "sales" && lineChartData.length > 0 && (
             <>
-              <Separator className="my-4" />
+              <Separator className="my-6" />
               <div>
-                <h3 className="font-medium mb-2">Tendencia de ventas</h3>
-                <div className="h-48">
+                <h3 className="font-medium mb-2 flex items-center">
+                  <TrendingUp className="h-4 w-4 mr-2 text-primary" />
+                  Tendencia de ventas
+                </h3>
+                <div className="h-48 rounded-lg overflow-hidden bg-gray-50 p-2">
                   <LineChart data={lineChartData} />
                 </div>
               </div>
             </>
           )}
         </CardContent>
+        <CardFooter>
+          <Button variant="outline" className="w-full" asChild>
+            <Link href={type === "sales" ? "/sales" : "/expenses"}>
+              Ver todos los {type === "sales" ? "ventas" : "gastos"}
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Link>
+          </Button>
+        </CardFooter>
       </Card>
 
-      <Card>
+      <Card
+        className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+      >
         <CardHeader>
-          <CardTitle className="text-lg">{type === "sales" ? "Detalle de Ventas" : "Detalle de Gastos"}</CardTitle>
+          <CardTitle className="text-lg flex items-center">
+            <DollarSign className="h-5 w-5 mr-2 text-primary" />
+            {type === "sales" ? "Detalle de Ventas" : "Detalle de Gastos"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {type === "sales" ? (
-            <SalesList sales={sales} formatPrice={formatPrice} />
+            <div className="bg-green-50 rounded-lg p-3">
+              <SalesList sales={sales} formatPrice={formatPrice} />
+            </div>
           ) : (
-            <ExpensesList expenses={expenses} formatPrice={formatPrice} />
+            <div className="bg-red-50 rounded-lg p-3">
+              <ExpensesList expenses={expenses} formatPrice={formatPrice} />
+            </div>
           )}
         </CardContent>
       </Card>
@@ -766,53 +817,74 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
     ctx.strokeStyle = "#ccc"
     ctx.stroke()
 
-    // Draw bars
+    // Draw bars with animation
     const barWidth = (chartWidth / data.length) * 0.35
     const groupWidth = chartWidth / data.length
 
+    // Animation
+    let currentFrame = 0
+    const totalFrames = 20
+
+    function animate() {
+      if (currentFrame <= totalFrames) {
+        // Clear the chart area only (not the axes or labels)
+        ctx.clearRect(padding.left + 1, padding.top, chartWidth - 1, chartHeight)
+
+        const animationProgress = currentFrame / totalFrames
+
+        data.forEach((item, index) => {
+          const x = padding.left + index * groupWidth + groupWidth * 0.15
+
+          // Income bar with animation
+          const incomesHeight = (item.ingresos / maxValue) * chartHeight * animationProgress
+          const incomesY = canvas.height - padding.bottom - incomesHeight
+          ctx.fillStyle = "#29d890"
+          ctx.fillRect(x, incomesY, barWidth, incomesHeight)
+
+          // Expense bar with animation
+          const expensesHeight = (item.gastos / maxValue) * chartHeight * animationProgress
+          const expensesY = canvas.height - padding.bottom - expensesHeight
+          ctx.fillStyle = "#ff1515"
+          ctx.fillRect(x + barWidth + 2, expensesY, barWidth, expensesHeight)
+
+          // Draw values if they're visible in the current animation frame
+          if (item.ingresos > 0 && incomesHeight > 15) {
+            ctx.fillStyle = "#0e0e0e"
+            ctx.font = "10px sans-serif"
+            ctx.textAlign = "center"
+            ctx.fillText(
+              new Intl.NumberFormat("es-CO", { notation: "compact", compactDisplay: "short" }).format(item.ingresos),
+              x + barWidth / 2,
+              incomesY - 5,
+            )
+          }
+
+          if (item.gastos > 0 && expensesHeight > 15) {
+            ctx.fillStyle = "#0e0e0e"
+            ctx.font = "10px sans-serif"
+            ctx.textAlign = "center"
+            ctx.fillText(
+              new Intl.NumberFormat("es-CO", { notation: "compact", compactDisplay: "short" }).format(item.gastos),
+              x + barWidth * 1.5 + 2,
+              expensesY - 5,
+            )
+          }
+        })
+
+        currentFrame++
+        requestAnimationFrame(animate)
+      }
+    }
+
+    // Draw labels (outside animation loop)
     data.forEach((item, index) => {
       const x = padding.left + index * groupWidth + groupWidth * 0.15
-
-      // Income bar
-      const incomesHeight = (item.ingresos / maxValue) * chartHeight
-      const incomesY = canvas.height - padding.bottom - incomesHeight
-      ctx.fillStyle = "#29d890"
-      ctx.fillRect(x, incomesY, barWidth, incomesHeight)
-
-      // Expense bar
-      const expensesHeight = (item.gastos / maxValue) * chartHeight
-      const expensesY = canvas.height - padding.bottom - expensesHeight
-      ctx.fillStyle = "#ff1515"
-      ctx.fillRect(x + barWidth + 2, expensesY, barWidth, expensesHeight)
 
       // Draw label
       ctx.fillStyle = "#798184"
       ctx.font = "10px sans-serif"
       ctx.textAlign = "center"
       ctx.fillText(item.name, x + barWidth + 1, canvas.height - padding.bottom + 15)
-
-      // Draw values
-      if (item.ingresos > 0) {
-        ctx.fillStyle = "#0e0e0e"
-        ctx.font = "10px sans-serif"
-        ctx.textAlign = "center"
-        ctx.fillText(
-          new Intl.NumberFormat("es-CO", { notation: "compact", compactDisplay: "short" }).format(item.ingresos),
-          x + barWidth / 2,
-          incomesY - 5,
-        )
-      }
-
-      if (item.gastos > 0) {
-        ctx.fillStyle = "#0e0e0e"
-        ctx.font = "10px sans-serif"
-        ctx.textAlign = "center"
-        ctx.fillText(
-          new Intl.NumberFormat("es-CO", { notation: "compact", compactDisplay: "short" }).format(item.gastos),
-          x + barWidth * 1.5 + 2,
-          expensesY - 5,
-        )
-      }
     })
 
     // Legend
@@ -833,56 +905,104 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
     ctx.font = "10px sans-serif"
     ctx.textAlign = "left"
     ctx.fillText("Gastos", padding.left + 95, legendY + 8)
+
+    // Start animation
+    animate()
   }, [data])
 
   return <canvas ref={canvasRef} width={400} height={300} className="w-full h-full" />
 }
 
-// Añadir un componente para mostrar el detalle de cajas
-// Añadir después de la función BalanceChart
+function PieChartComponent({
+  data,
+  formatPrice,
+}: { data: { name: string; value: number }[]; formatPrice: (price: number) => string }) {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
 
-function CajaDetailList({ cajas, formatPrice }: { cajas: any[]; formatPrice: (price: number) => string }) {
-  const [storeId, setStoreId] = useState<string | null>(null)
+  React.useEffect(() => {
+    if (!canvasRef.current || data.length === 0) return
 
-  useEffect(() => {
-    const selectedStoreId = localStorage.getItem("selectedStoreId")
-    if (selectedStoreId) {
-      setStoreId(selectedStoreId)
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // Configuration
+    const centerX = canvas.width / 2
+    const centerY = canvas.height / 2
+    const radius = Math.min(centerX, centerY) * 0.7
+
+    // Calculate total value
+    const total = data.reduce((sum, item) => sum + item.value, 0)
+
+    // Colors for pie slices
+    const colors = [
+      "#4CAF50",
+      "#2196F3",
+      "#FFC107",
+      "#E91E63",
+      "#9C27B0",
+      "#00BCD4",
+      "#FF5722",
+      "#795548",
+      "#607D8B",
+      "#3F51B5",
+    ]
+
+    // Draw pie chart with animation
+    let currentFrame = 0
+    const totalFrames = 30
+
+    function animate() {
+      if (currentFrame <= totalFrames) {
+        // Clear the canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+        const animationProgress = currentFrame / totalFrames
+        const endAngle = Math.PI * 2 * animationProgress
+
+        let startAngle = 0
+        let legendY = 20
+
+        // Draw pie slices
+        data.forEach((item, index) => {
+          const sliceAngle = (item.value / total) * endAngle
+
+          ctx.beginPath()
+          ctx.moveTo(centerX, centerY)
+          ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle)
+          ctx.closePath()
+
+          ctx.fillStyle = colors[index % colors.length]
+          ctx.fill()
+
+          // Draw legend
+          if (currentFrame === totalFrames) {
+            ctx.fillRect(20, legendY, 15, 15)
+            ctx.fillStyle = "#000"
+            ctx.font = "12px sans-serif"
+            ctx.textAlign = "left"
+            ctx.fillText(
+              `${item.name}: ${formatPrice(item.value)} (${Math.round((item.value / total) * 100)}%)`,
+              45,
+              legendY + 12,
+            )
+            legendY += 25
+          }
+
+          startAngle += sliceAngle
+        })
+
+        currentFrame++
+        requestAnimationFrame(animate)
+      }
     }
-  }, [])
 
-  if (cajas.length === 0) {
-    return <div className="text-center py-4 text-text-secondary">No hay cajas registradas en este período</div>
-  }
+    // Start animation
+    animate()
+  }, [data, formatPrice])
 
-  return (
-    <div className="space-y-3 mt-3">
-      {cajas.slice(0, 3).map((caja: any) => (
-        <div key={caja.id} className="border-b pb-2 last:border-0">
-          <div className="flex justify-between items-center">
-            <div>
-              <span className="font-medium">Caja #{caja.id}</span>
-              <span className="text-xs ml-2 text-text-secondary">{caja.usuario_nombre}</span>
-            </div>
-            <Badge
-              variant={caja.estado === "abierta" ? "default" : "secondary"}
-              className={caja.estado === "abierta" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-            >
-              {caja.estado}
-            </Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-1 mt-1 text-sm">
-            <div>Inicial: {formatPrice(Number(caja.saldo_inicial))}</div>
-            <div>Final: {formatPrice(Number(caja.saldo_final))}</div>
-          </div>
-        </div>
-      ))}
-      {cajas.length > 3 && storeId && (
-        <Link href={`/stores/${storeId}/cajas`} className="text-sm text-primary block mt-2">
-          Ver todas las cajas
-        </Link>
-      )}
-    </div>
-  )
+  return <canvas ref={canvasRef} width={400} height={300} className="w-full h-full" />
 }
-

@@ -159,7 +159,7 @@ export default function AddProductPage() {
   }
 
   const goBack = () => {
-    router.push(`/stores/${storeId}/productos`)
+    router.push(`/stores/${storeId}/products`)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -213,7 +213,7 @@ export default function AddProductPage() {
       }
 
       setTimeout(() => {
-        router.push(`/stores/${storeId}/productos`)
+        router.push(`/stores/${storeId}/products`)
       }, 500)
     } catch (err) {
       console.error("Error al crear el producto:", err)

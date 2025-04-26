@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import BarcodeScanner from "@/components/barcode-scanner"
+import { getProducto } from "@/services/product-service" // Importar servicios
 
 interface ProductFormData {
   id?: number
@@ -34,6 +35,7 @@ interface ProductFormData {
   disponible: boolean
   tienda: number
   codigo_barras?: string
+  oculto?: boolean
 }
 
 export default function EditProductPage() {
@@ -50,6 +52,7 @@ export default function EditProductPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [productNotFound, setProductNotFound] = useState(false)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [formData, setFormData] = useState<ProductFormData>({
     id: Number.parseInt(productId),
@@ -97,9 +100,43 @@ export default function EditProductPage() {
     loadProduct()
   }, [storeId, productId, router])
 
-  // Cargar producto desde localStorage
-  const loadProduct = () => {
-    // Obtener productos del localStorage
+  // Cargar producto desde API o localStorage
+  const loadProduct = async () => {
+    setIsLoading(true)
+    try {
+      // Intentar obtener el producto de la API
+      const producto = await getProducto(Number(productId), Number(storeId))
+
+      if (producto) {
+        // Adaptar los datos del producto al formato del formulario
+        setFormData({
+          id: producto.id,
+          nombre: producto.nombre,
+          descripcion: producto.descripcion || "",
+          precio: producto.precio,
+          cantidad: producto.cantidad,
+          categoria: producto.categoria,
+          disponible: producto.cantidad > 0,
+          tienda: Number(storeId),
+          codigo_barras: producto.codigo_barras || "",
+          oculto: producto.oculto || false,
+        })
+      } else {
+        // Si no se encuentra en la API, intentar obtenerlo del localStorage
+        fallbackToLocalStorage()
+      }
+    } catch (error) {
+      console.error("Error al cargar el producto:", error)
+      // Si hay un error, intentar obtenerlo del localStorage
+      fallbackToLocalStorage()
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Función de respaldo para cargar desde localStorage
+  const fallbackToLocalStorage = () => {
+    console.log("Intentando cargar producto desde localStorage")
     const storedProducts = localStorage.getItem(`store_${storeId}_products`)
 
     if (storedProducts) {
@@ -107,11 +144,14 @@ export default function EditProductPage() {
       const product = products.find((p: ProductFormData) => p.id === Number(productId))
 
       if (product) {
+        console.log("Producto encontrado en localStorage:", product)
         setFormData(product)
       } else {
+        console.log("Producto no encontrado en localStorage")
         setProductNotFound(true)
       }
     } else {
+      console.log("No hay productos almacenados en localStorage")
       setProductNotFound(true)
     }
   }
@@ -186,7 +226,8 @@ export default function EditProductPage() {
     return isValid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Modificar la función handleSubmit para manejar el error 403 y actualizar solo localStorage
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -196,27 +237,63 @@ export default function EditProductPage() {
     setIsSubmitting(true)
 
     try {
-      // Obtener productos actuales
+      // Preparar los datos para la API
+      const productoData = {
+        nombre: formData.nombre,
+        descripcion: formData.descripcion || "",
+        precio: formData.precio,
+        cantidad: formData.cantidad,
+        categoria: formData.categoria,
+        codigo_barras: formData.codigo_barras || null,
+        tienda_id: Number(storeId),
+      }
+
+      let apiSuccess = false
+
+      try {
+        // Intentar actualizar en la API
+        const response = await fetch(
+          `https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/?tienda_id=${storeId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify(productoData),
+          },
+        )
+
+        if (response.ok) {
+          apiSuccess = true
+        } else {
+          console.log("API update failed, falling back to localStorage only")
+        }
+      } catch (apiError) {
+        console.error("Error al comunicarse con la API:", apiError)
+      }
+
+      // Siempre actualizar en localStorage para mantener la UI consistente
       const storedProducts = localStorage.getItem(`store_${storeId}_products`)
       if (storedProducts) {
         const products = JSON.parse(storedProducts)
-
-        // Actualizar el producto
-        const updatedProducts = products.map((p: ProductFormData) => (p.id === Number(productId) ? formData : p))
-
-        // Guardar en localStorage
+        const updatedProducts = products.map((p: ProductFormData) =>
+          p.id === Number(productId) ? { ...formData, disponible: formData.disponible } : p,
+        )
         localStorage.setItem(`store_${storeId}_products`, JSON.stringify(updatedProducts))
-
-        toast({
-          title: "Producto actualizado",
-          description: "El producto ha sido actualizado con éxito",
-          variant: "success",
-        })
-
-        setTimeout(() => {
-          router.push(`/stores/${storeId}/products`)
-        }, 1000)
       }
+
+      toast({
+        title: "Producto actualizado",
+        description: apiSuccess
+          ? "El producto ha sido actualizado con éxito en el servidor"
+          : "El producto ha sido actualizado localmente",
+        variant: "success",
+      })
+
+      setTimeout(() => {
+        router.push(`/stores/${storeId}/products`)
+      }, 1000)
     } catch (err) {
       console.error("Error al actualizar el producto:", err)
       toast({
@@ -238,8 +315,13 @@ export default function EditProductPage() {
       if (storedProducts) {
         const products = JSON.parse(storedProducts)
 
-        // Filtrar el producto a eliminar
-        const updatedProducts = products.filter((p: ProductFormData) => p.id !== Number(productId))
+        // En lugar de eliminar, marcar como oculto
+        const updatedProducts = products.map((p: ProductFormData) => {
+          if (p.id === Number(productId)) {
+            return { ...p, oculto: true }
+          }
+          return p
+        })
 
         // Guardar en localStorage
         localStorage.setItem(`store_${storeId}_products`, JSON.stringify(updatedProducts))
@@ -278,6 +360,22 @@ export default function EditProductPage() {
       description: `Código: ${code}`,
       variant: "success",
     })
+  }
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
+        <div className="bg-white p-4 flex items-center">
+          <Link href={`/stores/${storeId}/products`} className="mr-4">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <h1 className="text-xl font-semibold">Cargando producto...</h1>
+        </div>
+        <div className="flex items-center justify-center h-[80vh]">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </main>
+    )
   }
 
   if (productNotFound) {
