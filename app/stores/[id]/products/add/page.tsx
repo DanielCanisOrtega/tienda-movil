@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ChevronLeft, ImageIcon, Barcode } from "lucide-react"
-import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -16,7 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { type Producto, createProducto } from "@/services/product-service"
 import BarcodeScanner from "@/components/barcode-scanner"
 
-export default function AddProductoPage() {
+export default function AddProductPage() {
   const router = useRouter()
   const params = useParams()
   const storeId = params.id as string
@@ -30,12 +29,12 @@ export default function AddProductoPage() {
   const [formData, setFormData] = useState<Producto>({
     nombre: "",
     descripcion: "",
-    precio: 0, // Inicializar con 0 en lugar de null
-    cantidad: 0, // Inicializar con 0 en lugar de null
+    precio: 0,
+    cantidad: 0,
     categoria: "",
     disponible: true,
     tienda_id: Number(storeId),
-    codigo_barras: null, // Solo este campo puede ser null
+    codigo_barras: null,
   })
 
   const [errors, setErrors] = useState({
@@ -78,7 +77,7 @@ export default function AddProductoPage() {
 
     // Manejar campos numéricos
     if (name === "precio" || name === "cantidad") {
-      const numValue = value === "" ? 0 : Number.parseFloat(value) // Usar 0 en lugar de null
+      const numValue = value === "" ? 0 : Number.parseFloat(value)
       setFormData((prev) => ({
         ...prev,
         [name]: numValue,
@@ -87,7 +86,7 @@ export default function AddProductoPage() {
       // Manejar campos de texto
       setFormData((prev) => ({
         ...prev,
-        [name]: name === "codigo_barras" && value === "" ? null : value, // Solo código de barras puede ser null
+        [name]: name === "codigo_barras" && value === "" ? null : value,
       }))
     }
 
@@ -184,17 +183,49 @@ export default function AddProductoPage() {
 
       console.log("Enviando producto:", productoData)
 
-      // Crear producto en la API
-      await createProducto(productoData)
+      // Intentar crear el producto en la API
+      try {
+        const createdProduct = await createProducto(productoData)
+        console.log("Producto creado con éxito en la API:", createdProduct)
 
-      toast({
-        title: "Producto creado",
-        description: "El producto ha sido creado con éxito",
-        variant: "success",
-      })
+        toast({
+          title: "Producto creado",
+          description: "El producto ha sido creado con éxito",
+          variant: "success",
+        })
+      } catch (apiError) {
+        console.error("Error al crear producto en la API, usando localStorage como fallback:", apiError)
 
-      // Redirigir inmediatamente a la lista de productos
-      router.push(`/stores/${storeId}/productos`)
+        // Fallback: Guardar en localStorage si la API falla
+        const existingProducts = localStorage.getItem(`store_${storeId}_products`)
+        const products = existingProducts ? JSON.parse(existingProducts) : []
+
+        // Generar un nuevo ID (el más alto + 1)
+        const newId = products.length > 0 ? Math.max(...products.map((p: any) => p.id)) + 1 : 1
+
+        // Crear el nuevo producto con el ID generado
+        const newProduct = {
+          ...productoData,
+          id: newId,
+        }
+
+        // Agregar el nuevo producto a la lista
+        products.push(newProduct)
+
+        // Guardar en localStorage
+        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
+
+        toast({
+          title: "Producto guardado localmente",
+          description: "El producto ha sido guardado en el almacenamiento local",
+          variant: "success",
+        })
+      }
+
+      // Usar el botón de retroceso para volver a la página anterior
+      setTimeout(() => {
+        router.push(`/stores/${storeId}/products`)
+      }, 500)
     } catch (err) {
       console.error("Error al crear el producto:", err)
       toast({
@@ -207,12 +238,17 @@ export default function AddProductoPage() {
     }
   }
 
+  // Función para volver a la página anterior
+  const goBack = () => {
+    router.back()
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-white p-4 flex items-center">
-        <Link href={`/stores/${storeId}/productos`} className="mr-4">
+        <Button variant="ghost" className="mr-4 p-2" onClick={goBack} aria-label="Volver">
           <ChevronLeft className="h-6 w-6" />
-        </Link>
+        </Button>
         <h1 className="text-xl font-semibold">Añadir Producto a {storeName}</h1>
       </div>
 

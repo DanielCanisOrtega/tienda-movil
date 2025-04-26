@@ -723,6 +723,41 @@ export default function CartPage() {
         <h1 className="text-xl font-semibold">Registrar Venta</h1>
       </div>
 
+      <div className="container max-w-md mx-auto p-4">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6 flex flex-col items-center justify-center">
+              <Button
+                variant="ghost"
+                className="w-full h-full flex flex-col items-center justify-center gap-2 py-6"
+                onClick={handleVoiceRecognition}
+                disabled={processingVoice || isListening}
+                style={{ minHeight: "120px" }}
+              >
+                <Mic
+                  className={`${isListening ? "text-red-500 animate-pulse" : "text-primary"}`}
+                  style={{ width: "45px", height: "45px" }}
+                />
+                {isListening && <span className="text-xs text-red-500">Escuchando...</span>}
+              </Button>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6 flex flex-col items-center justify-center">
+              <Button
+                variant="ghost"
+                className="w-full h-full flex flex-col items-center justify-center gap-3 py-6"
+                onClick={startBarcodeScanner}
+                style={{ minHeight: "120px" }}
+              >
+                <Barcode className="text-primary" style={{ width: "45px", height: "45px" }} />
+                <span className="text-sm font-medium">Escanear código de barras</span>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       <div className="container max-w-md mx-auto p-4 space-y-4">
         {/* Carrito de compras */}
         <Card>
@@ -805,20 +840,8 @@ export default function CartPage() {
                 >
                   {isProcessing ? "Procesando..." : "Finalizar Venta"}
                 </Button>
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  <Button
-                    variant="outline"
-                    className={`flex items-center gap-2 ${isListening ? "bg-red-100 text-red-600 border-red-300" : ""}`}
-                    onClick={handleVoiceRecognition}
-                    disabled={processingVoice}
-                  >
-                    <Mic className={`h-5 w-5 ${isListening ? "animate-pulse text-red-600" : ""}`} />
-                    {isListening ? "Escuchando..." : "Agregar por voz"}
-                  </Button>
-                  <Button variant="outline" className="flex items-center gap-2" onClick={startBarcodeScanner}>
-                    <Barcode className="h-5 w-5" />
-                    Escanear código
-                  </Button>
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  También puedes usar los botones de voz o código de barras en la parte superior
                 </div>
 
                 {transcript && <div className="mt-2 text-sm text-center text-muted-foreground">"{transcript}"</div>}
@@ -884,17 +907,6 @@ export default function CartPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="fixed bottom-20 right-4 z-10">
-        <Button
-          size="lg"
-          className={`rounded-full w-14 h-14 shadow-lg ${isListening ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary-dark"}`}
-          onClick={handleVoiceRecognition}
-          disabled={processingVoice}
-        >
-          <Mic className={`h-6 w-6 ${isListening ? "animate-pulse" : ""}`} />
-        </Button>
       </div>
 
       {/* Modal para el escáner de códigos de barras */}

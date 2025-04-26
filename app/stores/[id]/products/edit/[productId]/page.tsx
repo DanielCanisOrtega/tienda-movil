@@ -5,7 +5,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChevronLeft, ImageIcon, Trash2 } from "lucide-react"
+import { ChevronLeft, ImageIcon, Trash2, Barcode } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
@@ -22,13 +22,25 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { type Producto, getProducto, updateProducto, deleteProducto } from "@/services/product-service"
+import BarcodeScanner from "@/components/barcode-scanner"
 
-export default function EditProductoPage() {
+interface ProductFormData {
+  id?: number
+  nombre: string
+  descripcion: string
+  precio: number
+  cantidad: number
+  categoria: string
+  disponible: boolean
+  tienda: number
+  codigo_barras?: string
+}
+
+export default function EditProductPage() {
   const router = useRouter()
   const params = useParams()
   const storeId = params.id as string
-  const productoId = params.productoId as string
+  const productId = params.productId as string
   const { toast } = useToast()
 
   const [userType, setUserType] = useState<string | null>(null)
@@ -37,18 +49,17 @@ export default function EditProductoPage() {
   const [storeName, setStoreName] = useState<string>("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [productNotFound, setProductNotFound] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
 
-  const [formData, setFormData] = useState<Producto>({
-    id: Number(productoId),
+  const [formData, setFormData] = useState<ProductFormData>({
+    id: Number.parseInt(productId),
     nombre: "",
     descripcion: "",
     precio: 0,
     cantidad: 0,
     categoria: "",
     disponible: true,
-    tienda_id: Number(storeId),
-    codigo_barras: "",
+    tienda: Number.parseInt(storeId),
   })
 
   const [errors, setErrors] = useState({
@@ -63,7 +74,12 @@ export default function EditProductoPage() {
 
   // Verificar si el usuario está autorizado y cargar datos
   useEffect(() => {
-    const storedUserType = localStorage.getItem("userType")
+    let storedUserType: string | null = null
+    try {
+      storedUserType = localStorage.getItem("userType")
+    } catch (error) {
+      console.error("Error accessing localStorage:", error)
+    }
     setUserType(storedUserType)
 
     if (!storedUserType) {
@@ -77,37 +93,26 @@ export default function EditProductoPage() {
       setStoreName(selectedStoreName)
     }
 
-    console.log(`Página de editar producto inicializada para tienda_id=${storeId}, producto_id=${productoId}`)
-
     // Cargar datos del producto
     loadProduct()
-  }, [storeId, productoId, router])
+  }, [storeId, productId, router])
 
-  // Cargar producto desde la API
-  const loadProduct = async () => {
-    setIsLoading(true)
-    try {
-      // Convertir IDs a números para asegurar que se envíen correctamente
-      const producto = await getProducto(Number(productoId), Number(storeId))
+  // Cargar producto desde localStorage
+  const loadProduct = () => {
+    // Obtener productos del localStorage
+    const storedProducts = localStorage.getItem(`store_${storeId}_products`)
 
-      // Asegurarse de que disponible exista (aunque no esté en el serializador)
-      const productoConDisponible = {
-        ...producto,
-        disponible: producto.disponible !== undefined ? producto.disponible : true,
-        descripcion: producto.descripcion || "",
+    if (storedProducts) {
+      const products = JSON.parse(storedProducts)
+      const product = products.find((p: ProductFormData) => p.id === Number(productId))
+
+      if (product) {
+        setFormData(product)
+      } else {
+        setProductNotFound(true)
       }
-
-      setFormData(productoConDisponible)
-    } catch (err) {
-      console.error("Error al cargar el producto:", err)
+    } else {
       setProductNotFound(true)
-      toast({
-        title: "Error",
-        description: "No se pudo cargar el producto. Por favor, intenta de nuevo más tarde.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -181,7 +186,7 @@ export default function EditProductoPage() {
     return isValid
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -191,31 +196,32 @@ export default function EditProductoPage() {
     setIsSubmitting(true)
 
     try {
-      // Asegurarnos de que tienda_id e id sean números
-      const productoData = {
-        ...formData,
-        id: Number(productoId),
-        tienda_id: Number(storeId),
+      // Obtener productos actuales
+      const storedProducts = localStorage.getItem(`store_${storeId}_products`)
+      if (storedProducts) {
+        const products = JSON.parse(storedProducts)
+
+        // Actualizar el producto
+        const updatedProducts = products.map((p: ProductFormData) => (p.id === Number(productId) ? formData : p))
+
+        // Guardar en localStorage
+        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(updatedProducts))
+
+        toast({
+          title: "Producto actualizado",
+          description: "El producto ha sido actualizado con éxito",
+          variant: "success",
+        })
+
+        setTimeout(() => {
+          router.push(`/stores/${storeId}/products`)
+        }, 1000)
       }
-
-      console.log("Actualizando producto:", productoData)
-
-      // Actualizar producto en la API
-      await updateProducto(Number(productoId), productoData)
-
-      toast({
-        title: "Producto actualizado",
-        description: "El producto ha sido actualizado con éxito",
-        variant: "success",
-      })
-
-      // Redirigir inmediatamente a la lista de productos
-      router.push(`/stores/${storeId}/productos`)
     } catch (err) {
       console.error("Error al actualizar el producto:", err)
       toast({
         title: "Error",
-        description: `No se pudo actualizar el producto: ${err instanceof Error ? err.message : "Error desconocido"}`,
+        description: "No se pudo actualizar el producto. Por favor, intenta de nuevo más tarde.",
         variant: "destructive",
       })
     } finally {
@@ -223,35 +229,36 @@ export default function EditProductoPage() {
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     setIsDeleting(true)
 
     try {
-      console.log(`Eliminando producto: ID=${productoId}, Tienda ID=${storeId}`)
+      // Obtener productos actuales
+      const storedProducts = localStorage.getItem(`store_${storeId}_products`)
+      if (storedProducts) {
+        const products = JSON.parse(storedProducts)
 
-      // Eliminar producto en la API
-      await deleteProducto(Number(productoId), Number(storeId))
+        // Filtrar el producto a eliminar
+        const updatedProducts = products.filter((p: ProductFormData) => p.id !== Number(productId))
 
-      toast({
-        title: "Producto eliminado",
-        description: "El producto ha sido eliminado con éxito",
-        variant: "success",
-      })
+        // Guardar en localStorage
+        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(updatedProducts))
 
-      // Redirigir inmediatamente a la lista de productos
-      router.push(`/stores/${storeId}/productos`)
+        toast({
+          title: "Producto eliminado",
+          description: "El producto ha sido eliminado con éxito",
+          variant: "success",
+        })
+
+        setTimeout(() => {
+          router.push(`/stores/${storeId}/products`)
+        }, 1000)
+      }
     } catch (err) {
       console.error("Error al eliminar el producto:", err)
-
-      // Mensaje personalizado si el producto tiene ventas asociadas
-      const errorMessage =
-        err instanceof Error && err.message.includes("ventas asociadas")
-          ? "No se puede eliminar un producto con ventas asociadas."
-          : "No se pudo eliminar el producto. Por favor, intenta de nuevo más tarde."
-
       toast({
         title: "Error",
-        description: errorMessage,
+        description: "No se pudo eliminar el producto. Por favor, intenta de nuevo más tarde.",
         variant: "destructive",
       })
     } finally {
@@ -260,20 +267,24 @@ export default function EditProductoPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background-light">
-        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-text-primary">Cargando producto...</p>
-      </div>
-    )
+  const handleBarcodeDetected = (code: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      codigo_barras: code,
+    }))
+    setShowBarcodeScanner(false)
+    toast({
+      title: "Código detectado",
+      description: `Código: ${code}`,
+      variant: "success",
+    })
   }
 
   if (productNotFound) {
     return (
       <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
         <div className="bg-white p-4 flex items-center">
-          <Link href={`/stores/${storeId}/productos`} className="mr-4">
+          <Link href={`/stores/${storeId}/products`} className="mr-4">
             <ChevronLeft className="h-6 w-6" />
           </Link>
           <h1 className="text-xl font-semibold">Producto no encontrado</h1>
@@ -282,7 +293,7 @@ export default function EditProductoPage() {
           <div className="bg-white rounded-lg p-8">
             <p className="text-text-secondary mb-4">El producto que buscas no existe o ha sido eliminado</p>
             <Button
-              onClick={() => router.push(`/stores/${storeId}/productos`)}
+              onClick={() => router.push(`/stores/${storeId}/products`)}
               className="bg-primary hover:bg-primary-dark"
             >
               Volver a productos
@@ -296,7 +307,7 @@ export default function EditProductoPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-white p-4 flex items-center">
-        <Link href={`/stores/${storeId}/productos`} className="mr-4">
+        <Link href={`/stores/${storeId}/products`} className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
         <h1 className="text-xl font-semibold">Editar Producto</h1>
@@ -360,20 +371,6 @@ export default function EditProductoPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="codigo_barras" className="text-base">
-              Código de Barras (opcional)
-            </Label>
-            <Input
-              id="codigo_barras"
-              name="codigo_barras"
-              value={formData.codigo_barras || ""}
-              onChange={handleChange}
-              placeholder="Ej: 7501234567890"
-              className="bg-input-bg border-0 h-12 text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="categoria" className="text-base">
               Categoría
             </Label>
@@ -392,6 +389,30 @@ export default function EditProductoPage() {
             {errors.categoria && <p className="text-sm text-red-500">{errors.categoria}</p>}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="codigo_barras" className="text-base">
+              Código de Barras
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="codigo_barras"
+                name="codigo_barras"
+                value={formData.codigo_barras || ""}
+                onChange={handleChange}
+                placeholder="Escanea o ingresa el código"
+                className="bg-input-bg border-0 h-12 text-base flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 aspect-square flex items-center justify-center bg-white border-primary"
+                onClick={() => setShowBarcodeScanner(true)}
+              >
+                <Barcode className="h-5 w-5 text-primary" />
+              </Button>
+            </div>
+          </div>
+
           <div className="bg-input-bg rounded-lg p-4 flex flex-col items-center justify-center h-40">
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <ImageIcon className="h-6 w-6 text-primary" />
@@ -407,7 +428,7 @@ export default function EditProductoPage() {
             <Textarea
               id="descripcion"
               name="descripcion"
-              value={formData.descripcion || ""}
+              value={formData.descripcion}
               onChange={handleChange}
               placeholder="Descripción del producto"
               className="bg-input-bg border-0 min-h-[100px] text-base"
@@ -459,6 +480,9 @@ export default function EditProductoPage() {
           </div>
         </form>
       </div>
+      {showBarcodeScanner && (
+        <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />
+      )}
     </main>
   )
 }
