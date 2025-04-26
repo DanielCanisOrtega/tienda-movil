@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ChevronLeft, Receipt } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,6 +18,7 @@ export default function AddExpensePage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [storeId, setStoreId] = useState<string | null>(null)
 
   // Usar la fecha actual en formato YYYY-MM-DD
   const today = new Date().toISOString().split("T")[0]
@@ -38,6 +39,13 @@ export default function AddExpensePage() {
     categoria: "",
     paymentMethod: "",
   })
+
+  // Cargar el storeId del localStorage solo en el cliente
+  useEffect(() => {
+    // Este código solo se ejecuta en el cliente
+    const storedStoreId = localStorage.getItem("selectedStoreId")
+    setStoreId(storedStoreId)
+  }, [])
 
   const categories = ["Pedidos", "Servicios", "Nómina", "Alquiler", "Impuestos", "Otros"]
 
@@ -112,52 +120,70 @@ export default function AddExpensePage() {
     return isValid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState<string | null>(null)
+  const [description, setDescription] = useState("")
+  const [amount, setAmount] = useState("")
+  const [date, setDate] = useState(today)
+  const [category, setCategory] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState("")
+  const [notes, setNotes] = useState("")
+
+  // Asegurar que la fecha se guarde correctamente al agregar un gasto
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) {
-      return
-    }
-
     setIsSubmitting(true)
+    setError(null)
 
     try {
-      // Obtener el ID de la tienda seleccionada
-      const storeId = localStorage.getItem("selectedStoreId")
+      // Validar campos requeridos
+      if (!description || !amount || !category || !paymentMethod || !date) {
+        throw new Error("Por favor completa todos los campos requeridos")
+      }
 
-      // Obtener gastos existentes del localStorage
-      const existingExpenses = localStorage.getItem("expenses")
-      const expenses: Expense[] = existingExpenses ? JSON.parse(existingExpenses) : []
-
-      // Crear el nuevo gasto con ID único
+      // Crear objeto de gasto
       const newExpense: Expense = {
-        id: crypto.randomUUID(),
-        ...formData,
+        id: `expense-${Date.now()}`,
+        descripcion: description,
+        amount: Number.parseFloat(amount),
+        date: date, // Asegurarse de que la fecha se guarde en formato YYYY-MM-DD
+        categoria: category,
+        paymentMethod: paymentMethod,
+        notes: notes || "",
         storeId: storeId || undefined,
       }
 
-      // Agregar el nuevo gasto a la lista
+      // Obtener gastos existentes del localStorage (solo en el cliente)
+      let expenses: Expense[] = []
+      const storedExpenses = localStorage.getItem("expenses")
+
+      if (storedExpenses) {
+        expenses = JSON.parse(storedExpenses)
+      }
+
+      // Agregar nuevo gasto
       expenses.push(newExpense)
 
       // Guardar en localStorage
       localStorage.setItem("expenses", JSON.stringify(expenses))
 
+      // Mostrar mensaje de éxito
       toast({
         title: "Gasto registrado",
-        description: "El gasto ha sido registrado con éxito",
+        description: "El gasto ha sido registrado correctamente",
         variant: "success",
       })
 
-      setTimeout(() => {
-        router.push("/expenses")
-      }, 1000)
-    } catch (error) {
-      console.error("Error al guardar el gasto:", error)
+      // Redireccionar a la página de gastos
+      router.push("/expenses")
+    } catch (err) {
+      console.error("Error al registrar el gasto:", err)
+      setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "Error",
-        description: "No se pudo registrar el gasto. Por favor, intenta de nuevo más tarde.",
+        description: err instanceof Error ? err.message : "Error desconocido",
         variant: "destructive",
       })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -180,8 +206,8 @@ export default function AddExpensePage() {
             <Input
               id="descripcion"
               name="descripcion"
-              value={formData.descripcion}
-              onChange={handleChange}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Ej: Pedido de frutas, Factura de luz"
               className="bg-input-bg border-0 h-12 text-base"
             />
@@ -197,8 +223,8 @@ export default function AddExpensePage() {
               <Input
                 id="amount"
                 name="amount"
-                value={formData.amount || ""}
-                onChange={handleChange}
+                value={amount || ""}
+                onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
                 className="bg-input-bg border-0 pl-8 h-12 text-base"
                 type="number"
@@ -217,8 +243,8 @@ export default function AddExpensePage() {
               id="date"
               name="date"
               type="date"
-              value={formData.date}
-              onChange={handleChange}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
               className="bg-input-bg border-0 h-12 text-base"
             />
             {errors.date && <p className="text-sm text-red-500">{errors.date}</p>}
@@ -228,7 +254,7 @@ export default function AddExpensePage() {
             <Label htmlFor="categoria" className="text-base">
               Categoría
             </Label>
-            <Select value={formData.categoria} onValueChange={(value) => handleSelectChange("categoria", value)}>
+            <Select value={category} onValueChange={(value) => setCategory(value)}>
               <SelectTrigger className="bg-input-bg border-0 h-12 text-base">
                 <SelectValue placeholder="Seleccionar categoría" />
               </SelectTrigger>
@@ -247,10 +273,7 @@ export default function AddExpensePage() {
             <Label htmlFor="paymentMethod" className="text-base">
               Método de pago
             </Label>
-            <Select
-              value={formData.paymentMethod}
-              onValueChange={(value) => handleSelectChange("paymentMethod", value)}
-            >
+            <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value)}>
               <SelectTrigger className="bg-input-bg border-0 h-12 text-base">
                 <SelectValue placeholder="Seleccionar método de pago" />
               </SelectTrigger>
@@ -280,8 +303,8 @@ export default function AddExpensePage() {
             <Textarea
               id="notes"
               name="notes"
-              value={formData.notes}
-              onChange={handleChange}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Información adicional sobre el gasto"
               className="bg-input-bg border-0 min-h-[100px] text-base"
             />
