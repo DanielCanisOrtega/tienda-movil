@@ -624,7 +624,75 @@ export default function CartPage() {
       })
     }
   }
+  // Nueva función para manejar comandos de actualizar cantidades
+  const handleUpdateQuantityCommand = (productName: string, newQuantity: number) => {
+    console.log(`Buscando producto "${productName}" para actualizar a ${newQuantity} unidades`)
 
+    // Buscar el producto en el carrito
+    const normalizedProductName = productName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+
+    const cartItem = cartItems.find((item) => {
+      const itemName = item.product.nombre
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+      return itemName.includes(normalizedProductName) || normalizedProductName.includes(itemName)
+    })
+
+    if (cartItem) {
+      // Verificar si hay suficiente stock
+      if (newQuantity > cartItem.product.cantidad) {
+        toast({
+          title: "Stock insuficiente",
+          description: `Solo hay ${cartItem.product.cantidad} unidades de ${cartItem.product.nombre} disponibles`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Actualizar la cantidad
+      if (newQuantity === 0) {
+        removeFromCart(cartItem.product.id)
+        toast({
+          title: "Producto eliminado por voz",
+          description: `Se eliminó ${cartItem.product.nombre} del carrito`,
+          variant: "success",
+        })
+      } else {
+        updateQuantity(cartItem.product.id, newQuantity)
+        toast({
+          title: "Cantidad actualizada por voz",
+          description: `Se actualizó ${cartItem.product.nombre} a ${newQuantity} unidades`,
+          variant: "success",
+        })
+      }
+    } else {
+      // Si el producto no está en el carrito pero existe en el inventario, agregarlo
+      const foundProduct = findProductByName(productName)
+      if (foundProduct) {
+        if (newQuantity > foundProduct.cantidad) {
+          toast({
+            title: "Stock insuficiente",
+            description: `Solo hay ${foundProduct.cantidad} unidades de ${foundProduct.nombre} disponibles`,
+            variant: "destructive",
+          })
+          return
+        }
+
+        setCartItems((prevItems) => [...prevItems, { product: foundProduct, quantity: newQuantity }])
+        toast({
+          title: "Producto añadido por voz",
+          description: `Se agregó ${newQuantity} ${foundProduct.nombre} al carrito`,
+          variant: "success",
+        })
+      } else {
+        handleProductNotFound(productName)
+      }
+    }
+  }
 
 
   // Función auxiliar para buscar un producto por nombre
