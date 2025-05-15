@@ -44,8 +44,10 @@ export default function AddProductPage() {
     categoria: "",
   })
 
+  // Categorías predefinidas
   const categories = ["Frutas", "Verduras", "Lácteos", "Carnes", "Abarrotes", "Bebidas", "Limpieza", "Otros"]
 
+  // Verificar si el usuario está autorizado
   useEffect(() => {
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
@@ -55,11 +57,13 @@ export default function AddProductPage() {
       return
     }
 
+    // Obtener el nombre de la tienda seleccionada
     const selectedStoreName = localStorage.getItem("selectedStoreName")
     if (selectedStoreName) {
       setStoreName(selectedStoreName)
     }
 
+    // Actualizar tienda_id en formData
     setFormData((prev) => ({
       ...prev,
       tienda_id: Number(storeId),
@@ -71,6 +75,7 @@ export default function AddProductPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
 
+    // Manejar campos numéricos
     if (name === "precio" || name === "cantidad") {
       const numValue = value === "" ? 0 : Number.parseFloat(value)
       setFormData((prev) => ({
@@ -78,12 +83,14 @@ export default function AddProductPage() {
         [name]: numValue,
       }))
     } else {
+      // Manejar campos de texto
       setFormData((prev) => ({
         ...prev,
         [name]: name === "codigo_barras" && value === "" ? null : value,
       }))
     }
 
+    // Limpiar error
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({
         ...prev,
@@ -158,10 +165,12 @@ export default function AddProductPage() {
     return isValid
   }
 
+  // Modificar la función goBack para asegurarnos de que vuelve a la página correcta
   const goBack = () => {
     router.push(`/stores/${storeId}/products`)
   }
 
+  // Modificar la función handleSubmit para redirigir a la página correcta después de guardar
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -172,6 +181,7 @@ export default function AddProductPage() {
     setIsSubmitting(true)
 
     try {
+      // Asegurarnos de que tienda_id sea un número
       const productoData = {
         ...formData,
         tienda_id: Number(storeId),
@@ -179,6 +189,7 @@ export default function AddProductPage() {
 
       console.log("Enviando producto:", productoData)
 
+      // Intentar crear el producto en la API
       try {
         const createdProduct = await createProducto(productoData)
         console.log("Producto creado con éxito en la API:", createdProduct)
@@ -191,18 +202,23 @@ export default function AddProductPage() {
       } catch (apiError) {
         console.error("Error al crear producto en la API, usando localStorage como fallback:", apiError)
 
+        // Fallback: Guardar en localStorage si la API falla
         const existingProducts = localStorage.getItem(`store_${storeId}_products`)
         const products = existingProducts ? JSON.parse(existingProducts) : []
 
+        // Generar un nuevo ID (el más alto + 1)
         const newId = products.length > 0 ? Math.max(...products.map((p: any) => p.id)) + 1 : 1
 
+        // Crear el nuevo producto con el ID generado
         const newProduct = {
           ...productoData,
           id: newId,
         }
 
+        // Agregar el nuevo producto a la lista
         products.push(newProduct)
 
+        // Guardar en localStorage
         localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
 
         toast({
@@ -212,6 +228,7 @@ export default function AddProductPage() {
         })
       }
 
+      // Redirigir a la página de productos
       setTimeout(() => {
         router.push(`/stores/${storeId}/products`)
       }, 500)
@@ -230,17 +247,18 @@ export default function AddProductPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
       <div className="bg-white p-4 flex items-center">
-        <Button variant="ghost" className="mr-4 p-2" onClick={goBack} aria-label="Volver">
+        <button onClick={goBack} className="mr-4 p-2 flex items-center justify-center" aria-label="Volver">
           <ChevronLeft className="h-6 w-6" />
-        </Button>
+        </button>
         <h1 className="text-xl font-semibold">Añadir Producto a {storeName}</h1>
       </div>
 
       <div className="container max-w-md mx-auto p-4">
         <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Nombre */}
           <div className="space-y-2">
-            <Label htmlFor="nombre" className="text-base">Nombre del Producto *</Label>
+            <Label htmlFor="nombre" className="text-base">
+              Nombre del Producto *
+            </Label>
             <Input
               id="nombre"
               name="nombre"
@@ -253,9 +271,10 @@ export default function AddProductPage() {
             {errors.nombre && <p className="text-sm text-red-500">{errors.nombre}</p>}
           </div>
 
-          {/* Precio */}
           <div className="space-y-2">
-            <Label htmlFor="precio" className="text-base">Precio *</Label>
+            <Label htmlFor="precio" className="text-base">
+              Precio *
+            </Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base">$</span>
               <Input
@@ -275,9 +294,10 @@ export default function AddProductPage() {
             {errors.precio && <p className="text-sm text-red-500">{errors.precio}</p>}
           </div>
 
-          {/* Cantidad */}
           <div className="space-y-2">
-            <Label htmlFor="cantidad" className="text-base">Cantidad en inventario *</Label>
+            <Label htmlFor="cantidad" className="text-base">
+              Cantidad en inventario *
+            </Label>
             <Input
               id="cantidad"
               name="cantidad"
@@ -293,9 +313,10 @@ export default function AddProductPage() {
             {errors.cantidad && <p className="text-sm text-red-500">{errors.cantidad}</p>}
           </div>
 
-          {/* Código de barras */}
           <div className="space-y-2">
-            <Label htmlFor="codigo_barras" className="text-base">Código de Barras (opcional)</Label>
+            <Label htmlFor="codigo_barras" className="text-base">
+              Código de Barras (opcional)
+            </Label>
             <div className="flex">
               <Input
                 id="codigo_barras"
@@ -311,9 +332,10 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          {/* Categoría */}
           <div className="space-y-2">
-            <Label htmlFor="categoria" className="text-base">Categoría *</Label>
+            <Label htmlFor="categoria" className="text-base">
+              Categoría *
+            </Label>
             <Select
               value={formData.categoria}
               onValueChange={(value) => handleSelectChange("categoria", value)}
@@ -333,7 +355,6 @@ export default function AddProductPage() {
             {errors.categoria && <p className="text-sm text-red-500">{errors.categoria}</p>}
           </div>
 
-          {/* Imagen */}
           <div className="bg-input-bg rounded-lg p-4 flex flex-col items-center justify-center h-40">
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <ImageIcon className="h-6 w-6 text-primary" />
@@ -342,9 +363,10 @@ export default function AddProductPage() {
             <p className="text-xs text-text-secondary mt-1">(Funcionalidad no disponible en esta versión)</p>
           </div>
 
-          {/* Descripción */}
           <div className="space-y-2">
-            <Label htmlFor="descripcion" className="text-base">Descripción (opcional)</Label>
+            <Label htmlFor="descripcion" className="text-base">
+              Descripción (opcional)
+            </Label>
             <Textarea
               id="descripcion"
               name="descripcion"
@@ -355,7 +377,6 @@ export default function AddProductPage() {
             />
           </div>
 
-          {/* Disponible */}
           <div className="flex items-center space-x-2">
             <Switch id="disponible" checked={formData.disponible} onCheckedChange={handleSwitchChange} />
             <Label htmlFor="disponible">Producto disponible</Label>
@@ -373,12 +394,7 @@ export default function AddProductPage() {
         </form>
       </div>
 
-      {showScanner && (
-        <BarcodeScanner
-          onDetected={handleBarcodeDetected}
-          onClose={() => setShowScanner(false)}
-        />
-      )}
+      {showScanner && <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />}
     </main>
   )
 }
