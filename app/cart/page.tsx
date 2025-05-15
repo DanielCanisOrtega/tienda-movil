@@ -99,6 +99,7 @@ export default function CartPage() {
       const fetchProducts = async () => {
         try {
           const fetchedProducts = await getProductsByStore(selectedStoreId)
+          console.log("Productos cargados:", fetchedProducts)
           // Solo mostrar productos disponibles, adaptando la estructura
           const availableProducts = fetchedProducts
             .map((p) => ({
@@ -387,11 +388,28 @@ export default function CartPage() {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
 
+      console.log("Comando de voz normalizado:", normalizedText)
+
       // Patrones para diferentes comandos
       const addPatterns = [
         /(agregar|añadir|poner|quiero|dame|agrega|añade|pon)\s+(\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(.+)/i,
         /(agregar|añadir|poner|quiero|dame|agrega|añade|pon)\s+(.+)/i, // Sin cantidad específica
       ]
+
+      // Nuevos patrones para eliminar productos
+      const removePatterns = [
+        /(quitar|eliminar|sacar|quita|elimina|saca|borrar|borra|remover|remueve)\s+(\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(.+)/i,
+        /(quitar|eliminar|sacar|quita|elimina|saca|borrar|borra|remover|remueve)\s+(.+)/i, // Sin cantidad específica
+      ]
+
+      // Nuevos patrones para modificar cantidades
+      const updatePatterns = [
+        /(cambiar|actualizar|modificar|cambia|actualiza|modifica|ajustar|ajusta)\s+(.+)\s+a\s+(\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)/i,
+        /(poner|pon|dejar|deja)\s+(.+)\s+en\s+(\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)/i,
+      ]
+
+      // Patrón para vaciar el carrito
+      const clearCartPattern = /(vaciar|limpiar|borrar|eliminar)\s+(carrito|todo|carro|productos|canasta)/i
 
       // Diccionario para convertir palabras de números a dígitos
       const numberWords: Record<string, number> = {
@@ -408,111 +426,98 @@ export default function CartPage() {
         diez: 10,
       }
 
-      // Probar con el primer patrón (con cantidad)
-      let match = normalizedText.match(addPatterns[0])
-      let quantity = 1
-      let productName = ""
-
-      if (match) {
-        // Extraer cantidad
-        const quantityText = match[2].toLowerCase()
-        quantity = isNaN(Number.parseInt(quantityText)) ? numberWords[quantityText] || 1 : Number.parseInt(quantityText)
-
-        productName = match[3].trim()
-      } else {
-        // Probar con el segundo patrón (sin cantidad específica)
-        match = normalizedText.match(addPatterns[1])
-        if (match) {
-          quantity = 1
-          productName = match[2].trim()
-        }
-      }
-
-      if (match && productName) {
-        // Buscar el producto en el inventario
-        // Primero intentamos una coincidencia exacta
-        let foundProduct = filteredProducts.find(
-          (product) => product.nombre.toLowerCase() === productName.toLowerCase(),
-        )
-
-        // Si no hay coincidencia exacta, buscamos coincidencias parciales
-        if (!foundProduct) {
-          foundProduct = filteredProducts.find((product) => {
-            const normalizedProductName = product.nombre
-              .toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-
-            return normalizedProductName.includes(productName) || productName.includes(normalizedProductName)
+      // Verificar si es un comando para vaciar el carrito
+      if (clearCartPattern.test(normalizedText)) {
+        if (cartItems.length === 0) {
+          toast({
+            title: "Carrito vacío",
+            description: "El carrito ya está vacío",
+            variant: "default",
           })
-        }
-
-        if (foundProduct) {
-          // Verificar si hay suficiente stock
-          const existingItem = cartItems.find((item) => item.product.id === foundProduct!.id)
-          const currentQuantity = existingItem ? existingItem.quantity : 0
-
-          if (currentQuantity + quantity > foundProduct.cantidad) {
-            toast({
-              title: "Stock insuficiente",
-              description: `Solo hay ${foundProduct.cantidad} unidades de ${foundProduct.nombre} disponibles`,
-              variant: "destructive",
-            })
-          } else {
-            // Agregar el producto al carrito con la cantidad especificada
-            const existingItem = cartItems.find((item) => item.product.id === foundProduct!.id)
-            if (existingItem) {
-              // Si el producto ya está en el carrito, actualizar la cantidad
-              updateQuantity(foundProduct.id, existingItem.quantity + quantity)
-            } else {
-              // Si no está en el carrito, agregarlo con la cantidad especificada
-              setCartItems((prevItems) => [...prevItems, { product: foundProduct!, quantity }])
-            }
-
-            toast({
-              title: "Producto añadido por voz",
-              description: `Se ${quantity === 1 ? "agregó" : "agregaron"} ${quantity} ${foundProduct.nombre} al carrito`,
-              variant: "success",
-            })
-          }
         } else {
-          // Si no encontramos el producto, mostramos los productos similares
-          const similarProducts = filteredProducts.filter((product) => {
-            const normalizedProductName = product.nombre
-              .toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-
-            // Dividir el nombre del producto en palabras y buscar coincidencias parciales
-            const productWords = normalizedProductName.split(" ")
-            const searchWords = productName.split(" ")
-
-            return searchWords.some(
-              (word) => word.length > 2 && productWords.some((prodWord) => prodWord.includes(word)),
-            )
-          })
-
-          if (similarProducts.length > 0) {
-            toast({
-              title: "Producto no encontrado",
-              description: `¿Quisiste decir "${similarProducts[0].nombre}"?`,
-              variant: "destructive",
-            })
-          } else {
-            toast({
-              title: "Producto no encontrado",
-              description: `No se encontró "${productName}" en el inventario`,
-              variant: "destructive",
-            })
+          setCartItems([])
+          if (storeId) {
+            localStorage.removeItem(`store_${storeId}_cart`)
           }
+          toast({
+            title: "Carrito vaciado",
+            description: "Se han eliminado todos los productos del carrito",
+            variant: "success",
+          })
         }
-      } else {
-        toast({
-          title: "Comando no reconocido",
-          description: "Intenta decir: 'agregar [cantidad] [producto]'",
-          variant: "destructive",
-        })
+        setProcessingVoice(false)
+        return
       }
+
+      // Verificar si es un comando para agregar productos
+      let match = normalizedText.match(addPatterns[0])
+      if (match) {
+        // Extraer cantidad y nombre del producto
+        const quantityText = match[2].toLowerCase()
+        const quantity = isNaN(Number.parseInt(quantityText))
+          ? numberWords[quantityText] || 1
+          : Number.parseInt(quantityText)
+        const productName = match[3].trim()
+
+        handleAddProductCommand(productName, quantity)
+        setProcessingVoice(false)
+        return
+      }
+
+      match = normalizedText.match(addPatterns[1])
+      if (match) {
+        // Sin cantidad específica, usar 1 por defecto
+        const productName = match[2].trim()
+        handleAddProductCommand(productName, 1)
+        setProcessingVoice(false)
+        return
+      }
+
+      // Verificar si es un comando para eliminar productos
+      match = normalizedText.match(removePatterns[0])
+      if (match) {
+        // Extraer cantidad y nombre del producto
+        const quantityText = match[2].toLowerCase()
+        const quantity = isNaN(Number.parseInt(quantityText))
+          ? numberWords[quantityText] || 1
+          : Number.parseInt(quantityText)
+        const productName = match[3].trim()
+
+        handleRemoveProductCommand(productName, quantity)
+        setProcessingVoice(false)
+        return
+      }
+
+      match = normalizedText.match(removePatterns[1])
+      if (match) {
+        // Sin cantidad específica, eliminar todo el producto
+        const productName = match[2].trim()
+        handleRemoveProductCommand(productName, -1) // -1 indica eliminar todo
+        setProcessingVoice(false)
+        return
+      }
+
+      // Verificar si es un comando para actualizar cantidades
+      match = normalizedText.match(updatePatterns[0]) || normalizedText.match(updatePatterns[1])
+      if (match) {
+        // Extraer nombre del producto y nueva cantidad
+        const productName = match[2].trim()
+        const quantityText = match[3].toLowerCase()
+        const newQuantity = isNaN(Number.parseInt(quantityText))
+          ? numberWords[quantityText] || 1
+          : Number.parseInt(quantityText)
+
+        handleUpdateQuantityCommand(productName, newQuantity)
+        setProcessingVoice(false)
+        return
+      }
+
+      // Si llegamos aquí, no se reconoció ningún comando
+      toast({
+        title: "Comando no reconocido",
+        description: "Prueba con: 'agregar [producto]', 'quitar [producto]' o 'cambiar [producto] a [cantidad]'",
+        variant: "destructive",
+      })
     } catch (error) {
       console.error("Error procesando comando de voz:", error)
       toast({
@@ -523,6 +528,168 @@ export default function CartPage() {
     }
 
     setProcessingVoice(false)
+  }
+
+  // Nueva función para manejar comandos de agregar productos
+  const handleAddProductCommand = (productName: string, quantity: number) => {
+    console.log(`Buscando producto "${productName}" para agregar ${quantity} unidades`)
+
+    // Buscar el producto en el inventario
+    const foundProduct = findProductByName(productName)
+
+    if (foundProduct) {
+      // Verificar si hay suficiente stock
+      const existingItem = cartItems.find((item) => item.product.id === foundProduct.id)
+      const currentQuantity = existingItem ? existingItem.quantity : 0
+
+      if (currentQuantity + quantity > foundProduct.cantidad) {
+        toast({
+          title: "Stock insuficiente",
+          description: `Solo hay ${foundProduct.cantidad} unidades de ${foundProduct.nombre} disponibles`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Agregar el producto al carrito
+      if (existingItem) {
+        // Si el producto ya está en el carrito, actualizar la cantidad
+        updateQuantity(foundProduct.id, existingItem.quantity + quantity)
+      } else {
+        // Si no está en el carrito, agregarlo con la cantidad especificada
+        setCartItems((prevItems) => [...prevItems, { product: foundProduct, quantity }])
+      }
+
+      toast({
+        title: "Producto añadido por voz",
+        description: `Se ${quantity === 1 ? "agregó" : "agregaron"} ${quantity} ${foundProduct.nombre} al carrito`,
+        variant: "success",
+      })
+    } else {
+      handleProductNotFound(productName)
+    }
+  }
+
+  // Nueva función para manejar comandos de eliminar productos
+  const handleRemoveProductCommand = (productName: string, quantity: number) => {
+    console.log(`Buscando producto "${productName}" para eliminar ${quantity === -1 ? "todo" : quantity} unidades`)
+
+    // Buscar el producto en el carrito
+    const normalizedProductName = productName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+
+    const cartItem = cartItems.find((item) => {
+      const itemName = item.product.nombre
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+      return itemName.includes(normalizedProductName) || normalizedProductName.includes(itemName)
+    })
+
+    if (cartItem) {
+      if (quantity === -1) {
+        // Eliminar todo el producto
+        removeFromCart(cartItem.product.id)
+        toast({
+          title: "Producto eliminado por voz",
+          description: `Se eliminó ${cartItem.product.nombre} del carrito`,
+          variant: "success",
+        })
+      } else {
+        // Eliminar la cantidad especificada
+        const newQuantity = Math.max(0, cartItem.quantity - quantity)
+        if (newQuantity === 0) {
+          removeFromCart(cartItem.product.id)
+          toast({
+            title: "Producto eliminado por voz",
+            description: `Se eliminó ${cartItem.product.nombre} del carrito`,
+            variant: "success",
+          })
+        } else {
+          updateQuantity(cartItem.product.id, newQuantity)
+          toast({
+            title: "Cantidad actualizada por voz",
+            description: `Se ${quantity === 1 ? "quitó" : "quitaron"} ${quantity} ${cartItem.product.nombre} del carrito`,
+            variant: "success",
+          })
+        }
+      }
+    } else {
+      toast({
+        title: "Producto no encontrado",
+        description: `No se encontró "${productName}" en el carrito`,
+        variant: "destructive",
+      })
+    }
+  }
+
+
+
+  // Función auxiliar para buscar un producto por nombre
+  const findProductByName = (productName: string) => {
+    const normalizedProductName = productName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+
+    // Primero intentamos una coincidencia exacta
+    let foundProduct = filteredProducts.find((product) => {
+      const normalizedName = product.nombre
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+      return normalizedName === normalizedProductName
+    })
+
+    // Si no hay coincidencia exacta, buscamos coincidencias parciales
+    if (!foundProduct) {
+      foundProduct = filteredProducts.find((product) => {
+        const normalizedName = product.nombre
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+        return normalizedName.includes(normalizedProductName) || normalizedProductName.includes(normalizedName)
+      })
+    }
+
+    return foundProduct
+  }
+
+  // Función auxiliar para manejar productos no encontrados
+  const handleProductNotFound = (productName: string) => {
+    // Buscar productos similares
+    const similarProducts = filteredProducts.filter((product) => {
+      const normalizedProductName = product.nombre
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+      const searchName = productName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+
+      // Dividir el nombre del producto en palabras y buscar coincidencias parciales
+      const productWords = normalizedProductName.split(" ")
+      const searchWords = searchName.split(" ")
+
+      return searchWords.some((word) => word.length > 2 && productWords.some((prodWord) => prodWord.includes(word)))
+    })
+
+    if (similarProducts.length > 0) {
+      toast({
+        title: "Producto no encontrado",
+        description: `¿Quisiste decir "${similarProducts[0].nombre}"?`,
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Producto no encontrado",
+        description: `No se encontró "${productName}" en el inventario`,
+        variant: "destructive",
+      })
+    }
   }
 
   // Función para iniciar el escáner de códigos de barras
