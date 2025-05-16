@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
 import Quagga from "@ericblade/quagga2" // Importamos quagga2 que es una versión mantenida de quagga
+import BarcodeScanner from "@/components/barcode-scanner"
 
 interface Product {
   id: number
@@ -416,6 +417,9 @@ export default function CartPage() {
       // Patrón para vaciar el carrito
       const clearCartPattern = /(vaciar|limpiar|borrar|eliminar)\s+(carrito|todo|carro|productos|canasta)/i
 
+      // Patrón para finalizar la venta
+      const checkoutPattern = /(finalizar|terminar|completar|procesar)\s+(venta|compra|pedido|carrito)/i
+
       // Diccionario para convertir palabras de números a dígitos
       const numberWords: Record<string, number> = {
         un: 1,
@@ -429,6 +433,13 @@ export default function CartPage() {
         ocho: 8,
         nueve: 9,
         diez: 10,
+      }
+
+      // Verificar si es un comando para finalizar la venta
+      if (checkoutPattern.test(normalizedText) || normalizedText.includes("pagar")) {
+        processCheckout()
+        setProcessingVoice(false)
+        return
       }
 
       // Verificar si es un comando para vaciar el carrito
@@ -804,293 +815,23 @@ export default function CartPage() {
   // Función para iniciar el escáner de códigos de barras
   const startBarcodeScanner = () => {
     setShowBarcodeScanner(true)
-    setScannerActive(true)
-    setScanning(true)
-
-    // Inicializar el escáner después de que el modal esté visible
-    setTimeout(() => {
-      if (simulationMode) {
-        // En modo simulación, iniciamos la cámara pero generamos un código aleatorio
-        initQuaggaSimulation()
-      } else {
-        initQuagga()
-      }
-    }, 100)
-  }
-
-  // Función para detener el escáner
-  const stopBarcodeScanner = () => {
-    if (scannerInitialized) {
-      Quagga.stop()
-      setScannerInitialized(false)
-    }
-    if (simulationTimer) {
-      clearTimeout(simulationTimer)
-      setSimulationTimer(null)
-    }
-    setShowBarcodeScanner(false)
-    setScannerActive(false)
-    setScanning(false)
-  }
-
-  // Inicializar Quagga en modo simulación
-  const initQuaggaSimulation = () => {
-    if (!scannerRef.current) return
-
-    // Inicializar Quagga normalmente para mostrar la cámara
-    Quagga.init(
-      {
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: scannerRef.current,
-          constraints: {
-            facingMode: "environment", // Usar cámara trasera
-            width: { min: 450 },
-            height: { min: 300 },
-            aspectRatio: { min: 1, max: 2 },
-          },
-        },
-        locator: {
-          patchSize: "medium",
-          halfSample: true,
-        },
-        numOfWorkers: 2,
-        frequency: 10,
-        decoder: {
-          readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"],
-        },
-        locate: true,
-      },
-      (err) => {
-        if (err) {
-          console.error("Error al inicializar Quagga:", err)
-          toast({
-            title: "Error",
-            description: "No se pudo inicializar la cámara. Verifica los permisos.",
-            variant: "destructive",
-          })
-          stopBarcodeScanner()
-          return
-        }
-
-        setScannerInitialized(true)
-        Quagga.start()
-
-        // Programar la simulación de detección después de un tiempo aleatorio
-        const timer = setTimeout(
-          () => {
-            simulateBarcodeDetection()
-          },
-          1500 + Math.random() * 1500,
-        ) // Entre 1.5 y 3 segundos
-
-        setSimulationTimer(timer)
-      },
-    )
-  }
-
-  // Inicializar Quagga
-  const initQuagga = () => {
-    if (!scannerRef.current) return
-
-    Quagga.init(
-      {
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: scannerRef.current,
-          constraints: {
-            facingMode: "environment", // Usar cámara trasera
-            width: { min: 450 },
-            height: { min: 300 },
-            aspectRatio: { min: 1, max: 2 },
-          },
-          area: {
-            // Definir un área más pequeña para el escaneo puede mejorar la precisión
-            top: "25%",
-            right: "10%",
-            left: "10%",
-            bottom: "25%",
-          },
-        },
-        locator: {
-          patchSize: "medium",
-          halfSample: true,
-        },
-        numOfWorkers: 2, // Reducir el número de workers para evitar problemas de rendimiento
-        frequency: 10, // Reducir la frecuencia de escaneo
-        decoder: {
-          readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"],
-          debug: {
-            drawBoundingBox: false,
-            showFrequency: false,
-            drawScanline: false,
-            showPattern: false,
-          },
-        },
-        locate: true,
-      },
-      (err) => {
-        if (err) {
-          console.error("Error al inicializar Quagga:", err)
-          toast({
-            title: "Error",
-            description: "No se pudo inicializar el escáner. Verifica los permisos de la cámara.",
-            variant: "destructive",
-          })
-          stopBarcodeScanner()
-          return
-        }
-
-        setScannerInitialized(true)
-        Quagga.start()
-
-        // Añadir detector de códigos de barras con manejo de errores
-        Quagga.onDetected((result) => {
-          try {
-            handleBarcodeDetected(result)
-          } catch (error) {
-            console.error("Error al procesar el código detectado:", error)
-          }
-        })
-
-        // Añadir procesamiento de cada fotograma para mostrar el cuadro de detección
-        Quagga.onProcessed((result) => {
-          try {
-            handleProcessed(result)
-          } catch (error) {
-            console.error("Error al procesar el fotograma:", error)
-          }
-        })
-      },
-    )
-  }
-
-  // Función para manejar el procesamiento de cada fotograma
-  const handleProcessed = (result: any) => {
-    try {
-      const drawingCtx = Quagga.canvas.ctx.overlay
-      const drawingCanvas = Quagga.canvas.dom.overlay
-
-      if (!drawingCtx || !drawingCanvas) return
-
-      if (result) {
-        if (result.boxes) {
-          drawingCtx.clearRect(
-            0,
-            0,
-            Number.parseInt(drawingCanvas.getAttribute("width") || "0"),
-            Number.parseInt(drawingCanvas.getAttribute("height") || "0"),
-          )
-          result.boxes
-            .filter((box: any) => box !== result.box)
-            .forEach((box: any) => {
-              if (box) {
-                try {
-                  Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: "green", lineWidth: 2 })
-                } catch (error) {
-                  console.error("Error al dibujar caja:", error)
-                }
-              }
-            })
-        }
-
-        if (result.box) {
-          try {
-            Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: "#00F", lineWidth: 2 })
-          } catch (error) {
-            console.error("Error al dibujar caja principal:", error)
-          }
-        }
-
-        if (result.codeResult && result.codeResult.code) {
-          try {
-            Quagga.ImageDebug.drawPath(result.line, { x: "x", y: "y" }, drawingCtx, { color: "red", lineWidth: 3 })
-          } catch (error) {
-            console.error("Error al dibujar línea de código:", error)
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error en handleProcessed:", error)
-    }
-  }
-
-  // Función para simular la detección de un código de barras
-  const simulateBarcodeDetection = () => {
-    // Generar un código de barras aleatorio de 13 dígitos (formato EAN-13)
-    const generateRandomBarcode = () => {
-      let barcode = ""
-      // Generar los primeros 12 dígitos
-      for (let i = 0; i < 12; i++) {
-        barcode += Math.floor(Math.random() * 10).toString()
-      }
-
-      // Calcular el dígito de verificación (simplificado)
-      let sum = 0
-      for (let i = 0; i < 12; i++) {
-        sum += Number.parseInt(barcode[i]) * (i % 2 === 0 ? 1 : 3)
-      }
-      const checkDigit = (10 - (sum % 10)) % 10
-
-      // Añadir el dígito de verificación
-      barcode += checkDigit.toString()
-
-      return barcode
-    }
-
-    const randomBarcode = generateRandomBarcode()
-
-    // Notificar al usuario que se detectó un código
-    toast({
-      title: "Código detectado",
-      description: `Código: ${randomBarcode}`,
-      variant: "success",
-    })
-
-    // Establecer el término de búsqueda como el código
-    setSearchQuery(randomBarcode)
-
-    // Detener el escáner después de una detección exitosa
-    stopBarcodeScanner()
   }
 
   // Función para manejar la detección de un código de barras
-  const handleBarcodeDetected = (result: any) => {
-    try {
-      if (!result || !result.codeResult) {
-        console.log("Detección sin resultado válido")
-        return
-      }
+  const handleBarcodeDetected = (code: string) => {
+    console.log("Código detectado:", code)
+    setShowBarcodeScanner(false)
 
-      // Obtener el código detectado
-      const code = result.codeResult.code
-
-      // Mostrar el código en la consola sin importar qué sea
-      console.log("CÓDIGO DETECTADO EN CARRITO:", code)
-      console.log("RESULTADO COMPLETO:", result)
-
-      // Notificar al usuario que se detectó un código
-      toast({
-        title: "Código detectado",
-        description: `Código: ${code}`,
-        variant: "success",
-      })
-
-      // Establecer el término de búsqueda como el código
+    // Buscar producto por código de barras
+    const product = products.find((p) => p.codigo_barras === code)
+    if (product) {
+      addToCart(product)
+    } else {
+      // Si no se encuentra, establecer el código como término de búsqueda
       setSearchQuery(code)
-
-      // Detener el escáner después de una detección exitosa
-      stopBarcodeScanner()
-    } catch (error) {
-      console.error("Error en handleBarcodeDetected:", error)
-      console.log("Resultado que causó el error:", result)
-      stopBarcodeScanner()
       toast({
-        title: "Error",
-        description: "Error al procesar el código de barras",
-        variant: "destructive",
+        title: "Código escaneado",
+        description: `Buscando productos con código: ${code}`,
       })
     }
   }
@@ -1290,49 +1031,11 @@ export default function CartPage() {
 
       {/* Modal para el escáner de códigos de barras */}
       {showBarcodeScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Escanear código de barras</h3>
-              <Button variant="ghost" size="icon" onClick={stopBarcodeScanner} className="h-8 w-8">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </Button>
-            </div>
-
-            <p className="text-sm text-gray-500 mb-4">Apunta la cámara al código de barras del producto</p>
-
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
-              <div ref={scannerRef} className="w-full h-full">
-                {/* Quagga insertará el video aquí */}
-              </div>
-
-              {/* Línea de escaneo animada */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="h-0.5 w-full bg-red-500 absolute top-1/2 transform -translate-y-1/2 animate-pulse"></div>
-                <div className="absolute inset-0 border-2 border-primary opacity-50"></div>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={stopBarcodeScanner}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </div>
+        <BarcodeScanner
+          onDetected={handleBarcodeDetected}
+          onClose={() => setShowBarcodeScanner(false)}
+          simulationMode={true}
+        />
       )}
 
       <BottomNavigation />
