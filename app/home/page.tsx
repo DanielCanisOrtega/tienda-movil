@@ -183,7 +183,8 @@ export default function HomePage() {
       normalizedText.includes("ir a gastos") ||
       normalizedText.includes("ver gastos") ||
       normalizedText.includes("mostrar gastos") ||
-      normalizedText.includes("entrar a gastos")
+      normalizedText.includes("entrar a gastos")||
+      normalizedText.includes("gastos")
     ) {
       router.push("/expenses")
       toast({ title: "Navegando a gastos" })
@@ -218,7 +219,8 @@ export default function HomePage() {
       normalizedText.includes("ir a cajas") ||
       normalizedText.includes("ver cajas") ||
       normalizedText.includes("mostrar cajas") ||
-      normalizedText.includes("entrar a cajas")
+      normalizedText.includes("entrar a cajas")||
+      normalizedText.includes("cajas")
     ) {
       if (selectedStore) {
         router.push(`/stores/${selectedStore.id}/cajas`)
@@ -242,7 +244,8 @@ export default function HomePage() {
       normalizedText.includes("ver estadisticas") ||
       normalizedText.includes("mostrar estadisticas") ||
       normalizedText.includes("entrar a estadisticas") ||
-      normalizedText.includes("dashboard")
+      normalizedText.includes("dashboard")||
+      normalizedText.includes("reportes")
     ) {
       router.push("/dashboard")
       toast({ title: "Navegando a reportes" })
