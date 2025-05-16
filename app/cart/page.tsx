@@ -87,6 +87,8 @@ export default function CartPage() {
   const [scannerActive, setScannerActive] = useState(false)
   const [scannerInitialized, setScannerInitialized] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [simulationMode, setSimulationMode] = useState(true) // Modo de simulación activado por defecto
+  const [simulationTimer, setSimulationTimer] = useState<NodeJS.Timeout | null>(null)
 
   // Cargar productos y carrito
   useEffect(() => {
@@ -154,8 +156,11 @@ export default function CartPage() {
       if (scannerInitialized) {
         Quagga.stop()
       }
+      if (simulationTimer) {
+        clearTimeout(simulationTimer)
+      }
     }
-  }, [scannerInitialized])
+  }, [scannerInitialized, simulationTimer])
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -530,6 +535,34 @@ export default function CartPage() {
     setProcessingVoice(false)
   }
 
+  // Función para singularizar palabras en español
+  const singularize = (word: string): string => {
+    // Reglas básicas para convertir plurales a singulares en español
+    if (word.endsWith("es") && word.length > 3) {
+      // Para palabras que terminan en 'es'
+      if (word.endsWith("ces")) return word.slice(0, -3) + "z" // lápices -> lápiz
+      if (word.endsWith("les")) return word.slice(0, -2) // papeles -> papel
+      if (word.endsWith("res")) return word.slice(0, -2) // colores -> color
+      if (word.endsWith("nes")) return word.slice(0, -2) // botones -> botón
+      return word.slice(0, -2) // general: quitar 'es'
+    } else if (word.endsWith("s") && word.length > 2) {
+      return word.slice(0, -1) // general: quitar 's'
+    }
+    return word
+  }
+
+  // Función para normalizar y singularizar un nombre de producto
+  const normalizeProductName = (productName: string): string[] => {
+    const normalizedName = productName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+
+    // Obtener palabras del nombre del producto y singularizarlas
+    return normalizedName.split(" ").map(singularize)
+  }
+
   // Nueva función para manejar comandos de agregar productos
   const handleAddProductCommand = (productName: string, quantity: number) => {
     console.log(`Buscando producto "${productName}" para agregar ${quantity} unidades`)
@@ -574,19 +607,8 @@ export default function CartPage() {
   const handleRemoveProductCommand = (productName: string, quantity: number) => {
     console.log(`Buscando producto "${productName}" para eliminar ${quantity === -1 ? "todo" : quantity} unidades`)
 
-    // Buscar el producto en el carrito
-    const normalizedProductName = productName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-
-    const cartItem = cartItems.find((item) => {
-      const itemName = item.product.nombre
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-      return itemName.includes(normalizedProductName) || normalizedProductName.includes(itemName)
-    })
+    // Buscar el producto en el carrito usando la función mejorada
+    const cartItem = findCartItemByName(productName)
 
     if (cartItem) {
       if (quantity === -1) {
@@ -624,23 +646,13 @@ export default function CartPage() {
       })
     }
   }
+
   // Nueva función para manejar comandos de actualizar cantidades
   const handleUpdateQuantityCommand = (productName: string, newQuantity: number) => {
     console.log(`Buscando producto "${productName}" para actualizar a ${newQuantity} unidades`)
 
-    // Buscar el producto en el carrito
-    const normalizedProductName = productName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-
-    const cartItem = cartItems.find((item) => {
-      const itemName = item.product.nombre
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-      return itemName.includes(normalizedProductName) || normalizedProductName.includes(itemName)
-    })
+    // Buscar el producto en el carrito usando la función mejorada
+    const cartItem = findCartItemByName(productName)
 
     if (cartItem) {
       // Verificar si hay suficiente stock
@@ -694,13 +706,28 @@ export default function CartPage() {
     }
   }
 
+  // Función auxiliar para buscar un producto en el carrito por nombre (con soporte para plurales)
+  const findCartItemByName = (productName: string): CartItem | undefined => {
+    const searchWords = normalizeProductName(productName)
+
+    return cartItems.find((item) => {
+      const itemWords = normalizeProductName(item.product.nombre)
+
+      // Verificar si alguna palabra del producto buscado coincide con alguna palabra del producto en el carrito
+      return searchWords.some((searchWord) =>
+        itemWords.some(
+          (itemWord) => searchWord === itemWord || searchWord.includes(itemWord) || itemWord.includes(searchWord),
+        ),
+      )
+    })
+  }
 
   // Función auxiliar para buscar un producto por nombre
   const findProductByName = (productName: string) => {
-    const normalizedProductName = productName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+    // Normalizar y singularizar las palabras del nombre del producto buscado
+    const searchWords = normalizeProductName(productName)
+
+    console.log("Buscando producto con palabras singularizadas:", searchWords)
 
     // Primero intentamos una coincidencia exacta
     let foundProduct = filteredProducts.find((product) => {
@@ -708,17 +735,38 @@ export default function CartPage() {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-      return normalizedName === normalizedProductName
-    })
-
-    // Si no hay coincidencia exacta, buscamos coincidencias parciales
-    if (!foundProduct) {
-      foundProduct = filteredProducts.find((product) => {
-        const normalizedName = product.nombre
+      return (
+        normalizedName ===
+        productName
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
-        return normalizedName.includes(normalizedProductName) || normalizedProductName.includes(normalizedName)
+      )
+    })
+
+    // Si no hay coincidencia exacta, buscamos coincidencias con la versión singularizada
+    if (!foundProduct) {
+      foundProduct = filteredProducts.find((product) => {
+        const itemWords = normalizeProductName(product.nombre)
+
+        // Verificar si alguna palabra singularizada coincide con el nombre del producto
+        return searchWords.some((searchWord) =>
+          itemWords.some(
+            (itemWord) => searchWord === itemWord || searchWord.includes(itemWord) || itemWord.includes(searchWord),
+          ),
+        )
+      })
+    }
+
+    // Si aún no hay coincidencia, buscamos coincidencias parciales
+    if (!foundProduct) {
+      foundProduct = filteredProducts.find((product) => {
+        const itemWords = normalizeProductName(product.nombre)
+
+        // Verificar coincidencias parciales con las palabras singularizadas
+        return searchWords.some(
+          (searchWord) => searchWord.length > 2 && itemWords.some((itemWord) => itemWord.includes(searchWord)),
+        )
       })
     }
 
@@ -728,21 +776,14 @@ export default function CartPage() {
   // Función auxiliar para manejar productos no encontrados
   const handleProductNotFound = (productName: string) => {
     // Buscar productos similares
+    const searchWords = normalizeProductName(productName)
+
     const similarProducts = filteredProducts.filter((product) => {
-      const normalizedProductName = product.nombre
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-      const searchName = productName
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
+      const itemWords = normalizeProductName(product.nombre)
 
-      // Dividir el nombre del producto en palabras y buscar coincidencias parciales
-      const productWords = normalizedProductName.split(" ")
-      const searchWords = searchName.split(" ")
-
-      return searchWords.some((word) => word.length > 2 && productWords.some((prodWord) => prodWord.includes(word)))
+      return searchWords.some(
+        (searchWord) => searchWord.length > 2 && itemWords.some((itemWord) => itemWord.includes(searchWord)),
+      )
     })
 
     if (similarProducts.length > 0) {
@@ -768,7 +809,12 @@ export default function CartPage() {
 
     // Inicializar el escáner después de que el modal esté visible
     setTimeout(() => {
-      initQuagga()
+      if (simulationMode) {
+        // En modo simulación, iniciamos la cámara pero generamos un código aleatorio
+        initQuaggaSimulation()
+      } else {
+        initQuagga()
+      }
     }, 100)
   }
 
@@ -778,9 +824,70 @@ export default function CartPage() {
       Quagga.stop()
       setScannerInitialized(false)
     }
+    if (simulationTimer) {
+      clearTimeout(simulationTimer)
+      setSimulationTimer(null)
+    }
     setShowBarcodeScanner(false)
     setScannerActive(false)
     setScanning(false)
+  }
+
+  // Inicializar Quagga en modo simulación
+  const initQuaggaSimulation = () => {
+    if (!scannerRef.current) return
+
+    // Inicializar Quagga normalmente para mostrar la cámara
+    Quagga.init(
+      {
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: scannerRef.current,
+          constraints: {
+            facingMode: "environment", // Usar cámara trasera
+            width: { min: 450 },
+            height: { min: 300 },
+            aspectRatio: { min: 1, max: 2 },
+          },
+        },
+        locator: {
+          patchSize: "medium",
+          halfSample: true,
+        },
+        numOfWorkers: 2,
+        frequency: 10,
+        decoder: {
+          readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"],
+        },
+        locate: true,
+      },
+      (err) => {
+        if (err) {
+          console.error("Error al inicializar Quagga:", err)
+          toast({
+            title: "Error",
+            description: "No se pudo inicializar la cámara. Verifica los permisos.",
+            variant: "destructive",
+          })
+          stopBarcodeScanner()
+          return
+        }
+
+        setScannerInitialized(true)
+        Quagga.start()
+
+        // Programar la simulación de detección después de un tiempo aleatorio
+        const timer = setTimeout(
+          () => {
+            simulateBarcodeDetection()
+          },
+          1500 + Math.random() * 1500,
+        ) // Entre 1.5 y 3 segundos
+
+        setSimulationTimer(timer)
+      },
+    )
   }
 
   // Inicializar Quagga
@@ -910,6 +1017,45 @@ export default function CartPage() {
     }
   }
 
+  // Función para simular la detección de un código de barras
+  const simulateBarcodeDetection = () => {
+    // Generar un código de barras aleatorio de 13 dígitos (formato EAN-13)
+    const generateRandomBarcode = () => {
+      let barcode = ""
+      // Generar los primeros 12 dígitos
+      for (let i = 0; i < 12; i++) {
+        barcode += Math.floor(Math.random() * 10).toString()
+      }
+
+      // Calcular el dígito de verificación (simplificado)
+      let sum = 0
+      for (let i = 0; i < 12; i++) {
+        sum += Number.parseInt(barcode[i]) * (i % 2 === 0 ? 1 : 3)
+      }
+      const checkDigit = (10 - (sum % 10)) % 10
+
+      // Añadir el dígito de verificación
+      barcode += checkDigit.toString()
+
+      return barcode
+    }
+
+    const randomBarcode = generateRandomBarcode()
+
+    // Notificar al usuario que se detectó un código
+    toast({
+      title: "Código detectado",
+      description: `Código: ${randomBarcode}`,
+      variant: "success",
+    })
+
+    // Establecer el término de búsqueda como el código
+    setSearchQuery(randomBarcode)
+
+    // Detener el escáner después de una detección exitosa
+    stopBarcodeScanner()
+  }
+
   // Función para manejar la detección de un código de barras
   const handleBarcodeDetected = (result: any) => {
     try {
@@ -960,36 +1106,34 @@ export default function CartPage() {
 
       <div className="container max-w-md mx-auto p-4">
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex flex-col items-center justify-center">
-              <Button
-                variant="ghost"
-                className="w-full h-full flex flex-col items-center justify-center gap-2 py-6"
-                onClick={handleVoiceRecognition}
-                disabled={processingVoice || isListening}
-                style={{ minHeight: "120px" }}
-              >
-                <Mic
-                  className={`${isListening ? "text-red-500 animate-pulse" : "text-primary"}`}
-                  style={{ width: "45px", height: "45px" }}
-                />
-                {isListening && <span className="text-xs text-red-500">Escuchando...</span>}
-              </Button>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex flex-col items-center justify-center">
-              <Button
-                variant="ghost"
-                className="w-full h-full flex flex-col items-center justify-center gap-3 py-6"
-                onClick={startBarcodeScanner}
-                style={{ minHeight: "120px" }}
-              >
-                <Barcode className="text-primary" style={{ width: "45px", height: "45px" }} />
-                <span className="text-sm font-medium">Escanear código de barras</span>
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Botón de reconocimiento de voz mejorado */}
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-green-400 to-teal-500 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
+            <button
+              onClick={handleVoiceRecognition}
+              disabled={processingVoice || isListening}
+              className="relative flex items-center justify-center w-full h-20 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-70"
+            >
+              <div className="flex flex-col items-center">
+                <Mic className={`h-8 w-8 ${isListening ? "text-red-500 animate-pulse" : "text-primary"}`} />
+                <span className="mt-1 text-sm font-medium">{isListening ? "Escuchando..." : "Comandos de voz"}</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Botón de escáner de código de barras mejorado */}
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
+            <button
+              onClick={startBarcodeScanner}
+              className="relative flex items-center justify-center w-full h-20 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
+            >
+              <div className="flex flex-col items-center">
+                <Barcode className="h-8 w-8 text-primary" />
+                <span className="mt-1 text-sm font-medium">Escanear código</span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1146,9 +1290,28 @@ export default function CartPage() {
 
       {/* Modal para el escáner de códigos de barras */}
       {showBarcodeScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-2">Escanear código de barras</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Escanear código de barras</h3>
+              <Button variant="ghost" size="icon" onClick={stopBarcodeScanner} className="h-8 w-8">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </Button>
+            </div>
+
             <p className="text-sm text-gray-500 mb-4">Apunta la cámara al código de barras del producto</p>
 
             <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
@@ -1163,7 +1326,7 @@ export default function CartPage() {
               </div>
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex justify-end">
               <Button variant="outline" onClick={stopBarcodeScanner}>
                 Cancelar
               </Button>
