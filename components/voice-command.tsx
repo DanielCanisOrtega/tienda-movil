@@ -1,201 +1,304 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import type React from "react"
+
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { Mic, MicOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Mic } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
-// Interfaces para el reconocimiento de voz
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList
+interface VoiceCommandProps {
+  className?: string
+  style?: React.CSSProperties
+  buttonStyle?: "floating" | "normal"
 }
 
-interface SpeechRecognitionResultList {
-  readonly length: number
-  [index: number]: SpeechRecognitionResult
-}
-
-interface SpeechRecognitionResult {
-  readonly length: number
-  [index: number]: SpeechRecognitionAlternative
-  isFinal: boolean
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string
-  confidence: number
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string
-}
-
-// Extender la interfaz Window para incluir SpeechRecognition
 declare global {
   interface Window {
-    SpeechRecognition: any
     webkitSpeechRecognition: any
   }
 }
 
-interface Command {
-  command: string[]
-  action: () => void
-  feedback: string
-}
-
-interface VoiceCommandProps {
-  commands: Command[]
-  buttonStyle?: "default" | "round"
-  size?: "default" | "sm" | "lg"
-  className?: string
-}
-
-export function VoiceCommand({
-  commands,
-  buttonStyle = "default",
-  size = "default",
-  className = "",
-}: VoiceCommandProps) {
+export function VoiceCommand({ className, style, buttonStyle = "normal" }: VoiceCommandProps) {
   const [isListening, setIsListening] = useState(false)
-  const [transcript, setTranscript] = useState("")
-  const recognitionRef = useRef<any>(null)
+  const [recognition, setRecognition] = useState<any>(null)
+  const router = useRouter()
 
   // Inicializar el reconocimiento de voz
   useEffect(() => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      console.error("El reconocimiento de voz no está soportado en este navegador")
-      return
-    }
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      // @ts-ignore
+      const recognitionInstance = new window.webkitSpeechRecognition()
+      recognitionInstance.continuous = false
+      recognitionInstance.lang = "es-ES"
+      recognitionInstance.interimResults = false
+      recognitionInstance.maxAlternatives = 1
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    recognitionRef.current = new SpeechRecognition()
-    recognitionRef.current.lang = "es-ES"
-    recognitionRef.current.continuous = false
-    recognitionRef.current.interimResults = false
+      recognitionInstance.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript.toLowerCase()
+        console.log("Comando detectado:", transcript)
+        handleCommand(transcript)
+      }
 
-    recognitionRef.current.onstart = () => {
-      setIsListening(true)
-      setTranscript("")
-    }
+      recognitionInstance.onerror = (event: any) => {
+        console.error("Error en reconocimiento de voz:", event.error)
+        setIsListening(false)
+        toast({
+          title: "Error",
+          description: "No se pudo reconocer el comando de voz",
+          variant: "destructive",
+        })
+      }
 
-    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript.toLowerCase()
-      setTranscript(transcript)
-      processCommand(transcript)
-    }
+      recognitionInstance.onend = () => {
+        setIsListening(false)
+      }
 
-    recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error("Error de reconocimiento:", event.error)
-      setIsListening(false)
-      toast({
-        title: "Error",
-        description: `Error en el reconocimiento: ${event.error}`,
-        variant: "destructive",
-      })
-    }
-
-    recognitionRef.current.onend = () => {
-      setIsListening(false)
+      setRecognition(recognitionInstance)
     }
 
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort()
+      if (recognition) {
+        recognition.abort()
       }
     }
   }, [])
 
-  // Procesar el comando de voz
-  const processCommand = (text: string) => {
-    // Normalizar el texto: eliminar acentos, convertir a minúsculas
-    const normalizedText = text
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-
-    console.log("Comando de voz recibido:", normalizedText)
-
-    // Buscar un comando que coincida
-    for (const cmd of commands) {
-      if (cmd.command.some((c) => normalizedText.includes(c))) {
-        console.log("Comando reconocido:", cmd.feedback)
-        toast({
-          title: "Comando reconocido",
-          description: cmd.feedback,
-        })
-        cmd.action()
-        return
-      }
-    }
-
-    // Si no se encontró ningún comando
-    toast({
-      title: "Comando no reconocido",
-      description: "Intenta con otro comando",
-      variant: "destructive",
-    })
-  }
-
-  // Iniciar el reconocimiento de voz
-  const startListening = () => {
-    if (!recognitionRef.current) {
+  const toggleListening = useCallback(() => {
+    if (!recognition) {
       toast({
-        title: "No soportado",
-        description: "Tu navegador no soporta reconocimiento de voz",
+        title: "Error",
+        description: "El reconocimiento de voz no está disponible en este navegador",
         variant: "destructive",
       })
       return
     }
 
-    if (isListening) return
-
-    try {
-      recognitionRef.current.start()
-    } catch (error) {
-      console.error("Error al iniciar el reconocimiento:", error)
+    if (isListening) {
+      recognition.stop()
+      setIsListening(false)
+    } else {
+      recognition.start()
+      setIsListening(true)
       toast({
-        title: "Error",
-        description: "No se pudo iniciar el reconocimiento de voz",
-        variant: "destructive",
+        title: "Escuchando",
+        description: "Diga un comando...",
       })
     }
-  }
+  }, [isListening, recognition])
 
-  // Determinar las clases del botón según el estilo y tamaño
-  let buttonClasses = className || ""
-  let buttonSize = {}
+  const handleCommand = useCallback(
+    (command: string) => {
+      // Normalizar el comando (quitar acentos, convertir a minúsculas)
+      const normalizedCommand = command
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
 
-  if (buttonStyle === "round") {
-    buttonClasses += " rounded-full"
-  }
+      console.log("Comando normalizado:", normalizedCommand)
 
-  if (size === "sm") {
-    buttonSize = { width: "36px", height: "36px" }
-  } else if (size === "lg") {
-    buttonSize = { width: "48px", height: "48px" }
-  } else {
-    buttonSize = { width: "40px", height: "40px" }
-  }
+      // Comandos para navegar a diferentes páginas
+      if (
+        normalizedCommand.includes("ir a inicio") ||
+        normalizedCommand.includes("ir al inicio") ||
+        normalizedCommand.includes("pagina principal") ||
+        normalizedCommand.includes("página principal") ||
+        normalizedCommand.includes("volver a inicio") ||
+        normalizedCommand.includes("home")
+      ) {
+        router.push("/home")
+        toast({ title: "Navegando", description: "Yendo a Inicio" })
+        return
+      }
+
+      // Comandos para productos
+      if (
+        normalizedCommand.includes("ir a productos") ||
+        normalizedCommand.includes("ver productos") ||
+        normalizedCommand.includes("mostrar productos") ||
+        normalizedCommand.includes("lista de productos") ||
+        normalizedCommand.includes("entrar a productos")
+      ) {
+        router.push("/products")
+        toast({ title: "Navegando", description: "Yendo a Productos" })
+        return
+      }
+
+      // Comandos para ventas
+      if (
+        normalizedCommand.includes("ir a ventas") ||
+        normalizedCommand.includes("ver ventas") ||
+        normalizedCommand.includes("mostrar ventas") ||
+        normalizedCommand.includes("historial de ventas") ||
+        normalizedCommand.includes("entrar a ventas")
+      ) {
+        router.push("/sales")
+        toast({ title: "Navegando", description: "Yendo a Ventas" })
+        return
+      }
+
+      // Comandos para gastos
+      if (
+        normalizedCommand.includes("ir a gastos") ||
+        normalizedCommand.includes("ver gastos") ||
+        normalizedCommand.includes("mostrar gastos") ||
+        normalizedCommand.includes("lista de gastos") ||
+        normalizedCommand.includes("entrar a gastos")
+      ) {
+        router.push("/expenses")
+        toast({ title: "Navegando", description: "Yendo a Gastos" })
+        return
+      }
+
+      // Comandos para tiendas
+      if (
+        normalizedCommand.includes("ir a tiendas") ||
+        normalizedCommand.includes("ver tiendas") ||
+        normalizedCommand.includes("mostrar tiendas") ||
+        normalizedCommand.includes("lista de tiendas") ||
+        normalizedCommand.includes("entrar a tiendas")
+      ) {
+        router.push("/stores")
+        toast({ title: "Navegando", description: "Yendo a Tiendas" })
+        return
+      }
+
+      // Comandos para vendedores
+      if (
+        normalizedCommand.includes("ir a vendedores") ||
+        normalizedCommand.includes("ver vendedores") ||
+        normalizedCommand.includes("mostrar vendedores") ||
+        normalizedCommand.includes("lista de vendedores") ||
+        normalizedCommand.includes("entrar a vendedores")
+      ) {
+        router.push("/vendors")
+        toast({ title: "Navegando", description: "Yendo a Vendedores" })
+        return
+      }
+
+      // Comandos para cajas
+      if (
+        normalizedCommand.includes("ir a cajas") ||
+        normalizedCommand.includes("ver cajas") ||
+        normalizedCommand.includes("mostrar cajas") ||
+        normalizedCommand.includes("lista de cajas") ||
+        normalizedCommand.includes("entrar a cajas")
+      ) {
+        // Asumiendo que hay una ruta para cajas
+        router.push("/vendor/caja")
+        toast({ title: "Navegando", description: "Yendo a Cajas" })
+        return
+      }
+
+      // Comandos para reportes o estadísticas
+      if (
+        normalizedCommand.includes("ir a reportes") ||
+        normalizedCommand.includes("ver reportes") ||
+        normalizedCommand.includes("mostrar reportes") ||
+        normalizedCommand.includes("ir a estadisticas") ||
+        normalizedCommand.includes("ver estadisticas") ||
+        normalizedCommand.includes("mostrar estadisticas") ||
+        normalizedCommand.includes("entrar a reportes") ||
+        normalizedCommand.includes("entrar a estadisticas")
+      ) {
+        router.push("/dashboard")
+        toast({ title: "Navegando", description: "Yendo a Reportes" })
+        return
+      }
+
+      // Comandos para perfil
+      if (
+        normalizedCommand.includes("ir a perfil") ||
+        normalizedCommand.includes("ver perfil") ||
+        normalizedCommand.includes("mostrar perfil") ||
+        normalizedCommand.includes("mi perfil") ||
+        normalizedCommand.includes("entrar a perfil")
+      ) {
+        router.push("/profile")
+        toast({ title: "Navegando", description: "Yendo a Perfil" })
+        return
+      }
+
+      // Comandos para carrito
+      if (
+        normalizedCommand.includes("ir a carrito") ||
+        normalizedCommand.includes("ver carrito") ||
+        normalizedCommand.includes("mostrar carrito") ||
+        normalizedCommand.includes("mi carrito") ||
+        normalizedCommand.includes("entrar a carrito")
+      ) {
+        router.push("/cart")
+        toast({ title: "Navegando", description: "Yendo a Carrito" })
+        return
+      }
+
+      // Comandos para agregar producto
+      if (
+        normalizedCommand.includes("agregar producto") ||
+        normalizedCommand.includes("nuevo producto") ||
+        normalizedCommand.includes("crear producto") ||
+        normalizedCommand.includes("añadir producto")
+      ) {
+        router.push("/add-product")
+        toast({ title: "Navegando", description: "Yendo a Agregar Producto" })
+        return
+      }
+
+      // Comandos para agregar gasto
+      if (
+        normalizedCommand.includes("agregar gasto") ||
+        normalizedCommand.includes("nuevo gasto") ||
+        normalizedCommand.includes("crear gasto") ||
+        normalizedCommand.includes("añadir gasto")
+      ) {
+        router.push("/add-expense")
+        toast({ title: "Navegando", description: "Yendo a Agregar Gasto" })
+        return
+      }
+
+      // Comandos para agregar caja
+      if (
+        normalizedCommand.includes("agregar caja") ||
+        normalizedCommand.includes("nueva caja") ||
+        normalizedCommand.includes("crear caja") ||
+        normalizedCommand.includes("añadir caja")
+      ) {
+        // Asumiendo que hay una ruta para agregar cajas
+        router.push("/vendor/caja?action=add")
+        toast({ title: "Navegando", description: "Yendo a Agregar Caja" })
+        return
+      }
+
+      // Si no se reconoce ningún comando
+      toast({
+        title: "Comando no reconocido",
+        description: `No se pudo entender: "${command}"`,
+        variant: "destructive",
+      })
+    },
+    [router],
+  )
+
+  // Estilos para el botón flotante
+  const floatingButtonClass =
+    buttonStyle === "floating"
+      ? "fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg flex items-center justify-center z-50"
+      : ""
+
+  // Animación de pulso cuando está escuchando
+  const pulseClass = isListening ? "animate-pulse" : ""
 
   return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={startListening}
-        disabled={isListening}
-        className={`${buttonClasses} ${isListening ? "animate-pulse" : ""}`}
-        style={buttonSize}
-      >
-        <Mic className={`h-5 w-5 ${isListening ? "text-red-500" : ""}`} />
-        <span className="sr-only">Comandos de voz</span>
-      </Button>
-      {transcript && (
-        <div className="absolute bottom-full mb-2 right-0 bg-background p-2 rounded-md shadow-md text-xs max-w-[200px] truncate">
-          "{transcript}"
-        </div>
-      )}
-    </div>
+    <Button
+      variant="default"
+      size="icon"
+      onClick={toggleListening}
+      className={`${className} ${floatingButtonClass} ${pulseClass}`}
+      style={style}
+    >
+      {isListening ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6" />}
+    </Button>
   )
 }
