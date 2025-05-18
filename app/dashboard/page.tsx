@@ -8,8 +8,10 @@ import {
   BarChart2,
   PieChart,
   ArrowRight,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react"
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -20,6 +22,7 @@ import { BarChart } from "@/components/bar-chart"
 import { LineChart } from "@/components/line-chart"
 import { SalesList } from "@/components/sales-list"
 import { ExpensesList } from "@/components/expenses-list"
+import { toast } from "@/hooks/use-toast"
 import type { Expense } from "../expenses/page"
 
 // Interfaces
@@ -39,6 +42,18 @@ interface Sale {
   storeId?: string
 }
 
+// Interfaces para los datos de gráficos
+interface ChartDataItem {
+  name: string
+  value: number
+}
+
+interface BalanceChartDataItem {
+  name: string
+  ingresos: number
+  gastos: number
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("daily")
   const [salesData, setSalesData] = useState<Sale[]>([])
@@ -47,6 +62,15 @@ export default function DashboardPage() {
   const [storeId, setStoreId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [animateCharts, setAnimateCharts] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Referencias para los canvas de las gráficas
+  const salesBarChartRef = useRef<HTMLDivElement>(null)
+  const expensesBarChartRef = useRef<HTMLDivElement>(null)
+  const balanceChartRef = useRef<HTMLCanvasElement>(null)
+  const salesPieChartRef = useRef<HTMLCanvasElement>(null)
+  const expensesPieChartRef = useRef<HTMLCanvasElement>(null)
+  const salesLineChartRef = useRef<HTMLDivElement>(null)
 
   // Load data from localStorage
   useEffect(() => {
@@ -231,7 +255,7 @@ export default function DashboardPage() {
   }, [])
 
   // Prepare data for bar chart (sales by day)
-  const prepareSalesBarChartData = useCallback(() => {
+  const prepareSalesBarChartData = useCallback((): ChartDataItem[] => {
     const filteredSales = getFilteredSales()
     const salesByDay = new Map<string, number>()
 
@@ -279,7 +303,7 @@ export default function DashboardPage() {
   }, [getFilteredSales, activeTab])
 
   // Prepare data for bar chart (expenses by day)
-  const prepareExpensesBarChartData = useCallback(() => {
+  const prepareExpensesBarChartData = useCallback((): ChartDataItem[] => {
     const filteredExpenses = getFilteredExpenses()
     const expensesByDay = new Map<string, number>()
 
@@ -330,12 +354,12 @@ export default function DashboardPage() {
   }, [getFilteredExpenses, activeTab])
 
   // Prepare data for balance chart (income vs expenses)
-  const prepareBalanceBarChartData = useCallback(() => {
+  const prepareBalanceBarChartData = useCallback((): BalanceChartDataItem[] => {
     const salesData = prepareSalesBarChartData()
     const expensesData = prepareExpensesBarChartData()
 
     // Combine data to show income and expenses together
-    const combinedData: { name: string; ingresos: number; gastos: number }[] = []
+    const combinedData: BalanceChartDataItem[] = []
 
     // Create a set of all labels (names)
     const allNames = new Set([...salesData.map((item) => item.name), ...expensesData.map((item) => item.name)])
@@ -356,7 +380,7 @@ export default function DashboardPage() {
   }, [prepareSalesBarChartData, prepareExpensesBarChartData])
 
   // Prepare data for line chart (trend)
-  const prepareLineChartData = useCallback(() => {
+  const prepareLineChartData = useCallback((): ChartDataItem[] => {
     const filteredSales = getFilteredSales()
     const salesByDay = new Map<string, number>()
 
@@ -398,7 +422,7 @@ export default function DashboardPage() {
   }, [getFilteredSales, activeTab])
 
   // Prepare data for pie chart (sales by category)
-  const prepareSalesByCategoryData = useCallback(() => {
+  const prepareSalesByCategoryData = useCallback((): ChartDataItem[] => {
     const filteredSales = getFilteredSales()
     const salesByCategory = new Map<string, number>()
 
@@ -416,7 +440,7 @@ export default function DashboardPage() {
   }, [getFilteredSales])
 
   // Prepare data for pie chart (expenses by category)
-  const prepareExpensesByCategoryData = useCallback(() => {
+  const prepareExpensesByCategoryData = useCallback((): ChartDataItem[] => {
     const filteredExpenses = getFilteredExpenses()
     const expensesByCategory = new Map<string, number>()
 
@@ -437,6 +461,128 @@ export default function DashboardPage() {
       currency: "COP",
       minimumFractionDigits: 0,
     }).format(price)
+  }
+
+  // Función para exportar los datos a CSV
+  const exportToCSV = () => {
+    try {
+      setIsExporting(true)
+
+      const filteredSales = getFilteredSales()
+      const filteredExpenses = getFilteredExpenses()
+      const totalSales = calculateTotalSales(filteredSales)
+      const totalExpenses = calculateTotalExpenses(filteredExpenses)
+      const balance = totalSales - totalExpenses
+
+      // Función para escapar celdas CSV
+      const escapeCSV = (text: string) => {
+        if (text.includes(",") || text.includes("\n") || text.includes('"')) {
+          return `"${text.replace(/"/g, '""')}"`
+        }
+        return text
+      }
+
+      // Crear CSV para el resumen
+      let summaryCSV = "Resumen Financiero\n"
+      summaryCSV += `Período,${getPeriodText()}\n`
+      summaryCSV += `Total Ingresos,${formatPrice(totalSales)}\n`
+      summaryCSV += `Total Gastos,${formatPrice(totalExpenses)}\n`
+      summaryCSV += `Balance,${formatPrice(balance)}\n\n`
+
+      // Crear CSV para las ventas
+      let salesCSV = "ID,Fecha,Total,Productos\n"
+
+      filteredSales.forEach((sale) => {
+        const saleDate = new Date(sale.date)
+        const formattedDate = saleDate.toLocaleString("es-CO")
+        const productsInfo = sale.items
+          .map((item) => `${item.product.name} (${item.quantity} x ${formatPrice(item.product.price)})`)
+          .join("; ")
+
+        salesCSV += `${escapeCSV(sale.id)},${escapeCSV(formattedDate)},${escapeCSV(
+          formatPrice(sale.total),
+        )},${escapeCSV(productsInfo)}\n`
+      })
+
+      // Crear CSV para los gastos
+      let expensesCSV = "ID,Fecha,Categoría,Descripción,Monto\n"
+
+      filteredExpenses.forEach((expense) => {
+        const expenseDate = new Date(expense.date)
+        const formattedDate = expenseDate.toLocaleString("es-CO")
+
+        expensesCSV += `${escapeCSV(expense.id)},${escapeCSV(formattedDate)},${escapeCSV(
+          expense.categoria || "Sin categoría",
+        )},${escapeCSV(expense.descripcion || "")},${escapeCSV(formatPrice(expense.amount))}\n`
+      })
+
+      // Crear CSV para los datos de gráficos
+      let chartsCSV = "Datos de Gráficos\n\n"
+      chartsCSV += "Ventas por Período\n"
+      chartsCSV += "Período,Monto\n"
+
+      const salesChartData = prepareSalesBarChartData()
+      salesChartData.forEach((item) => {
+        chartsCSV += `${escapeCSV(item.name)},${item.value}\n`
+      })
+
+      chartsCSV += "\nGastos por Período\n"
+      chartsCSV += "Período,Monto\n"
+
+      const expensesChartData = prepareExpensesBarChartData()
+      expensesChartData.forEach((item) => {
+        chartsCSV += `${escapeCSV(item.name)},${item.value}\n`
+      })
+
+      chartsCSV += "\nVentas por Categoría\n"
+      chartsCSV += "Categoría,Monto\n"
+
+      const salesCategoryData = prepareSalesByCategoryData()
+      salesCategoryData.forEach((item) => {
+        chartsCSV += `${escapeCSV(item.name)},${item.value}\n`
+      })
+
+      chartsCSV += "\nGastos por Categoría\n"
+      chartsCSV += "Categoría,Monto\n"
+
+      const expensesCategoryData = prepareExpensesByCategoryData()
+      expensesCategoryData.forEach((item) => {
+        chartsCSV += `${escapeCSV(item.name)},${item.value}\n`
+      })
+
+      // Combinar todos los CSV
+      const fullCSV = `${summaryCSV}\n${salesCSV}\n${expensesCSV}\n${chartsCSV}`
+
+      // Crear un blob y descargar
+      const blob = new Blob([fullCSV], { type: "text/csv;charset=utf-8;" })
+      const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
+      const date = new Date().toISOString().split("T")[0]
+      const fileName = `Reporte_${storeName}_${date}.csv`
+
+      // Crear un enlace para descargar
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", fileName)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: "Reporte exportado",
+        description: `El reporte ha sido exportado como ${fileName}`,
+      })
+    } catch (error) {
+      console.error("Error al exportar a CSV:", error)
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo exportar el reporte. Intente nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const filteredSales = getFilteredSales()
@@ -477,11 +623,32 @@ export default function DashboardPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-      <div className="bg-primary text-white p-4 flex items-center">
-        <Link href="/home" className="mr-4">
-          <ChevronLeft className="h-6 w-6" />
-        </Link>
-        <h1 className="text-xl font-semibold">Reportes</h1>
+      <div className="bg-primary text-white p-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <Link href="/home" className="mr-4">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+          <h1 className="text-xl font-semibold">Reportes</h1>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={exportToCSV}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <>
+              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <span>Exportando...</span>
+            </>
+          ) : (
+            <>
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Exportar</span>
+            </>
+          )}
+        </Button>
       </div>
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
@@ -527,11 +694,25 @@ export default function DashboardPage() {
           <Card
             className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
           >
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center">
                 <DollarSign className="h-5 w-5 mr-2 text-primary" />
                 Resumen Financiero
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={exportToCSV}
+                disabled={isExporting}
+                title="Exportar resumen a CSV"
+              >
+                {isExporting ? (
+                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
@@ -619,6 +800,8 @@ export default function DashboardPage() {
                 period={getPeriodText()}
                 type="sales"
                 animateCharts={animateCharts}
+                onExport={exportToCSV}
+                isExporting={isExporting}
               />
             </TabsContent>
 
@@ -635,6 +818,8 @@ export default function DashboardPage() {
                 period={getPeriodText()}
                 type="expenses"
                 animateCharts={animateCharts}
+                onExport={exportToCSV}
+                isExporting={isExporting}
               />
             </TabsContent>
 
@@ -642,11 +827,25 @@ export default function DashboardPage() {
               <Card
                 className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
               >
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg flex items-center">
                     <PieChart className="h-5 w-5 mr-2 text-primary" />
                     Balance Financiero
                   </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={exportToCSV}
+                    disabled={isExporting}
+                    title="Exportar balance a CSV"
+                  >
+                    {isExporting ? (
+                      <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div
@@ -719,13 +918,15 @@ interface ReportContentProps {
   sales: Sale[]
   expenses: Expense[]
   total: number
-  barChartData: { name: string; value: number }[]
-  lineChartData: { name: string; value: number }[]
-  pieChartData: { name: string; value: number }[]
+  barChartData: ChartDataItem[]
+  lineChartData: ChartDataItem[]
+  pieChartData: ChartDataItem[]
   formatPrice: (price: number) => string
   period: string
   type: "sales" | "expenses"
   animateCharts: boolean
+  onExport: () => void
+  isExporting: boolean
 }
 
 function ReportContent({
@@ -740,13 +941,15 @@ function ReportContent({
   period,
   type,
   animateCharts,
+  onExport,
+  isExporting,
 }: ReportContentProps) {
   return (
     <>
       <Card
         className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg flex items-center">
             {type === "sales" ? (
               <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
@@ -755,6 +958,20 @@ function ReportContent({
             )}
             {title}
           </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={onExport}
+            disabled={isExporting}
+            title={`Exportar ${type === "sales" ? "ventas" : "gastos"} a CSV`}
+          >
+            {isExporting ? (
+              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+          </Button>
         </CardHeader>
         <CardContent>
           <div
@@ -804,12 +1021,25 @@ function ReportContent({
             </>
           )}
         </CardContent>
-        <CardFooter>
-          <Button variant="outline" className="w-full" asChild>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" className="flex-1 mr-2" asChild>
             <Link href={type === "sales" ? "/sales" : "/expenses"}>
-              Ver todos los {type === "sales" ? "ventas" : "gastos"}
+              Ver todos
               <ArrowRight className="h-4 w-4 ml-2" />
             </Link>
+          </Button>
+          <Button variant="default" className="flex-1 ml-2" onClick={onExport} disabled={isExporting}>
+            {isExporting ? (
+              <>
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Exportando...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>
@@ -817,11 +1047,25 @@ function ReportContent({
       <Card
         className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg flex items-center">
             <DollarSign className="h-5 w-5 mr-2 text-primary" />
             {type === "sales" ? "Detalle de Ventas" : "Detalle de Gastos"}
           </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={onExport}
+            disabled={isExporting}
+            title={`Exportar detalle de ${type === "sales" ? "ventas" : "gastos"} a CSV`}
+          >
+            {isExporting ? (
+              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+          </Button>
         </CardHeader>
         <CardContent>
           {type === "sales" ? (
@@ -839,8 +1083,13 @@ function ReportContent({
   )
 }
 
-function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos: number }[] }) {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+// Corregir la interfaz para el componente BalanceChart
+interface BalanceChartProps {
+  data: BalanceChartDataItem[]
+}
+
+function BalanceChart({ data }: BalanceChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   React.useEffect(() => {
     if (!canvasRef.current) return
@@ -965,11 +1214,14 @@ function BalanceChart({ data }: { data: { name: string; ingresos: number; gastos
   return <canvas ref={canvasRef} width={400} height={300} className="w-full h-full" />
 }
 
-function PieChartComponent({
-  data,
-  formatPrice,
-}: { data: { name: string; value: number }[]; formatPrice: (price: number) => string }) {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+// Corregir la interfaz para el componente PieChartComponent
+interface PieChartComponentProps {
+  data: ChartDataItem[]
+  formatPrice: (price: number) => string
+}
+
+function PieChartComponent({ data, formatPrice }: PieChartComponentProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   React.useEffect(() => {
     if (!canvasRef.current || data.length === 0) return
