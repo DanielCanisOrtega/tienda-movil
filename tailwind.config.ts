@@ -52,6 +52,13 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Dark mode specific colors
+        "dark-bg": "hsl(224 71% 2%)",
+        "dark-card": "hsl(224 71% 4%)",
+        "dark-border": "hsl(215 27% 12%)",
+        "dark-text": "hsl(0 0% 95%)",
+        "dark-muted": "hsl(215 20% 70%)",
+
         // Custom beautiful color palette - NO GREEN!
         "primary-light": "hsl(270 95% 75%)", // Light purple
         "primary-dark": "hsl(262 69% 40%)", // Dark purple

@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
+import { ThemeToggle } from "@/components/theme-toggle"
 import Link from "next/link"
 import {
   ShoppingBag,
@@ -183,8 +184,7 @@ export default function HomePage() {
       normalizedText.includes("ir a gastos") ||
       normalizedText.includes("ver gastos") ||
       normalizedText.includes("mostrar gastos") ||
-      normalizedText.includes("entrar a gastos")||
-      normalizedText.includes("gastos")
+      normalizedText.includes("entrar a gastos")
     ) {
       router.push("/expenses")
       toast({ title: "Navegando a gastos" })
@@ -219,8 +219,7 @@ export default function HomePage() {
       normalizedText.includes("ir a cajas") ||
       normalizedText.includes("ver cajas") ||
       normalizedText.includes("mostrar cajas") ||
-      normalizedText.includes("entrar a cajas")||
-      normalizedText.includes("cajas")
+      normalizedText.includes("entrar a cajas")
     ) {
       if (selectedStore) {
         router.push(`/stores/${selectedStore.id}/cajas`)
@@ -244,8 +243,7 @@ export default function HomePage() {
       normalizedText.includes("ver estadisticas") ||
       normalizedText.includes("mostrar estadisticas") ||
       normalizedText.includes("entrar a estadisticas") ||
-      normalizedText.includes("dashboard")||
-      normalizedText.includes("reportes")
+      normalizedText.includes("dashboard")
     ) {
       router.push("/dashboard")
       toast({ title: "Navegando a reportes" })
@@ -323,17 +321,22 @@ export default function HomePage() {
   // Si no hay tienda seleccionada y el usuario es administrador, redirigir a la página de tiendas
   if (!selectedStore && userType === "admin") {
     return (
-      <main className="flex min-h-screen flex-col bg-background-light android-safe-top">
-        <div className="bg-primary text-white p-5">
-          <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
+      <main className="flex min-h-screen flex-col bg-background android-safe-top">
+        <div className="gradient-primary text-white p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
+            <ThemeToggle />
+          </div>
           <p className="text-sm opacity-80 mt-1">¡Bienvenido, Administrador!</p>
         </div>
 
         <div className="container max-w-md mx-auto p-4 text-center">
-          <div className="bg-white rounded-lg p-8 shadow-sm">
-            <p className="text-text-secondary mb-4">No has seleccionado ninguna tienda</p>
+          <div className="bg-card rounded-lg p-8 shadow-soft">
+            <p className="text-muted-foreground mb-4">No has seleccionado ninguna tienda</p>
             <Link href="/stores">
-              <button className="bg-primary text-white px-4 py-2 rounded-lg">Ir a gestión de tiendas</button>
+              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                Ir a gestión de tiendas
+              </button>
             </Link>
           </div>
         </div>
@@ -342,25 +345,26 @@ export default function HomePage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
-      <div className="bg-primary text-white p-5">
-        {selectedStore && (
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              {userType === "admin" && (
-                <Link href="/stores" className="mr-2">
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-              )}
-              <span className="text-sm font-medium">Tienda: {selectedStore.name}</span>
-            </div>
+    <main className="flex min-h-screen flex-col bg-background android-safe-top has-bottom-nav">
+      <div className="gradient-primary text-white p-5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center">
+            {userType === "admin" && selectedStore && (
+              <Link href="/stores" className="mr-2">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            )}
+            {selectedStore && <span className="text-sm font-medium">Tienda: {selectedStore.name}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Button variant="ghost" size="sm" className="text-white hover:bg-white/20" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-1" />
               <span className="text-xs">Salir</span>
             </Button>
           </div>
-        )}
-        <h1 className="text-2xl font-semibold">Tienda mixta doña jose</h1>
+        </div>
+        <h1 className="text-2xl font-semibold tienda-title">Tienda mixta doña jose</h1>
         <p className="text-sm opacity-80 mt-1">
           ¡Bienvenido
           {vendorName
@@ -446,7 +450,7 @@ export default function HomePage() {
         <Button
           variant="default"
           size="lg"
-          className={`rounded-full shadow-lg bg-primary hover:bg-primary/90 ${isListening ? "animate-pulse" : ""}`}
+          className={`rounded-full shadow-large bg-primary hover:bg-primary/90 ${isListening ? "animate-pulse" : ""}`}
           onClick={handleVoiceCommand}
           disabled={isListening}
         >
@@ -472,10 +476,10 @@ function MenuCard({
 }) {
   return (
     <Link href={href}>
-      <div className="bg-white rounded-lg p-4 shadow-sm h-full flex flex-col android-ripple">
+      <div className="bg-card rounded-lg p-4 shadow-soft h-full flex flex-col android-ripple hover:shadow-medium transition-all duration-200 border border-border">
         <div className="mb-3">{icon}</div>
-        <h2 className="font-medium text-lg">{title}</h2>
-        <p className="text-sm text-text-secondary mt-1">{description}</p>
+        <h2 className="font-medium text-lg text-card-foreground">{title}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{description}</p>
       </div>
     </Link>
   )
