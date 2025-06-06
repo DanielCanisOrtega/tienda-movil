@@ -55,6 +55,56 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
+// Function to speak toast messages
+const speakToastMessage = (message: string) => {
+  // Check if browser supports speech synthesis
+  if ("speechSynthesis" in window) {
+    // Create a new speech synthesis utterance
+    const utterance = new SpeechSynthesisUtterance(message)
+
+    // Set language to Spanish
+    utterance.lang = "es-ES"
+
+    // Set voice properties
+    utterance.volume = 1 // 0 to 1
+    utterance.rate = 1.0 // 0.1 to 10
+    utterance.pitch = 1.0 // 0 to 2
+
+    // Speak the message
+    window.speechSynthesis.speak(utterance)
+  }
+}
+
+// Extract text content from React nodes
+const extractTextFromReactNode = (node: React.ReactNode): string => {
+  if (typeof node === "string") {
+    return node
+  }
+
+  if (typeof node === "number" || typeof node === "boolean") {
+    return String(node)
+  }
+
+  if (node === null || node === undefined) {
+    return ""
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(extractTextFromReactNode).join(" ")
+  }
+
+  if (typeof node === "object") {
+    // Handle React elements
+    if ("props" in node && node.props) {
+      if ("children" in node.props) {
+        return extractTextFromReactNode(node.props.children)
+      }
+    }
+  }
+
+  return ""
+}
+
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
     return
@@ -77,6 +127,17 @@ export const reducer = (state: State, action: Action): State => {
       // Auto-dismiss the toast immediately when added
       const newToast = action.toast
       addToRemoveQueue(newToast.id)
+
+      // Speak the toast message
+      const titleText = extractTextFromReactNode(newToast.title)
+      const descriptionText = extractTextFromReactNode(newToast.description)
+      const messageToSpeak = titleText
+        ? descriptionText
+          ? `${titleText}: ${descriptionText}`
+          : titleText
+        : descriptionText || "Notificación"
+
+      speakToastMessage(messageToSpeak)
 
       return {
         ...state,
