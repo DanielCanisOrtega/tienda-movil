@@ -52,18 +52,18 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Custom beautiful color palette
-        "primary-light": "hsl(270 95% 75%)",
-        "primary-dark": "hsl(262 69% 40%)",
+        // Custom beautiful color palette - NO GREEN!
+        "primary-light": "hsl(270 95% 75%)", // Light purple
+        "primary-dark": "hsl(262 69% 40%)", // Dark purple
 
         // Accent colors
         "accent-blue": "hsl(217 91% 60%)", // Beautiful blue
         "accent-pink": "hsl(330 81% 60%)", // Soft pink
         "accent-orange": "hsl(25 95% 53%)", // Warm orange
-        "accent-coral": "hsl(16 100% 66%)", // Beautiful coral instead of teal
+        "accent-coral": "hsl(16 100% 66%)", // Beautiful coral
 
-        // Status colors
-        success: "hsl(217 91% 60%)", // Beautiful blue instead of green
+        // Status colors - NO GREEN!
+        success: "hsl(217 91% 60%)", // Blue for success instead of green
         warning: "hsl(38 92% 50%)", // Amber
         danger: "hsl(0 84% 60%)", // Red
         info: "hsl(217 91% 60%)", // Blue
@@ -80,7 +80,7 @@ const config = {
         // Input colors
         "input-bg": "hsl(220 14% 96%)",
         "input-border": "hsl(220 13% 91%)",
-        "input-focus": "hsl(262 83% 58%)",
+        "input-focus": "hsl(262 83% 58%)", // Purple focus
 
         // Text colors
         "text-primary": "hsl(224 71% 4%)", // Very dark blue
@@ -115,12 +115,22 @@ const config = {
           from: { transform: "translateX(-100%)" },
           to: { transform: "translateX(0)" },
         },
+        "toast-in": {
+          from: { transform: "translateX(100%)", opacity: "0" },
+          to: { transform: "translateX(0)", opacity: "1" },
+        },
+        "toast-out": {
+          from: { transform: "translateX(0)", opacity: "1" },
+          to: { transform: "translateX(100%)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
         "slide-in": "slide-in 0.3s ease-out",
+        "toast-in": "toast-in 0.3s ease-out",
+        "toast-out": "toast-out 0.2s ease-in",
       },
       boxShadow: {
         soft: "0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)",

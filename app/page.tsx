@@ -1,23 +1,21 @@
 import { LoginForm } from "@/components/login-form"
 
-export default function Home() {
+export default function LoginPage() {
   return (
-    <main className="flex min-h-screen flex-col bg-primary android-safe-top">
-      <div className="flex flex-col items-center justify-center p-6 h-full min-h-screen">
-        {/* Logo centrado en la parte superior */}
-        <div className="text-center mb-10">
-          <div className="tienda-title text-white text-4xl">
-            <div>Tienda</div>
-            <div>mixta</div>
-            <div>doña jose</div>
-          </div>
-          <div className="text-white text-sm mt-2">by José</div>
+    <main className="flex min-h-screen flex-col bg-gradient-to-br from-primary via-primary-light to-accent-pink android-safe-top">
+      {/* Logo en la parte superior */}
+      <div className="text-center pt-8 pb-4">
+        <div className="tienda-title text-white text-3xl drop-shadow-lg">
+          <div>Tienda</div>
+          <div>mixta</div>
+          <div>doña jose</div>
         </div>
+      </div>
 
-        {/* Formulario de inicio de sesión */}
+      {/* Formulario centrado */}
+      <div className="flex-1 flex items-center justify-center p-6">
         <LoginForm />
       </div>
     </main>
   )
 }
-

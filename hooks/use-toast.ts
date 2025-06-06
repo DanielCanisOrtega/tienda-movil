@@ -5,8 +5,8 @@ import * as React from "react"
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1500 // Changed from 5000 to 1500ms (1.5 seconds)
+const TOAST_LIMIT = 3 // Reduced limit to avoid clutter
+const TOAST_REMOVE_DELAY = 1200 // 1.2 seconds - much faster!
 
 type ToasterToast = ToastProps & {
   id: string
@@ -74,9 +74,13 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
+      // Auto-dismiss the toast immediately when added
+      const newToast = action.toast
+      addToRemoveQueue(newToast.id)
+
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+        toasts: [newToast, ...state.toasts].slice(0, TOAST_LIMIT),
       }
 
     case "UPDATE_TOAST":
@@ -88,8 +92,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
