@@ -5,7 +5,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChevronLeft, ImageIcon, Trash2, Barcode } from "lucide-react"
+import { ChevronLeft, ImageIcon, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
@@ -22,7 +22,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import BarcodeScanner from "@/components/barcode-scanner"
 import { getProducto } from "@/services/product-service" // Importar servicios
 
 interface ProductFormData {
@@ -34,7 +33,6 @@ interface ProductFormData {
   categoria: string
   disponible: boolean
   tienda: number
-  codigo_barras?: string
   oculto?: boolean
 }
 
@@ -51,7 +49,6 @@ export default function EditProductPage() {
   const [storeName, setStoreName] = useState<string>("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [productNotFound, setProductNotFound] = useState(false)
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   const [formData, setFormData] = useState<ProductFormData>({
@@ -118,7 +115,6 @@ export default function EditProductPage() {
           categoria: producto.categoria,
           disponible: producto.cantidad > 0,
           tienda: Number(storeId),
-          codigo_barras: producto.codigo_barras || "",
           oculto: producto.oculto || false,
         })
       } else {
@@ -244,7 +240,7 @@ export default function EditProductPage() {
         precio: formData.precio,
         cantidad: formData.cantidad,
         categoria: formData.categoria,
-        codigo_barras: formData.codigo_barras || null,
+        codigo_barras: null,
         tienda_id: Number(storeId),
       }
 
@@ -347,19 +343,6 @@ export default function EditProductPage() {
       setIsDeleting(false)
       setIsDeleteDialogOpen(false)
     }
-  }
-
-  const handleBarcodeDetected = (code: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      codigo_barras: code,
-    }))
-    setShowBarcodeScanner(false)
-    toast({
-      title: "Código detectado",
-      description: `Código: ${code}`,
-      variant: "success",
-    })
   }
 
   if (isLoading) {
@@ -487,30 +470,6 @@ export default function EditProductPage() {
             {errors.categoria && <p className="text-sm text-red-500">{errors.categoria}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="codigo_barras" className="text-base">
-              Código de Barras
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="codigo_barras"
-                name="codigo_barras"
-                value={formData.codigo_barras || ""}
-                onChange={handleChange}
-                placeholder="Escanea o ingresa el código"
-                className="bg-input-bg border-0 h-12 text-base flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 aspect-square flex items-center justify-center bg-white border-primary"
-                onClick={() => setShowBarcodeScanner(true)}
-              >
-                <Barcode className="h-5 w-5 text-primary" />
-              </Button>
-            </div>
-          </div>
-
           <div className="bg-input-bg rounded-lg p-4 flex flex-col items-center justify-center h-40">
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <ImageIcon className="h-6 w-6 text-primary" />
@@ -541,7 +500,7 @@ export default function EditProductPage() {
           <div className="flex gap-4 mt-6">
             <Button
               type="submit"
-              className="flex-1 h-14 text-base bg-primary hover:bg-primary-dark android-ripple"
+              className="flex-1 h-14 text-base bg-primary hover:bg-primary-dark shadow-soft"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Guardando..." : "Guardar Cambios"}
@@ -578,9 +537,6 @@ export default function EditProductPage() {
           </div>
         </form>
       </div>
-      {showBarcodeScanner && (
-        <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />
-      )}
     </main>
   )
 }

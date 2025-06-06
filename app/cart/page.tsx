@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2, Mic, Barcode } from "lucide-react"
+import { ChevronLeft, Plus, Minus, ShoppingCart, Trash2, Mic } from "lucide-react"
 import Link from "next/link"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,8 +12,7 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
-import Quagga from "@ericblade/quagga2" // Importamos quagga2 que es una versión mantenida de quagga
-import BarcodeScanner from "@/components/barcode-scanner"
+// import BarcodeScanner from "@/components/barcode-scanner"
 
 interface Product {
   id: number
@@ -84,12 +83,12 @@ export default function CartPage() {
   const [processingVoice, setProcessingVoice] = useState(false)
 
   // Estado para el escáner de códigos de barras
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
-  const [scannerActive, setScannerActive] = useState(false)
-  const [scannerInitialized, setScannerInitialized] = useState(false)
-  const [scanning, setScanning] = useState(false)
-  const [simulationMode, setSimulationMode] = useState(true) // Modo de simulación activado por defecto
-  const [simulationTimer, setSimulationTimer] = useState<NodeJS.Timeout | null>(null)
+  // const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  // const [scannerActive, setScannerActive] = useState(false)
+  // const [scannerInitialized, setScannerInitialized] = useState(false)
+  // const [scanning, setScanning] = useState(false)
+  // const [simulationMode, setSimulationMode] = useState(true) // Modo de simulación activado por defecto
+  // const [simulationTimer, setSimulationTimer] = useState<NodeJS.Timeout | null>(null)
 
   // Cargar productos y carrito
   useEffect(() => {
@@ -154,14 +153,14 @@ export default function CartPage() {
   // Limpiar el escáner cuando se desmonta el componente
   useEffect(() => {
     return () => {
-      if (scannerInitialized) {
-        Quagga.stop()
-      }
-      if (simulationTimer) {
-        clearTimeout(simulationTimer)
-      }
+      // if (scannerInitialized) {
+      //   Quagga.stop()
+      // }
+      // if (simulationTimer) {
+      //   clearTimeout(simulationTimer)
+      // }
     }
-  }, [scannerInitialized, simulationTimer])
+  }, [])
 
   // Filtrar productos según la búsqueda
   useEffect(() => {
@@ -172,8 +171,7 @@ export default function CartPage() {
         (product) =>
           product.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
           product.categoria.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.descripcion.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (product.codigo_barras && product.codigo_barras.includes(searchQuery)),
+          product.descripcion.toLowerCase().includes(searchQuery.toLowerCase()),
       )
       setFilteredProducts(filtered)
     }
@@ -813,28 +811,28 @@ export default function CartPage() {
   }
 
   // Función para iniciar el escáner de códigos de barras
-  const startBarcodeScanner = () => {
-    setShowBarcodeScanner(true)
-  }
+  // const startBarcodeScanner = () => {
+  //   setShowBarcodeScanner(true)
+  // }
 
   // Función para manejar la detección de un código de barras
-  const handleBarcodeDetected = (code: string) => {
-    console.log("Código detectado:", code)
-    setShowBarcodeScanner(false)
+  // const handleBarcodeDetected = (code: string) => {
+  //   console.log("Código detectado:", code)
+  //   setShowBarcodeScanner(false)
 
-    // Buscar producto por código de barras
-    const product = products.find((p) => p.codigo_barras === code)
-    if (product) {
-      addToCart(product)
-    } else {
-      // Si no se encuentra, establecer el código como término de búsqueda
-      setSearchQuery(code)
-      toast({
-        title: "Código escaneado",
-        description: `Buscando productos con código: ${code}`,
-      })
-    }
-  }
+  //   // Buscar producto por código de barras
+  //   const product = products.find((p) => p.codigo_barras === code)
+  //   if (product) {
+  //     addToCart(product)
+  //   } else {
+  //     // Si no se encuentra, establecer el código como término de búsqueda
+  //     setSearchQuery(code)
+  //     toast({
+  //       title: "Código escaneado",
+  //       description: `Buscando productos con código: ${code}`,
+  //     })
+  //   }
+  // }
 
   return (
     <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
@@ -846,32 +844,20 @@ export default function CartPage() {
       </div>
 
       <div className="container max-w-md mx-auto p-4">
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="mb-4">
           {/* Botón de reconocimiento de voz mejorado */}
           <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-green-400 to-teal-500 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary-light to-accent-pink rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
             <button
               onClick={handleVoiceRecognition}
               disabled={processingVoice || isListening}
-              className="relative flex items-center justify-center w-full h-20 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-70"
+              className="relative flex items-center justify-center w-full h-20 bg-surface rounded-lg shadow-soft hover:shadow-medium transition-all duration-300 disabled:opacity-70"
             >
               <div className="flex flex-col items-center">
-                <Mic className={`h-8 w-8 ${isListening ? "text-red-500 animate-pulse" : "text-primary"}`} />
-                <span className="mt-1 text-sm font-medium">{isListening ? "Escuchando..." : "Comandos de voz"}</span>
-              </div>
-            </button>
-          </div>
-
-          {/* Botón de escáner de código de barras mejorado */}
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
-            <button
-              onClick={startBarcodeScanner}
-              className="relative flex items-center justify-center w-full h-20 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
-            >
-              <div className="flex flex-col items-center">
-                <Barcode className="h-8 w-8 text-primary" />
-                <span className="mt-1 text-sm font-medium">Escanear código</span>
+                <Mic className={`h-8 w-8 ${isListening ? "text-danger animate-pulse" : "text-primary"}`} />
+                <span className="mt-1 text-sm font-medium text-text-primary">
+                  {isListening ? "Escuchando..." : "Comandos de voz"}
+                </span>
               </div>
             </button>
           </div>
@@ -909,9 +895,9 @@ export default function CartPage() {
                         <div className="flex justify-between items-center">
                           <div className="text-sm text-gray-500">
                             <p>Precio: ${item.product.precio.toLocaleString()}</p>
-                            {item.product.codigo_barras && (
+                            {/* {item.product.codigo_barras && (
                               <p className="text-xs">Código: {item.product.codigo_barras}</p>
-                            )}
+                            )} */}
                           </div>
                           <div className="flex items-center space-x-2">
                             <Button
@@ -1012,9 +998,9 @@ export default function CartPage() {
                       <div className="ml-3 flex-1 min-w-0">
                         <h3 className="font-medium text-sm line-clamp-1">{product.nombre}</h3>
                         <p className="text-xs text-muted-foreground truncate">{product.categoria}</p>
-                        {product.codigo_barras && product.codigo_barras.trim() !== "" && (
+                        {/* {product.codigo_barras && product.codigo_barras.trim() !== "" && (
                           <p className="text-xs text-gray-500 truncate">Código: {product.codigo_barras}</p>
-                        )}
+                        )} */}
                       </div>
                       <div className="font-medium text-sm whitespace-nowrap ml-2">{formatPrice(product.precio)}</div>
                       <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 p-0 text-primary">
@@ -1030,13 +1016,13 @@ export default function CartPage() {
       </div>
 
       {/* Modal para el escáner de códigos de barras */}
-      {showBarcodeScanner && (
+      {/* {showBarcodeScanner && (
         <BarcodeScanner
           onDetected={handleBarcodeDetected}
           onClose={() => setShowBarcodeScanner(false)}
           simulationMode={true}
         />
-      )}
+      )} */}
 
       <BottomNavigation />
     </main>

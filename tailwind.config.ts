@@ -60,10 +60,10 @@ const config = {
         "accent-blue": "hsl(217 91% 60%)", // Beautiful blue
         "accent-pink": "hsl(330 81% 60%)", // Soft pink
         "accent-orange": "hsl(25 95% 53%)", // Warm orange
-        "accent-teal": "hsl(173 58% 39%)", // Elegant teal
+        "accent-coral": "hsl(16 100% 66%)", // Beautiful coral instead of teal
 
         // Status colors
-        success: "hsl(142 76% 36%)", // Green
+        success: "hsl(217 91% 60%)", // Beautiful blue instead of green
         warning: "hsl(38 92% 50%)", // Amber
         danger: "hsl(0 84% 60%)", // Red
         info: "hsl(217 91% 60%)", // Blue

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, Filter, Plus, Search, Barcode, Edit, Trash2 } from "lucide-react"
+import { ChevronLeft, Filter, Plus, Search, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
-import BarcodeScanner from "@/components/barcode-scanner" // Importar el componente de escáner
 
 interface Producto {
   id: number
@@ -54,7 +53,6 @@ export default function ProductsPage() {
   const [storeName, setStoreName] = useState<string>("")
   const [categories, setCategories] = useState<string[]>([])
   const [nextId, setNextId] = useState(1) // Para generar IDs únicos
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -156,8 +154,7 @@ export default function ProductsPage() {
         (producto) =>
           producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
           producto.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          producto.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (producto.codigo_barras && producto.codigo_barras.includes(searchTerm)),
+          producto.categoria.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
@@ -186,29 +183,9 @@ export default function ProductsPage() {
     return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(price)
   }
 
-  // Función para iniciar el escáner de códigos de barras
-  const startBarcodeScanner = () => {
-    setShowBarcodeScanner(true)
-  }
-
-  // Función para manejar la detección de un código de barras
-  const handleBarcodeDetected = (code: string) => {
-    console.log("CÓDIGO RECIBIDO EN LA PÁGINA:", code)
-
-    // Mostrar un toast con el código detectado
-    toast({
-      title: "Código detectado",
-      description: `Código: ${code}`,
-      variant: "success",
-    })
-
-    // Establecer el término de búsqueda como el código
-    setSearchTerm(code)
-  }
-
   // Función para navegar a la página de añadir producto
   const navigateToAddProduct = () => {
-    router.push(`/stores/${storeId}/products/add`)
+    router.push(`/stores/${storeId}/productos/add`)
   }
 
   // Función para volver a la página de la tienda
@@ -308,24 +285,19 @@ export default function ProductsPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary h-5 w-5" />
             <Input
               placeholder="Buscar productos..."
-              className="pl-10 bg-input-bg border-0"
+              className="pl-10 bg-input-bg border-0 rounded-lg"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-white flex items-center gap-2 px-3 hover:bg-gray-100 transition-colors border-primary"
-            onClick={startBarcodeScanner}
-          >
-            <Barcode className="h-5 w-5 text-primary" />
-            <span className="font-medium">Escanear</span>
-          </Button>
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="bg-white">
-                <Filter className="h-5 w-5" />
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-surface shadow-soft border-border-medium hover:bg-surface-hover"
+              >
+                <Filter className="h-5 w-5 text-primary" />
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
@@ -340,7 +312,7 @@ export default function ProductsPage() {
                     id="available"
                     checked={showOnlyAvailable}
                     onChange={toggleAvailableFilter}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="h-4 w-4 rounded border-border-medium text-primary focus:ring-primary"
                   />
                   <label htmlFor="available" className="text-sm font-medium text-text-primary">
                     Mostrar solo productos disponibles
@@ -352,7 +324,7 @@ export default function ProductsPage() {
           <Button
             variant="default"
             size="icon"
-            className="bg-primary hover:bg-primary-dark"
+            className="bg-primary hover:bg-primary-dark shadow-soft"
             onClick={navigateToAddProduct}
           >
             <Plus className="h-5 w-5" />
@@ -414,9 +386,6 @@ export default function ProductsPage() {
                           {producto.categoria}
                         </Badge>
                       </div>
-                      {producto.codigo_barras && producto.codigo_barras.trim() !== "" && (
-                        <div className="mt-2 text-xs text-gray-500">Código: {producto.codigo_barras}</div>
-                      )}
 
                       {/* Botones de acción */}
                       <div className="flex justify-end gap-2 mt-3">
@@ -467,11 +436,6 @@ export default function ProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Componente de escáner de códigos de barras */}
-      {showBarcodeScanner && (
-        <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />
-      )}
     </main>
   )
 }
