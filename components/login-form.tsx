@@ -105,10 +105,10 @@ export function LoginForm() {
   const getAdminToken = async (): Promise<string | null> => {
     try {
       // Usar credenciales hardcodeadas para admin
-      const adminUsername = "admin";
-      const adminPassword = "clave_seminario";
-      
-      console.log("Autenticando como administrador para acceder a vendedores...");
+      const adminUsername = "admin"
+      const adminPassword = "clave_seminario"
+
+      console.log("Autenticando como administrador para acceder a vendedores...")
 
       const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/", {
         method: "POST",
@@ -119,24 +119,24 @@ export function LoginForm() {
           username: adminUsername,
           password: adminPassword,
         }),
-      });
+      })
 
       if (!response.ok) {
-        console.error("Error al obtener token de administrador:", response.status, response.statusText);
-        return null;
+        console.error("Error al obtener token de administrador:", response.status, response.statusText)
+        return null
       }
 
-      const data = await response.json();
-      
+      const data = await response.json()
+
       if (data.access) {
-        console.log("Token de administrador obtenido correctamente.");
-        return data.access;
+        console.log("Token de administrador obtenido correctamente.")
+        return data.access
       }
-      
-      return null;
+
+      return null
     } catch (error) {
-      console.error("Error al autenticar como administrador:", error);
-      return null;
+      console.error("Error al autenticar como administrador:", error)
+      return null
     }
   }
 
@@ -145,100 +145,100 @@ export function LoginForm() {
     try {
       const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${tiendaId}/empleados/`, {
         headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       if (!response.ok) {
-        throw new Error(`Error al obtener empleados: ${response.status} ${response.statusText}`);
+        throw new Error(`Error al obtener empleados: ${response.status} ${response.statusText}`)
       }
 
-      const data = await response.json();
-      return data;
+      const data = await response.json()
+      return data
     } catch (error) {
-      console.error("Error al obtener vendedores:", error);
-      throw error;
+      console.error("Error al obtener vendedores:", error)
+      throw error
     }
   }
 
   // Función actualizada para login de vendedor - con autenticación automática
   const handleVendorLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
 
     // Validar que los campos no estén vacíos
     if (!vendorName.trim()) {
-      setError("Por favor ingresa tu nombre");
-      setIsLoading(false);
-      return;
+      setError("Por favor ingresa tu nombre")
+      setIsLoading(false)
+      return
     }
 
     if (!vendorPassword.trim()) {
-      setError("Por favor ingresa tu contraseña");
-      setIsLoading(false);
-      return;
+      setError("Por favor ingresa tu contraseña")
+      setIsLoading(false)
+      return
     }
 
     try {
       // Primero obtener token de administrador
-      const adminToken = await getAdminToken();
-      
+      const adminToken = await getAdminToken()
+
       if (!adminToken) {
-        setError("No se pudo conectar con el servidor. Por favor, intenta más tarde.");
-        return;
+        setError("No se pudo conectar con el servidor. Por favor, intenta más tarde.")
+        return
       }
 
       // Usar directamente el endpoint de la tienda 3
-      const tiendaId = "3";
-      console.log(`Verificando si ${vendorName} existe en tienda ${tiendaId}...`);
+      const tiendaId = "3"
+      console.log(`Verificando si ${vendorName} existe en tienda ${tiendaId}...`)
 
       // Usar el token para obtener la lista de vendedores
-      const data = await obtenerVendedores(adminToken, tiendaId);
+      const data = await obtenerVendedores(adminToken, tiendaId)
 
       // Buscar el vendedor en la respuesta
-      let vendedorEncontrado = false;
-      let vendedorData = null;
+      let vendedorEncontrado = false
+      let vendedorData = null
 
       if (data && data.empleados && Array.isArray(data.empleados)) {
         // Buscar por nombre (ignorando mayúsculas/minúsculas)
         vendedorData = data.empleados.find(
           (emp: any) => emp.nombre && emp.nombre.toLowerCase() === vendorName.toLowerCase(),
-        );
+        )
 
         if (vendedorData) {
-          vendedorEncontrado = true;
+          vendedorEncontrado = true
         }
       }
 
       if (vendedorEncontrado && vendedorData) {
-        console.log("Vendedor encontrado:", vendedorData);
+        console.log("Vendedor encontrado:", vendedorData)
 
         // Guardar información en localStorage
-        localStorage.setItem("userType", "vendor");
-        localStorage.setItem("vendorName", vendedorData.nombre);
-        localStorage.setItem("vendorId", vendedorData.id.toString());
+        localStorage.setItem("userType", "vendor")
+        localStorage.setItem("vendorName", vendedorData.nombre)
+        localStorage.setItem("vendorId", vendedorData.id.toString())
 
         // Establecer la tienda asociada al vendedor (siempre tienda 3)
-        localStorage.setItem("selectedStoreId", tiendaId);
-        localStorage.setItem("selectedStoreName", "Tienda Principal"); // Nombre fijo para la tienda 3
+        localStorage.setItem("selectedStoreId", tiendaId)
+        localStorage.setItem("selectedStoreName", "Tienda Principal") // Nombre fijo para la tienda 3
 
         // Crear una caja para el vendedor
-        crearCajaParaVendedor(vendedorData.id, vendedorData.nombre);
+        crearCajaParaVendedor(vendedorData.id, vendedorData.nombre)
 
         // Redirigir a home
-        router.push(`/home`);
+        router.push(`/home`)
       } else {
-        console.log("Vendedor no encontrado");
-        setError("No se encontró ningún vendedor con ese nombre");
+        console.log("Vendedor no encontrado")
+        setError("No se encontró ningún vendedor con ese nombre")
       }
     } catch (error) {
-      console.error("Error en login de vendedor:", error);
-      setError("Error al verificar credenciales. Por favor, intenta nuevamente.");
+      console.error("Error en login de vendedor:", error)
+      setError("Error al verificar credenciales. Por favor, intenta nuevamente.")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   // Función para manejar el login de administrador
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -332,7 +332,7 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
+      <div className="bg-white dark:bg-card rounded-2xl overflow-hidden shadow-lg dark:shadow-large">
         <div className="bg-primary p-6 text-center">
           <h1 className="text-2xl font-bold text-white">Bienvenido</h1>
           <p className="text-sm text-white/80 mt-1">
@@ -346,7 +346,7 @@ export function LoginForm() {
 
         <div className="p-6 space-y-5">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+            <div className="bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-500 text-red-700 dark:text-red-400 px-4 py-3 rounded relative">
               <span className="block sm:inline">{error}</span>
             </div>
           )}
@@ -358,7 +358,7 @@ export function LoginForm() {
 
               <Button
                 onClick={() => setLoginMode("admin")}
-                className="w-full h-16 text-base bg-primary hover:bg-primary-dark text-white android-ripple"
+                className="w-full h-16 text-base bg-primary hover:bg-primary/90 text-white android-ripple btn-hover"
               >
                 <User className="mr-3 h-6 w-6" />
                 Soy Administrador
@@ -366,7 +366,7 @@ export function LoginForm() {
 
               <Button
                 onClick={() => setLoginMode("vendor")}
-                className="w-full h-16 text-base bg-primary/90 hover:bg-primary-dark text-white android-ripple"
+                className="w-full h-16 text-base bg-primary hover:bg-primary/90 text-white android-ripple btn-hover"
               >
                 <Store className="mr-3 h-6 w-6" />
                 Soy Vendedor
@@ -395,7 +395,7 @@ export function LoginForm() {
                   <Input
                     id="username"
                     placeholder="Usuario"
-                    className="pl-10 bg-input-bg border-0 h-12 text-base"
+                    className="pl-10 bg-input-bg dark:bg-input border-0 h-12 text-base"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -408,14 +408,14 @@ export function LoginForm() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Contraseña"
-                    className="pl-10 pr-10 bg-input-bg border-0 h-12 text-base"
+                    className="pl-10 pr-10 bg-input-bg dark:bg-input border-0 h-12 text-base"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary dark:text-muted-foreground"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -425,7 +425,7 @@ export function LoginForm() {
 
               <Button
                 type="submit"
-                className="w-full h-12 text-base bg-primary hover:bg-primary-dark text-white android-ripple"
+                className="w-full h-12 text-base bg-primary hover:bg-primary/90 text-white android-ripple btn-hover"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -476,7 +476,7 @@ export function LoginForm() {
                 <Input
                   id="vendorName"
                   placeholder="Tu nombre"
-                  className="pl-10 bg-input-bg border-0 h-12 text-base"
+                  className="pl-10 bg-input-bg dark:bg-input border-0 h-12 text-base"
                   value={vendorName}
                   onChange={(e) => setVendorName(e.target.value)}
                   required
@@ -489,14 +489,14 @@ export function LoginForm() {
                   id="vendorPassword"
                   type={showVendorPassword ? "text" : "password"}
                   placeholder="Contraseña"
-                  className="pl-10 pr-10 bg-input-bg border-0 h-12 text-base"
+                  className="pl-10 pr-10 bg-input-bg dark:bg-input border-0 h-12 text-base"
                   value={vendorPassword}
                   onChange={(e) => setVendorPassword(e.target.value)}
                   required
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary dark:text-muted-foreground"
                   onClick={() => setShowVendorPassword(!showVendorPassword)}
                 >
                   {showVendorPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -505,7 +505,7 @@ export function LoginForm() {
 
               <Button
                 type="submit"
-                className="w-full h-12 text-base bg-primary hover:bg-primary-dark text-white android-ripple"
+                className="w-full h-12 text-base bg-primary hover:bg-primary/90 text-white android-ripple btn-hover"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -534,7 +534,7 @@ export function LoginForm() {
                 </button>
               </div>
 
-              <div className="text-sm text-center text-gray-500 mt-2">
+              <div className="text-sm text-center text-gray-500 dark:text-muted-foreground mt-2">
                 Ingresa tu nombre exactamente como está registrado en el sistema
               </div>
             </form>
@@ -543,7 +543,7 @@ export function LoginForm() {
       </div>
 
       <div className="mt-6 text-center">
-        <p className="text-sm text-white">
+        <p className="text-sm text-white dark:text-foreground">
           ¿No tienes una cuenta?{" "}
           <Link href="/register" className="font-medium underline">
             Regístrate

@@ -27,25 +27,25 @@
   }
 
   .dark {
-    --background: 224 71% 2%; /* Very dark background */
-    --foreground: 0 0% 95%; /* Light text */
-    --card: 224 71% 4%; /* Dark cards */
-    --card-foreground: 0 0% 95%; /* Light text on cards */
-    --popover: 224 71% 4%; /* Dark popover */
-    --popover-foreground: 0 0% 95%; /* Light text on popover */
-    --primary: 270 95% 75%; /* Bright purple for dark mode */
-    --primary-foreground: 224 71% 4%; /* Dark text on primary */
-    --secondary: 215 27% 8%; /* Very dark secondary */
-    --secondary-foreground: 0 0% 90%; /* Light text on secondary */
-    --muted: 215 27% 8%; /* Very dark muted */
-    --muted-foreground: 215 20% 70%; /* Light muted text */
-    --accent: 215 27% 10%; /* Dark accent */
-    --accent-foreground: 0 0% 90%; /* Light accent text */
-    --destructive: 0 62% 50%; /* Bright red for dark mode */
-    --destructive-foreground: 0 0% 98%; /* Light text on destructive */
-    --border: 215 27% 12%; /* Dark borders */
-    --input: 215 27% 8%; /* Dark inputs */
-    --ring: 270 95% 75%; /* Bright purple ring */
+    --background: 240 10% 3.9%; /* Rich dark background with subtle blue tint */
+    --foreground: 0 0% 98%; /* Soft white text */
+    --card: 240 10% 6%; /* Slightly lighter than background */
+    --card-foreground: 0 0% 98%; /* Soft white text */
+    --popover: 240 10% 6%; /* Slightly lighter than background */
+    --popover-foreground: 0 0% 98%; /* Soft white text */
+    --primary: 262 83% 58%; /* Same purple as light mode */
+    --primary-foreground: 0 0% 98%; /* Soft white text on primary */
+    --secondary: 240 10% 8%; /* Dark gray with blue tint */
+    --secondary-foreground: 0 0% 98%; /* Soft white text */
+    --muted: 240 10% 8%; /* Dark gray with blue tint */
+    --muted-foreground: 0 0% 65%; /* Muted text */
+    --accent: 240 10% 10%; /* Slightly lighter accent */
+    --accent-foreground: 0 0% 98%; /* Soft white text */
+    --destructive: 0 84% 60%; /* Same red */
+    --destructive-foreground: 0 0% 98%; /* Soft white text */
+    --border: 240 10% 12%; /* Subtle border */
+    --input: 240 10% 8%; /* Dark input background */
+    --ring: 262 83% 58%; /* Same purple as light mode */
   }
 }
 
@@ -82,7 +82,7 @@
 }
 
 .dark .android-ripple::before {
-  background: rgba(270, 95%, 75%, 0.3);
+  background: rgba(166, 123, 255, 0.3);
 }
 
 .android-ripple:active::before {
@@ -114,22 +114,22 @@
   background: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(330 81% 60%) 100%);
 }
 
-/* Dark mode gradients - much darker */
+/* Dark mode gradients - elegant and sophisticated */
 .dark .gradient-primary {
-  background: linear-gradient(135deg, hsl(224 71% 4%) 0%, hsl(215 27% 8%) 100%);
+  background: linear-gradient(135deg, hsl(240 10% 3.9%) 0%, hsl(240 10% 8%) 50%, hsl(262 83% 58%) 100%);
 }
 
 .dark .gradient-accent {
-  background: linear-gradient(135deg, hsl(224 71% 4%) 0%, hsl(215 27% 10%) 100%);
+  background: linear-gradient(135deg, hsl(240 10% 3.9%) 0%, hsl(240 10% 6%) 100%);
 }
 
-/* Improved shadows */
+/* Improved shadows for dark mode */
 .shadow-soft {
   box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
 }
 
 .dark .shadow-soft {
-  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.8), 0 10px 20px -2px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.5), 0 10px 20px -2px rgba(0, 0, 0, 0.3);
 }
 
 .shadow-medium {
@@ -137,7 +137,7 @@
 }
 
 .dark .shadow-medium {
-  box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.9), 0 10px 10px -5px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
 }
 
 .shadow-large {
@@ -145,7 +145,7 @@
 }
 
 .dark .shadow-large {
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.95), 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8), 0 20px 25px -5px rgba(0, 0, 0, 0.6);
 }
 
 /* Toast animations */
@@ -189,7 +189,7 @@
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: hsl(224 71% 4%);
+  background: hsl(240 10% 6%);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -202,11 +202,11 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(270 95% 75%);
+  background: hsl(262 83% 58%);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(270 95% 65%);
+  background: hsl(262 83% 68%);
 }
 
 /* Smooth transitions for theme changes */
@@ -214,70 +214,126 @@
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark mode specific overrides */
-.dark .bg-white {
-  @apply bg-card;
+/* AGGRESSIVE DARK MODE OVERRIDES - Force all backgrounds to dark */
+.dark * {
+  background-color: hsl(240 10% 3.9%);
 }
 
-.dark .text-black {
-  @apply text-foreground;
+.dark div,
+.dark section,
+.dark main,
+.dark aside,
+.dark header,
+.dark footer,
+.dark nav {
+  background-color: hsl(240 10% 3.9%) !important;
 }
 
-.dark .text-gray-900 {
-  @apply text-foreground;
+.dark .bg-white,
+.dark .bg-gray-50,
+.dark .bg-gray-100,
+.dark .bg-gray-200,
+.dark [class*="bg-white"],
+.dark [class*="bg-gray"] {
+  background-color: hsl(240 10% 3.9%) !important;
 }
 
-.dark .text-gray-800 {
-  @apply text-foreground;
+/* Exceptions for specific elements */
+.dark .bg-primary,
+.dark .bg-primary-light,
+.dark .bg-primary-dark,
+.dark [class*="bg-primary"] {
+  background-color: hsl(262 83% 58%) !important;
 }
 
-.dark .text-gray-700 {
-  @apply text-muted-foreground;
+.dark .card,
+.dark [class*="card"] {
+  background-color: hsl(240 10% 6%) !important;
 }
 
-.dark .text-gray-600 {
-  @apply text-muted-foreground;
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: hsl(240 10% 6%) !important;
+  color: hsl(0 0% 98%) !important;
+  border-color: hsl(240 10% 12%) !important;
 }
 
-.dark .text-gray-500 {
-  @apply text-muted-foreground;
+/* Force text colors */
+.dark * {
+  color: hsl(0 0% 98%);
 }
 
-.dark .bg-gray-50 {
-  @apply bg-muted;
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark p,
+.dark span,
+.dark label,
+.dark a {
+  color: hsl(0 0% 98%) !important;
 }
 
-.dark .bg-gray-100 {
-  @apply bg-muted;
+/* Exceptions for text */
+.dark .text-primary,
+.dark [class*="text-primary"] {
+  color: hsl(262 83% 58%) !important;
 }
 
-.dark .bg-gray-200 {
-  @apply bg-accent;
+.dark .text-muted,
+.dark .text-muted-foreground,
+.dark [class*="text-muted"] {
+  color: hsl(0 0% 65%) !important;
 }
 
-.dark .border-gray-200 {
-  @apply border-border;
-}
-
-.dark .border-gray-300 {
-  @apply border-border;
-}
-
-/* Navigation bottom dark mode */
+/* Navigation bottom dark mode - elegant */
 .dark .bottom-nav {
-  background-color: rgba(30, 41, 59, 0.95) !important;
-  border-top-color: hsl(215 27% 12%) !important;
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border-top-color: hsl(240 10% 12%) !important;
+  backdrop-filter: blur(20px);
 }
 
 .dark .bottom-nav-item {
-  color: hsl(215 20% 70%) !important;
+  color: hsl(0 0% 70%) !important;
 }
 
 .dark .bottom-nav-item:hover {
-  background-color: rgba(270, 95%, 75%, 0.1) !important;
+  background-color: rgba(166, 123, 255, 0.1) !important;
+  color: hsl(262 83% 58%) !important;
 }
 
 .dark .bottom-nav-item.active {
-  color: hsl(270 95% 75%) !important;
-  background-color: rgba(270, 95%, 75%, 0.15) !important;
+  color: hsl(262 83% 58%) !important;
+  background-color: rgba(166, 123, 255, 0.15) !important;
+}
+
+/* Beautiful dark mode card effects */
+.dark .card-hover {
+  transition: all 0.3s ease;
+}
+
+.dark .card-hover:hover {
+  background-color: hsl(240 10% 8%) !important;
+  box-shadow: 0 8px 32px -8px rgba(166, 123, 255, 0.2);
+}
+
+/* Input focus effects in dark mode */
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: hsl(262 83% 58%) !important;
+  box-shadow: 0 0 0 3px rgba(166, 123, 255, 0.1) !important;
+}
+
+/* Button hover effects in dark mode */
+.dark .btn-hover {
+  transition: all 0.3s ease;
+}
+
+.dark .btn-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px -8px rgba(166, 123, 255, 0.3);
 }
