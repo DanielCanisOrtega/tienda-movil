@@ -52,15 +52,46 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        primary: "#29d890",
-        "primary-light": "#28ffa6",
-        "primary-dark": "#00d09e",
-        danger: "#ff1515",
-        background: "#ffffff",
-        "background-light": "#f1f2f6",
-        "input-bg": "#f1f2f6",
-        "text-primary": "#0e0e0e",
-        "text-secondary": "#798184",
+        // Custom beautiful color palette
+        "primary-light": "hsl(270 95% 75%)",
+        "primary-dark": "hsl(262 69% 40%)",
+
+        // Accent colors
+        "accent-blue": "hsl(217 91% 60%)", // Beautiful blue
+        "accent-pink": "hsl(330 81% 60%)", // Soft pink
+        "accent-orange": "hsl(25 95% 53%)", // Warm orange
+        "accent-teal": "hsl(173 58% 39%)", // Elegant teal
+
+        // Status colors
+        success: "hsl(142 76% 36%)", // Green
+        warning: "hsl(38 92% 50%)", // Amber
+        danger: "hsl(0 84% 60%)", // Red
+        info: "hsl(217 91% 60%)", // Blue
+
+        // Background variations
+        "background-light": "hsl(220 14% 96%)", // Very light gray
+        "background-secondary": "hsl(220 13% 91%)", // Light gray
+        "background-tertiary": "hsl(215 20% 65%)", // Medium gray
+
+        // Surface colors
+        surface: "hsl(0 0% 100%)", // Pure white
+        "surface-hover": "hsl(220 14% 96%)", // Subtle hover
+
+        // Input colors
+        "input-bg": "hsl(220 14% 96%)",
+        "input-border": "hsl(220 13% 91%)",
+        "input-focus": "hsl(262 83% 58%)",
+
+        // Text colors
+        "text-primary": "hsl(224 71% 4%)", // Very dark blue
+        "text-secondary": "hsl(215 16% 47%)", // Medium gray
+        "text-tertiary": "hsl(215 20% 65%)", // Light gray
+        "text-disabled": "hsl(215 14% 75%)", // Very light gray
+
+        // Border colors
+        "border-light": "hsl(220 14% 96%)",
+        "border-medium": "hsl(220 13% 91%)",
+        "border-dark": "hsl(215 20% 65%)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -76,10 +107,25 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in": {
+          from: { transform: "translateX(-100%)" },
+          to: { transform: "translateX(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.3s ease-out",
+        "slide-in": "slide-in 0.3s ease-out",
+      },
+      boxShadow: {
+        soft: "0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)",
+        medium: "0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+        large: "0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1)",
       },
     },
   },
@@ -87,4 +133,3 @@ const config = {
 } satisfies Config
 
 export default config
-

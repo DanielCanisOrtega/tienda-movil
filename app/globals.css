@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 160 100% 50%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 160 100% 50%;
-    --radius: 0.5rem;
+    --background: 0 0% 99.6%; /* #fefefe */
+    --foreground: 215 25% 17%; /* #1e293b */
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 215 25% 17%; /* #1e293b */
+    --popover: 0 0% 100%; /* #ffffff */
+    --popover-foreground: 215 25% 17%; /* #1e293b */
+    --primary: 160 84% 39%; /* #10b981 */
+    --primary-foreground: 0 0% 100%; /* #ffffff */
+    --secondary: 220 13% 91%; /* #f1f5f9 */
+    --secondary-foreground: 215 25% 17%; /* #1e293b */
+    --muted: 220 13% 91%; /* #f1f5f9 */
+    --muted-foreground: 215 16% 47%; /* #64748b */
+    --accent: 220 13% 91%; /* #f1f5f9 */
+    --accent-foreground: 215 25% 17%; /* #1e293b */
+    --destructive: 0 84% 60%; /* #ef4444 */
+    --destructive-foreground: 0 0% 100%; /* #ffffff */
+    --border: 220 13% 91%; /* #e2e8f0 */
+    --input: 220 13% 91%; /* #e2e8f0 */
+    --ring: 160 84% 39%; /* #10b981 */
+    --radius: 0.75rem; /* Slightly more rounded */
   }
 }
 
@@ -32,36 +32,59 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-text-primary;
+    @apply bg-background text-text-primary font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Improved typography */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-text-primary;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  p {
+    @apply text-text-secondary leading-relaxed;
+  }
+
+  /* Better focus states */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
 }
 
 .tienda-title {
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.1;
+  @apply text-text-primary;
 }
 
 @layer base {
-  /* Mobile optimization */
+  /* Mobile optimization with better colors */
   html,
   body {
-    -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: rgba(16, 185, 129, 0.1); /* Primary color with opacity */
     overscroll-behavior: none;
     touch-action: manipulation;
     user-select: none;
   }
 
-  /* Prevent text size adjustment on orientation change */
   html {
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Android status bar height consideration */
   .android-safe-top {
     padding-top: env(safe-area-inset-top, 24px);
   }
 
-  /* Improve touch targets */
   button,
   a,
   input,
@@ -70,7 +93,7 @@
     touch-action: manipulation;
   }
 
-  /* Android ripple effect */
+  /* Improved ripple effect */
   .android-ripple {
     position: relative;
     overflow: hidden;
@@ -85,33 +108,35 @@
     top: 0;
     left: 0;
     pointer-events: none;
-    background-image: radial-gradient(circle, #000 10%, transparent 10.01%);
+    background-image: radial-gradient(circle, rgba(16, 185, 129, 0.3) 10%, transparent 10.01%);
     background-repeat: no-repeat;
     background-position: 50%;
     transform: scale(10, 10);
     opacity: 0;
-    transition: transform 0.5s, opacity 0.5s;
+    transition: transform 0.3s ease, opacity 0.3s ease;
   }
 
   .android-ripple:active::after {
     transform: scale(0, 0);
-    opacity: 0.1;
+    opacity: 0.2;
     transition: 0s;
   }
 }
 
-/* Bottom navigation bar */
+/* Enhanced bottom navigation */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 56px;
-  background-color: white;
+  height: 64px; /* Slightly taller */
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   display: flex;
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05), 0 -1px 2px rgba(0, 0, 0, 0.02);
+  border-top: 1px solid #f1f5f9;
   z-index: 50;
 }
 
@@ -122,31 +147,88 @@
   justify-content: center;
   flex: 1;
   height: 100%;
+  color: #64748b;
+  transition: all 0.2s ease;
+  border-radius: 12px;
+  margin: 4px;
+}
+
+.bottom-nav-item:hover {
+  background-color: rgba(16, 185, 129, 0.05);
 }
 
 .bottom-nav-item.active {
-  color: #29d890;
+  color: #10b981;
+  background-color: rgba(16, 185, 129, 0.1);
 }
 
-/* Android-style floating action button */
+/* Modern floating action button */
 .fab {
   position: fixed;
-  bottom: 72px;
-  right: 16px;
+  bottom: 80px;
+  right: 20px;
   width: 56px;
   height: 56px;
-  border-radius: 28px;
-  background-color: #29d890;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 40;
+  transition: all 0.2s ease;
 }
 
-/* Content area that accounts for bottom navigation */
+.fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.fab:active {
+  transform: translateY(0);
+}
+
+/* Content area adjustment */
 .has-bottom-nav {
-  padding-bottom: 72px;
+  padding-bottom: 80px;
 }
 
+/* Enhanced card styles */
+.card-modern {
+  @apply bg-surface border border-border-light rounded-xl shadow-sm;
+  transition: all 0.2s ease;
+}
+
+.card-modern:hover {
+  @apply shadow-md border-border-medium;
+  transform: translateY(-1px);
+}
+
+/* Button improvements */
+.btn-primary {
+  @apply bg-primary hover:bg-primary-dark text-white font-medium px-6 py-3 rounded-lg;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.2);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  @apply bg-background-secondary hover:bg-border-medium text-text-primary font-medium px-6 py-3 rounded-lg border border-border-medium;
+  transition: all 0.2s ease;
+}
+
+/* Input improvements */
+.input-modern {
+  @apply bg-input-bg border border-input-border rounded-lg px-4 py-3 text-text-primary placeholder-text-tertiary;
+  transition: all 0.2s ease;
+}
+
+.input-modern:focus {
+  @apply border-input-focus bg-surface;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
