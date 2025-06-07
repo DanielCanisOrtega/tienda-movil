@@ -10,9 +10,9 @@ import {
   ArrowRight,
   Download,
   FileSpreadsheet,
-  ImageIcon,
+  FileText,
 } from "lucide-react"
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -75,14 +75,6 @@ export default function DashboardPage() {
   const [animateCharts, setAnimateCharts] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
-  // Referencias para los canvas de las gráficas
-  const salesBarChartRef = useRef<HTMLDivElement>(null)
-  const expensesBarChartRef = useRef<HTMLDivElement>(null)
-  const balanceChartRef = useRef<HTMLDivElement>(null) // Cambiar de HTMLCanvasElement a HTMLDivElement
-  const salesPieChartRef = useRef<HTMLCanvasElement>(null)
-  const expensesPieChartRef = useRef<HTMLCanvasElement>(null)
-  const salesLineChartRef = useRef<HTMLDivElement>(null)
-
   // Load data from localStorage
   useEffect(() => {
     setIsLoading(true)
@@ -142,7 +134,6 @@ export default function DashboardPage() {
     if (!storeId) return []
 
     const storeSales = salesData.filter((sale) => {
-      // Check if sale has storeId property and it matches the current storeId
       return "storeId" in sale ? sale.storeId === storeId : true
     })
 
@@ -150,7 +141,7 @@ export default function DashboardPage() {
     today.setHours(0, 0, 0, 0)
 
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
+    startOfWeek.setDate(today.getDate() - today.getDay())
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
@@ -180,7 +171,6 @@ export default function DashboardPage() {
     if (!storeId || !expensesData.length) return []
 
     const storeExpenses = expensesData.filter((expense) => {
-      // Check if expense has storeId property and it matches the current storeId
       return "storeId" in expense ? expense.storeId === storeId : true
     })
 
@@ -188,35 +178,27 @@ export default function DashboardPage() {
     today.setHours(0, 0, 0, 0)
 
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay()) // Sunday as start of week
+    startOfWeek.setDate(today.getDate() - today.getDay())
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
     switch (activeTab) {
       case "daily":
         return storeExpenses.filter((expense) => {
-          // Convertir la fecha del gasto a un objeto Date para comparación correcta
           let expenseDate: Date
 
           if (typeof expense.date === "string") {
-            // Si la fecha es una cadena, intentamos convertirla a Date
-            // Primero verificamos si es formato ISO (YYYY-MM-DD)
             if (expense.date.includes("-")) {
               const [year, month, day] = expense.date.split("-").map(Number)
               expenseDate = new Date(year, month - 1, day)
             } else {
-              // Si no es formato ISO, intentamos parsear directamente
               expenseDate = new Date(expense.date)
             }
           } else {
-            // Si ya es un objeto Date, lo usamos directamente
             expenseDate = new Date(expense.date)
           }
 
-          // Resetear la hora a 00:00:00 para comparar solo fechas
           expenseDate.setHours(0, 0, 0, 0)
-
-          // Comparar si la fecha del gasto es igual a hoy
           return expenseDate.getTime() === today.getTime()
         })
       case "weekly":
@@ -235,8 +217,6 @@ export default function DashboardPage() {
           }
 
           expenseDate.setHours(0, 0, 0, 0)
-
-          // Verificar si la fecha del gasto es posterior o igual al inicio de la semana
           return expenseDate >= startOfWeek
         })
       case "monthly":
@@ -255,8 +235,6 @@ export default function DashboardPage() {
           }
 
           expenseDate.setHours(0, 0, 0, 0)
-
-          // Verificar si la fecha del gasto es posterior o igual al inicio del mes
           return expenseDate >= startOfMonth
         })
       default:
@@ -280,30 +258,25 @@ export default function DashboardPage() {
     const salesByDay = new Map<string, number>()
 
     if (activeTab === "daily") {
-      // For daily view, group by hour
       for (let i = 0; i < 24; i++) {
         const hour = i < 10 ? `0${i}:00` : `${i}:00`
         salesByDay.set(hour, 0)
       }
 
-      // Sum sales by hour
       filteredSales.forEach((sale) => {
         const hour = new Date(sale.date).getHours()
         const hourKey = hour < 10 ? `0${hour}:00` : `${hour}:00`
         salesByDay.set(hourKey, (salesByDay.get(hourKey) || 0) + sale.total)
       })
     } else if (activeTab === "weekly") {
-      // For weekly view, group by day of week
       const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
       days.forEach((day) => salesByDay.set(day, 0))
 
-      // Sum sales by day of week
       filteredSales.forEach((sale) => {
         const day = days[new Date(sale.date).getDay()]
         salesByDay.set(day, (salesByDay.get(day) || 0) + sale.total)
       })
     } else {
-      // For monthly view, group by day of month
       const today = new Date()
       const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
 
@@ -311,14 +284,12 @@ export default function DashboardPage() {
         salesByDay.set(`${i}`, 0)
       }
 
-      // Sum sales by day of month
       filteredSales.forEach((sale) => {
         const day = new Date(sale.date).getDate().toString()
         salesByDay.set(day, (salesByDay.get(day) || 0) + sale.total)
       })
     }
 
-    // Convert Map to array for chart
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
   }, [getFilteredSales, activeTab])
 
@@ -328,13 +299,11 @@ export default function DashboardPage() {
     const expensesByDay = new Map<string, number>()
 
     if (activeTab === "daily") {
-      // For daily view, group by hour
       for (let i = 0; i < 24; i++) {
         const hour = i < 10 ? `0${i}:00` : `${i}:00`
         expensesByDay.set(hour, 0)
       }
 
-      // Sum expenses by hour
       filteredExpenses.forEach((expense) => {
         const date = new Date(expense.date)
         const hour = date.getHours()
@@ -342,18 +311,15 @@ export default function DashboardPage() {
         expensesByDay.set(hourKey, (expensesByDay.get(hourKey) || 0) + expense.amount)
       })
     } else if (activeTab === "weekly") {
-      // For weekly view, group by day of week
       const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
       days.forEach((day) => expensesByDay.set(day, 0))
 
-      // Sum expenses by day of week
       filteredExpenses.forEach((expense) => {
         const date = new Date(expense.date)
         const day = days[date.getDay()]
         expensesByDay.set(day, (expensesByDay.get(day) || 0) + expense.amount)
       })
     } else {
-      // For monthly view, group by day of month
       const today = new Date()
       const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
 
@@ -361,7 +327,6 @@ export default function DashboardPage() {
         expensesByDay.set(`${i}`, 0)
       }
 
-      // Sum expenses by day of month
       filteredExpenses.forEach((expense) => {
         const date = new Date(expense.date)
         const day = date.getDate().toString()
@@ -369,35 +334,8 @@ export default function DashboardPage() {
       })
     }
 
-    // Convert Map to array for chart
     return Array.from(expensesByDay).map(([name, value]) => ({ name, value }))
   }, [getFilteredExpenses, activeTab])
-
-  // Prepare data for balance chart (income vs expenses)
-  const prepareBalanceBarChartData = useCallback((): BalanceChartDataItem[] => {
-    const salesData = prepareSalesBarChartData()
-    const expensesData = prepareExpensesBarChartData()
-
-    // Combine data to show income and expenses together
-    const combinedData: BalanceChartDataItem[] = []
-
-    // Create a set of all labels (names)
-    const allNames = new Set([...salesData.map((item) => item.name), ...expensesData.map((item) => item.name)])
-
-    // For each name, find the corresponding value in sales and expenses
-    Array.from(allNames).forEach((name) => {
-      const salesItem = salesData.find((item) => item.name === name)
-      const expensesItem = expensesData.find((item) => item.name === name)
-
-      combinedData.push({
-        name: name,
-        ingresos: salesItem ? salesItem.value : 0,
-        gastos: expensesItem ? expensesItem.value : 0,
-      })
-    })
-
-    return combinedData
-  }, [prepareSalesBarChartData, prepareExpensesBarChartData])
 
   // Prepare data for line chart (trend)
   const prepareLineChartData = useCallback((): ChartDataItem[] => {
@@ -405,7 +343,6 @@ export default function DashboardPage() {
     const salesByDay = new Map<string, number>()
 
     if (activeTab === "daily") {
-      // For daily view, group by hour
       for (let i = 0; i < 24; i++) {
         const hour = i < 10 ? `0${i}:00` : `${i}:00`
         salesByDay.set(hour, 0)
@@ -414,10 +351,9 @@ export default function DashboardPage() {
       filteredSales.forEach((sale) => {
         const hour = new Date(sale.date).getHours()
         const hourKey = hour < 10 ? `0${hour}:00` : `${hour}:00`
-        salesByDay.set(hourKey, (salesByDay.get(hourKey) || 0) + 1) // Count number of sales
+        salesByDay.set(hourKey, (salesByDay.get(hourKey) || 0) + 1)
       })
     } else if (activeTab === "weekly") {
-      // For weekly view, group by day
       const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
       days.forEach((day) => salesByDay.set(day, 0))
 
@@ -426,7 +362,6 @@ export default function DashboardPage() {
         salesByDay.set(day, (salesByDay.get(day) || 0) + 1)
       })
     } else {
-      // For monthly view, group by week
       for (let i = 1; i <= 5; i++) {
         salesByDay.set(`Semana ${i}`, 0)
       }
@@ -441,39 +376,6 @@ export default function DashboardPage() {
     return Array.from(salesByDay).map(([name, value]) => ({ name, value }))
   }, [getFilteredSales, activeTab])
 
-  // Prepare data for pie chart (sales by category)
-  const prepareSalesByCategoryData = useCallback((): ChartDataItem[] => {
-    const filteredSales = getFilteredSales()
-    const salesByCategory = new Map<string, number>()
-
-    // Sum sales by category
-    filteredSales.forEach((sale) => {
-      sale.items.forEach((item) => {
-        const category = item.product.category || item.product.categoria || "Sin categoría"
-        const amount = (item.product.price || item.product.precio || 0) * item.quantity
-        salesByCategory.set(category, (salesByCategory.get(category) || 0) + amount)
-      })
-    })
-
-    // Convert Map to array for chart
-    return Array.from(salesByCategory).map(([name, value]) => ({ name, value }))
-  }, [getFilteredSales])
-
-  // Prepare data for pie chart (expenses by category)
-  const prepareExpensesByCategoryData = useCallback((): ChartDataItem[] => {
-    const filteredExpenses = getFilteredExpenses()
-    const expensesByCategory = new Map<string, number>()
-
-    // Sum expenses by category
-    filteredExpenses.forEach((expense) => {
-      const category = expense.categoria || "Sin categoría"
-      expensesByCategory.set(category, (expensesByCategory.get(category) || 0) + expense.amount)
-    })
-
-    // Convert Map to array for chart
-    return Array.from(expensesByCategory).map(([name, value]) => ({ name, value }))
-  }, [getFilteredExpenses])
-
   // Format price in Colombian pesos
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -483,39 +385,8 @@ export default function DashboardPage() {
     }).format(price)
   }
 
-  // Función para capturar gráficas como imágenes
-  const captureChartAsImage = (elementRef: React.RefObject<HTMLElement>, chartName: string): Promise<string> => {
-    return new Promise((resolve) => {
-      if (!elementRef.current) {
-        resolve("")
-        return
-      }
-
-      // Usar html2canvas para capturar la gráfica
-      import("html2canvas")
-        .then((html2canvas) => {
-          html2canvas
-            .default(elementRef.current!, {
-              backgroundColor: "#ffffff",
-              scale: 2,
-              logging: false,
-            })
-            .then((canvas) => {
-              const imageData = canvas.toDataURL("image/png")
-              resolve(imageData)
-            })
-            .catch(() => {
-              resolve("")
-            })
-        })
-        .catch(() => {
-          resolve("")
-        })
-    })
-  }
-
-  // Función para exportar los datos a Excel con gráficas
-  const exportToExcel = async () => {
+  // Función para exportar a CSV (más simple y confiable)
+  const exportToCSV = () => {
     try {
       setIsExporting(true)
 
@@ -525,47 +396,24 @@ export default function DashboardPage() {
       const totalExpenses = calculateTotalExpenses(filteredExpenses)
       const balance = totalSales - totalExpenses
 
-      // Importar la librería XLSX dinámicamente
-      const XLSX = await import("xlsx")
+      // Crear contenido CSV
+      let csvContent = "data:text/csv;charset=utf-8,"
 
-      // Create a new workbook
-      const workbook = XLSX.utils.book_new()
+      // Resumen
+      csvContent += "RESUMEN FINANCIERO\n"
+      csvContent += `Período,${getPeriodText()}\n`
+      csvContent += `Tienda,${localStorage.getItem("selectedStoreName") || "Tienda"}\n`
+      csvContent += `Fecha de reporte,${new Date().toLocaleString("es-CO")}\n`
+      csvContent += `Total Ingresos,${totalSales}\n`
+      csvContent += `Total Gastos,${totalExpenses}\n`
+      csvContent += `Balance,${balance}\n`
+      csvContent += `Número de ventas,${filteredSales.length}\n`
+      csvContent += `Número de gastos,${filteredExpenses.length}\n\n`
 
-      // Hoja 1: Resumen
-      const summaryData = [
-        ["Resumen Financiero"],
-        [""],
-        ["Período", getPeriodText()],
-        ["Tienda", localStorage.getItem("selectedStoreName") || "Tienda"],
-        ["Fecha de reporte", new Date().toLocaleString("es-CO")],
-        [""],
-        ["Total Ingresos", totalSales],
-        ["Total Gastos", totalExpenses],
-        ["Balance", balance],
-        [""],
-        ["Número de ventas", filteredSales.length],
-        ["Número de gastos", filteredExpenses.length],
-      ]
-
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData)
-      XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumen")
-
-      // Hoja 2: Ventas detalladas
-      const salesHeaders = [
-        "ID Venta",
-        "Fecha",
-        "Hora",
-        "Cliente",
-        "Método de Pago",
-        "Producto",
-        "Categoría",
-        "Cantidad",
-        "Precio Unitario",
-        "Subtotal",
-        "Total Venta",
-      ]
-
-      const salesData: any[][] = [salesHeaders]
+      // Ventas detalladas
+      csvContent += "VENTAS DETALLADAS\n"
+      csvContent +=
+        "ID Venta,Fecha,Hora,Cliente,Método de Pago,Producto,Categoría,Cantidad,Precio Unitario,Subtotal,Total Venta\n"
 
       filteredSales.forEach((sale) => {
         const saleDate = new Date(sale.date)
@@ -573,89 +421,51 @@ export default function DashboardPage() {
         const formattedTime = saleDate.toLocaleTimeString("es-CO")
 
         sale.items.forEach((item, index) => {
-          salesData.push([
-            index === 0 ? sale.id : "",
-            index === 0 ? formattedDate : "",
-            index === 0 ? formattedTime : "",
-            index === 0 ? sale.customerInfo?.name || "Cliente general" : "",
-            index === 0 ? sale.paymentMethod || "No especificado" : "",
-            item.product.name || item.product.nombre || "Producto",
-            item.product.category || item.product.categoria || "Sin categoría",
-            item.quantity,
-            item.product.price || item.product.precio || 0,
-            (item.product.price || item.product.precio || 0) * item.quantity,
-            index === 0 ? sale.total : "",
-          ])
+          csvContent += `${index === 0 ? sale.id : ""},`
+          csvContent += `${index === 0 ? formattedDate : ""},`
+          csvContent += `${index === 0 ? formattedTime : ""},`
+          csvContent += `${index === 0 ? sale.customerInfo?.name || "Cliente general" : ""},`
+          csvContent += `${index === 0 ? sale.paymentMethod || "No especificado" : ""},`
+          csvContent += `${item.product.name || item.product.nombre || "Producto"},`
+          csvContent += `${item.product.category || item.product.categoria || "Sin categoría"},`
+          csvContent += `${item.quantity},`
+          csvContent += `${item.product.price || item.product.precio || 0},`
+          csvContent += `${(item.product.price || item.product.precio || 0) * item.quantity},`
+          csvContent += `${index === 0 ? sale.total : ""}\n`
         })
       })
 
-      const salesSheet = XLSX.utils.aoa_to_sheet(salesData)
-      XLSX.utils.book_append_sheet(workbook, salesSheet, "Ventas Detalladas")
-
-      // Hoja 3: Gastos detallados
-      const expensesHeaders = ["ID", "Fecha", "Categoría", "Descripción", "Monto"]
-      const expensesData: any[][] = [expensesHeaders]
+      csvContent += "\nGASTOS DETALLADOS\n"
+      csvContent += "ID,Fecha,Categoría,Descripción,Monto\n"
 
       filteredExpenses.forEach((expense) => {
         const expenseDate = new Date(expense.date)
         const formattedDate = expenseDate.toLocaleDateString("es-CO")
 
-        expensesData.push([
-          expense.id,
-          formattedDate,
-          expense.categoria || "Sin categoría",
-          expense.descripcion || "",
-          expense.amount,
-        ])
+        csvContent += `${expense.id},`
+        csvContent += `${formattedDate},`
+        csvContent += `${expense.categoria || "Sin categoría"},`
+        csvContent += `${expense.descripcion || ""},`
+        csvContent += `${expense.amount}\n`
       })
 
-      const expensesSheet = XLSX.utils.aoa_to_sheet(expensesData)
-      XLSX.utils.book_append_sheet(workbook, expensesSheet, "Gastos Detallados")
-
-      // Hoja 4: Datos de gráficos
-      const chartsHeaders = ["Tipo de Gráfico", "Categoría/Período", "Valor"]
-      const chartsData: any[][] = [chartsHeaders]
-
-      // Datos de ventas por período
-      const salesChartData = prepareSalesBarChartData()
-      salesChartData.forEach((item) => {
-        chartsData.push(["Ventas por Período", item.name, item.value])
-      })
-
-      // Datos de gastos por período
-      const expensesChartData = prepareExpensesBarChartData()
-      expensesChartData.forEach((item) => {
-        chartsData.push(["Gastos por Período", item.name, item.value])
-      })
-
-      // Datos de ventas por categoría
-      const salesCategoryData = prepareSalesByCategoryData()
-      salesCategoryData.forEach((item) => {
-        chartsData.push(["Ventas por Categoría", item.name, item.value])
-      })
-
-      // Datos de gastos por categoría
-      const expensesCategoryData = prepareExpensesByCategoryData()
-      expensesCategoryData.forEach((item) => {
-        chartsData.push(["Gastos por Categoría", item.name, item.value])
-      })
-
-      const chartsSheet = XLSX.utils.aoa_to_sheet(chartsData)
-      XLSX.utils.book_append_sheet(workbook, chartsSheet, "Datos de Gráficos")
-
-      // Generar y descargar el archivo Excel
+      // Descargar archivo
+      const encodedUri = encodeURI(csvContent)
+      const link = document.createElement("a")
+      link.setAttribute("href", encodedUri)
       const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
       const date = new Date().toISOString().split("T")[0]
-      const fileName = `Reporte_${storeName}_${date}.xlsx`
-
-      XLSX.writeFile(workbook, fileName)
+      link.setAttribute("download", `Reporte_${storeName}_${date}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
 
       toast({
         title: "Reporte exportado",
-        description: `El reporte ha sido exportado como ${fileName}`,
+        description: "El reporte ha sido exportado como archivo CSV",
       })
     } catch (error) {
-      console.error("Error al exportar a Excel:", error)
+      console.error("Error al exportar CSV:", error)
       toast({
         title: "Error al exportar",
         description: "No se pudo exportar el reporte. Intente nuevamente.",
@@ -666,49 +476,262 @@ export default function DashboardPage() {
     }
   }
 
-  // Función para exportar gráficas como imágenes
-  const exportChartsAsImages = async () => {
+  // Función para exportar reporte HTML visual
+  const exportToHTML = () => {
     try {
       setIsExporting(true)
 
-      const charts = [
-        { ref: salesBarChartRef, name: "ventas_por_periodo" },
-        { ref: expensesBarChartRef, name: "gastos_por_periodo" },
-        { ref: salesLineChartRef, name: "tendencia_ventas" },
-      ]
+      const filteredSales = getFilteredSales()
+      const filteredExpenses = getFilteredExpenses()
+      const totalSales = calculateTotalSales(filteredSales)
+      const totalExpenses = calculateTotalExpenses(filteredExpenses)
+      const balance = totalSales - totalExpenses
 
-      // Importar html2canvas dinámicamente
-      const { default: html2canvas } = await import("html2canvas")
+      const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
+      const date = new Date().toLocaleString("es-CO")
 
-      for (const chart of charts) {
-        if (chart.ref.current) {
-          try {
-            const canvas = await html2canvas(chart.ref.current, {
-              backgroundColor: "#ffffff",
-              scale: 2,
-              logging: false,
-            })
-
-            // Crear un enlace para descargar la imagen
-            const link = document.createElement("a")
-            link.download = `${chart.name}_${new Date().toISOString().split("T")[0]}.png`
-            link.href = canvas.toDataURL("image/png")
-            link.click()
-          } catch (error) {
-            console.error(`Error capturing chart ${chart.name}:`, error)
-          }
+      // Crear contenido HTML
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Financiero - ${storeName}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
         }
-      }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #6366f1;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            color: #6366f1;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #666;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .summary-card.income {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        .summary-card.expense {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .summary-card.balance {
+            background: linear-gradient(135deg, ${balance >= 0 ? "#6366f1, #4f46e5" : "#ef4444, #dc2626"});
+            color: white;
+        }
+        .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.2em;
+        }
+        .summary-card .amount {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #6366f1;
+            color: white;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f9fafb;
+        }
+        .section {
+            margin: 40px 0;
+        }
+        .section h2 {
+            color: #374151;
+            border-left: 4px solid #6366f1;
+            padding-left: 15px;
+            margin-bottom: 20px;
+        }
+        .no-data {
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+            padding: 40px;
+        }
+        @media print {
+            body { margin: 0; }
+            .container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Reporte Financiero</h1>
+            <p><strong>${storeName}</strong></p>
+            <p>Período: ${getPeriodText()} | Generado: ${date}</p>
+        </div>
+
+        <div class="summary">
+            <div class="summary-card income">
+                <h3>💰 Total Ingresos</h3>
+                <p class="amount">${formatPrice(totalSales)}</p>
+                <p>${filteredSales.length} ventas</p>
+            </div>
+            <div class="summary-card expense">
+                <h3>💸 Total Gastos</h3>
+                <p class="amount">${formatPrice(totalExpenses)}</p>
+                <p>${filteredExpenses.length} gastos</p>
+            </div>
+            <div class="summary-card balance">
+                <h3>${balance >= 0 ? "📈" : "📉"} Balance</h3>
+                <p class="amount">${formatPrice(balance)}</p>
+                <p>${balance >= 0 ? "Ganancia" : "Pérdida"}</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🛒 Ventas Detalladas</h2>
+            ${
+              filteredSales.length > 0
+                ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Productos</th>
+                        <th>Método de Pago</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filteredSales
+                      .map(
+                        (sale) => `
+                    <tr>
+                        <td>${sale.id}</td>
+                        <td>${new Date(sale.date).toLocaleString("es-CO")}</td>
+                        <td>${sale.customerInfo?.name || "Cliente general"}</td>
+                        <td>
+                            ${sale.items
+                              .map((item) => `${item.product.name || item.product.nombre} (${item.quantity})`)
+                              .join(", ")}
+                        </td>
+                        <td>${sale.paymentMethod || "No especificado"}</td>
+                        <td><strong>${formatPrice(sale.total)}</strong></td>
+                    </tr>
+                    `,
+                      )
+                      .join("")}
+                </tbody>
+            </table>
+            `
+                : '<div class="no-data">No hay ventas en este período</div>'
+            }
+        </div>
+
+        <div class="section">
+            <h2>💳 Gastos Detallados</h2>
+            ${
+              filteredExpenses.length > 0
+                ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filteredExpenses
+                      .map(
+                        (expense) => `
+                    <tr>
+                        <td>${expense.id}</td>
+                        <td>${new Date(expense.date).toLocaleDateString("es-CO")}</td>
+                        <td>${expense.categoria || "Sin categoría"}</td>
+                        <td>${expense.descripcion || "-"}</td>
+                        <td><strong>${formatPrice(expense.amount)}</strong></td>
+                    </tr>
+                    `,
+                      )
+                      .join("")}
+                </tbody>
+            </table>
+            `
+                : '<div class="no-data">No hay gastos en este período</div>'
+            }
+        </div>
+    </div>
+</body>
+</html>`
+
+      // Crear y descargar archivo HTML
+      const blob = new Blob([htmlContent], { type: "text/html" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      const fileName = `Reporte_${storeName}_${new Date().toISOString().split("T")[0]}.html`
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
 
       toast({
-        title: "Gráficas exportadas",
-        description: "Las gráficas han sido descargadas como imágenes",
+        title: "Reporte exportado",
+        description: `Reporte HTML visual exportado como ${fileName}`,
       })
     } catch (error) {
-      console.error("Error al exportar gráficas:", error)
+      console.error("Error al exportar HTML:", error)
       toast({
-        title: "Error al exportar gráficas",
-        description: "No se pudieron exportar las gráficas. Intente nuevamente.",
+        title: "Error al exportar",
+        description: "No se pudo exportar el reporte. Intente nuevamente.",
         variant: "destructive",
       })
     } finally {
@@ -724,10 +747,7 @@ export default function DashboardPage() {
 
   const salesBarChartData = prepareSalesBarChartData()
   const expensesBarChartData = prepareExpensesBarChartData()
-  const balanceBarChartData = prepareBalanceBarChartData()
   const lineChartData = prepareLineChartData()
-  const salesByCategoryData = prepareSalesByCategoryData()
-  const expensesByCategoryData = prepareExpensesByCategoryData()
 
   // Get period text
   const getPeriodText = () => {
@@ -766,21 +786,21 @@ export default function DashboardPage() {
             variant="secondary"
             size="sm"
             className="flex items-center gap-1"
-            onClick={exportChartsAsImages}
+            onClick={exportToHTML}
             disabled={isExporting}
           >
             {isExporting ? (
               <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <ImageIcon className="h-4 w-4" />
+              <FileText className="h-4 w-4" />
             )}
-            <span className="hidden sm:inline">Gráficas</span>
+            <span className="hidden sm:inline">HTML</span>
           </Button>
           <Button
             variant="secondary"
             size="sm"
             className="flex items-center gap-1"
-            onClick={exportToExcel}
+            onClick={exportToCSV}
             disabled={isExporting}
           >
             {isExporting ? (
@@ -788,7 +808,7 @@ export default function DashboardPage() {
             ) : (
               <FileSpreadsheet className="h-4 w-4" />
             )}
-            <span>Excel</span>
+            <span>CSV</span>
           </Button>
         </div>
       </div>
@@ -845,9 +865,9 @@ export default function DashboardPage() {
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={exportToExcel}
+                onClick={exportToHTML}
                 disabled={isExporting}
-                title="Exportar resumen a Excel"
+                title="Exportar resumen visual"
               >
                 {isExporting ? (
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -939,15 +959,12 @@ export default function DashboardPage() {
                 total={totalSales}
                 barChartData={salesBarChartData}
                 lineChartData={lineChartData}
-                pieChartData={salesByCategoryData}
                 formatPrice={formatPrice}
                 period={getPeriodText()}
                 type="sales"
                 animateCharts={animateCharts}
-                onExport={exportToExcel}
+                onExport={exportToHTML}
                 isExporting={isExporting}
-                chartRef={salesBarChartRef}
-                lineChartRef={salesLineChartRef}
               />
             </TabsContent>
 
@@ -959,14 +976,12 @@ export default function DashboardPage() {
                 total={totalExpenses}
                 barChartData={expensesBarChartData}
                 lineChartData={[]}
-                pieChartData={expensesByCategoryData}
                 formatPrice={formatPrice}
                 period={getPeriodText()}
                 type="expenses"
                 animateCharts={animateCharts}
-                onExport={exportToExcel}
+                onExport={exportToHTML}
                 isExporting={isExporting}
-                chartRef={expensesBarChartRef}
               />
             </TabsContent>
 
@@ -983,9 +998,9 @@ export default function DashboardPage() {
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
-                    onClick={exportToExcel}
+                    onClick={exportToHTML}
                     disabled={isExporting}
-                    title="Exportar balance a Excel"
+                    title="Exportar balance visual"
                   >
                     {isExporting ? (
                       <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -1002,16 +1017,6 @@ export default function DashboardPage() {
                     {balance >= 0 ? <TrendingUp className="h-6 w-6 ml-2" /> : <TrendingDown className="h-6 w-6 ml-2" />}
                   </div>
                   <p className="text-sm text-muted-foreground">Balance {getPeriodText()}</p>
-
-                  <div className="mt-6" ref={balanceChartRef}>
-                    <h3 className="font-medium mb-2 flex items-center">
-                      <BarChart2 className="h-4 w-4 mr-2 text-primary" />
-                      Ingresos vs Gastos
-                    </h3>
-                    <div className="h-64 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800 p-2">
-                      <BalanceChart data={balanceBarChartData} />
-                    </div>
-                  </div>
 
                   <Separator className="my-6" />
 
@@ -1067,15 +1072,12 @@ interface ReportContentProps {
   total: number
   barChartData: ChartDataItem[]
   lineChartData: ChartDataItem[]
-  pieChartData: ChartDataItem[]
   formatPrice: (price: number) => string
   period: string
   type: "sales" | "expenses"
   animateCharts: boolean
   onExport: () => void
   isExporting: boolean
-  chartRef?: React.RefObject<HTMLDivElement | null>
-  lineChartRef?: React.RefObject<HTMLDivElement | null>
 }
 
 function ReportContent({
@@ -1085,15 +1087,12 @@ function ReportContent({
   total,
   barChartData,
   lineChartData,
-  pieChartData,
   formatPrice,
   period,
   type,
   animateCharts,
   onExport,
   isExporting,
-  chartRef,
-  lineChartRef,
 }: ReportContentProps) {
   return (
     <>
@@ -1115,7 +1114,7 @@ function ReportContent({
             className="h-8 w-8 p-0"
             onClick={onExport}
             disabled={isExporting}
-            title={`Exportar ${type === "sales" ? "ventas" : "gastos"} a Excel`}
+            title={`Exportar ${type === "sales" ? "ventas" : "gastos"}`}
           >
             {isExporting ? (
               <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -1135,7 +1134,7 @@ function ReportContent({
             Total de {type === "sales" ? "ventas" : "gastos"} {period}
           </p>
 
-          <div className="mt-6" ref={chartRef}>
+          <div className="mt-6">
             <h3 className="font-medium mb-2 flex items-center">
               <BarChart2 className="h-4 w-4 mr-2 text-primary" />
               {type === "sales" ? "Ventas" : "Gastos"} por período
@@ -1145,22 +1144,10 @@ function ReportContent({
             </div>
           </div>
 
-          {pieChartData.length > 0 && (
-            <div className="mt-6">
-              <h3 className="font-medium mb-2 flex items-center">
-                <PieChart className="h-4 w-4 mr-2 text-primary" />
-                {type === "sales" ? "Ventas" : "Gastos"} por categoría
-              </h3>
-              <div className="h-64 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800 p-2">
-                <PieChartComponent data={pieChartData} formatPrice={formatPrice} />
-              </div>
-            </div>
-          )}
-
           {type === "sales" && lineChartData.length > 0 && (
             <>
               <Separator className="my-6" />
-              <div ref={lineChartRef}>
+              <div>
                 <h3 className="font-medium mb-2 flex items-center">
                   <TrendingUp className="h-4 w-4 mr-2 text-primary" />
                   Tendencia de ventas
@@ -1187,8 +1174,8 @@ function ReportContent({
               </>
             ) : (
               <>
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Exportar Excel
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar HTML
               </>
             )}
           </Button>
@@ -1209,7 +1196,7 @@ function ReportContent({
             className="h-8 w-8 p-0"
             onClick={onExport}
             disabled={isExporting}
-            title={`Exportar detalle de ${type === "sales" ? "ventas" : "gastos"} a Excel`}
+            title={`Exportar detalle de ${type === "sales" ? "ventas" : "gastos"}`}
           >
             {isExporting ? (
               <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -1232,233 +1219,4 @@ function ReportContent({
       </Card>
     </>
   )
-}
-
-// Corregir la interfaz para el componente BalanceChart
-interface BalanceChartProps {
-  data: BalanceChartDataItem[]
-}
-
-function BalanceChart({ data }: BalanceChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  React.useEffect(() => {
-    if (!canvasRef.current) return
-
-    const canvas = canvasRef.current
-    // Usar aserción de tipo para evitar el error de TypeScript
-    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // Configuration
-    const padding = { top: 20, right: 20, bottom: 40, left: 60 }
-    const chartWidth = canvas.width - padding.left - padding.right
-    const chartHeight = canvas.height - padding.top - padding.bottom
-
-    // Find the maximum value for scaling
-    const maxValue = Math.max(...data.map((item) => Math.max(item.ingresos, item.gastos)), 1)
-
-    // Draw axes
-    ctx.beginPath()
-    ctx.moveTo(padding.left, padding.top)
-    ctx.lineTo(padding.left, canvas.height - padding.bottom)
-    ctx.lineTo(canvas.width - padding.right, canvas.height - padding.bottom)
-    ctx.strokeStyle = "#ccc"
-    ctx.stroke()
-
-    // Draw bars with animation
-    const barWidth = (chartWidth / data.length) * 0.35
-    const groupWidth = chartWidth / data.length
-
-    // Animation
-    let currentFrame = 0
-    const totalFrames = 20
-
-    function animate() {
-      if (currentFrame <= totalFrames) {
-        // Clear the chart area only (not the axes or labels)
-        ctx.clearRect(padding.left + 1, padding.top, chartWidth - 1, chartHeight)
-
-        const animationProgress = currentFrame / totalFrames
-
-        data.forEach((item, index) => {
-          const x = padding.left + index * groupWidth + groupWidth * 0.15
-
-          // Income bar with animation
-          const incomesHeight = (item.ingresos / maxValue) * chartHeight * animationProgress
-          const incomesY = canvas.height - padding.bottom - incomesHeight
-          ctx.fillStyle = "#29d890"
-          ctx.fillRect(x, incomesY, barWidth, incomesHeight)
-
-          // Expense bar with animation
-          const expensesHeight = (item.gastos / maxValue) * chartHeight * animationProgress
-          const expensesY = canvas.height - padding.bottom - expensesHeight
-          ctx.fillStyle = "#ff1515"
-          ctx.fillRect(x + barWidth + 2, expensesY, barWidth, expensesHeight)
-
-          // Draw values if they're visible in the current animation frame
-          if (item.ingresos > 0 && incomesHeight > 15) {
-            ctx.fillStyle = "#0e0e0e"
-            ctx.font = "10px sans-serif"
-            ctx.textAlign = "center"
-            ctx.fillText(
-              new Intl.NumberFormat("es-CO", { notation: "compact", compactDisplay: "short" }).format(item.ingresos),
-              x + barWidth / 2,
-              incomesY - 5,
-            )
-          }
-
-          if (item.gastos > 0 && expensesHeight > 15) {
-            ctx.fillStyle = "#0e0e0e"
-            ctx.font = "10px sans-serif"
-            ctx.textAlign = "center"
-            ctx.fillText(
-              new Intl.NumberFormat("es-CO", { notation: "compact", compactDisplay: "short" }).format(item.gastos),
-              x + barWidth * 1.5 + 2,
-              expensesY - 5,
-            )
-          }
-        })
-
-        currentFrame++
-        requestAnimationFrame(animate)
-      }
-    }
-
-    // Draw labels (outside animation loop)
-    data.forEach((item, index) => {
-      const x = padding.left + index * groupWidth + groupWidth * 0.15
-
-      // Draw label
-      ctx.fillStyle = "#798184"
-      ctx.font = "10px sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText(item.name, x + barWidth + 1, canvas.height - padding.bottom + 15)
-    })
-
-    // Legend
-    const legendY = padding.top / 2
-
-    // Income
-    ctx.fillStyle = "#29d890"
-    ctx.fillRect(padding.left, legendY, 10, 10)
-    ctx.fillStyle = "#0e0e0e"
-    ctx.font = "10px sans-serif"
-    ctx.textAlign = "left"
-    ctx.fillText("Ingresos", padding.left + 15, legendY + 8)
-
-    // Expenses
-    ctx.fillStyle = "#ff1515"
-    ctx.fillRect(padding.left + 80, legendY, 10, 10)
-    ctx.fillStyle = "#0e0e0e"
-    ctx.font = "10px sans-serif"
-    ctx.textAlign = "left"
-    ctx.fillText("Gastos", padding.left + 95, legendY + 8)
-
-    // Start animation
-    animate()
-  }, [data])
-
-  return <canvas ref={canvasRef} width={400} height={300} className="w-full h-full" />
-}
-
-// Corregir la interfaz para el componente PieChartComponent
-interface PieChartComponentProps {
-  data: ChartDataItem[]
-  formatPrice: (price: number) => string
-}
-
-function PieChartComponent({ data, formatPrice }: PieChartComponentProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  React.useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return
-
-    const canvas = canvasRef.current
-    // Usar aserción de tipo para evitar el error de TypeScript
-    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // Configuration
-    const centerX = canvas.width / 2
-    const centerY = canvas.height / 2
-    const radius = Math.min(centerX, centerY) * 0.7
-
-    // Calculate total value
-    const total = data.reduce((sum, item) => sum + item.value, 0)
-
-    // Colors for pie slices
-    const colors = [
-      "#4CAF50",
-      "#2196F3",
-      "#FFC107",
-      "#E91E63",
-      "#9C27B0",
-      "#00BCD4",
-      "#FF5722",
-      "#795548",
-      "#607D8B",
-      "#3F51B5",
-    ]
-
-    // Draw pie chart with animation
-    let currentFrame = 0
-    const totalFrames = 30
-
-    function animate() {
-      if (currentFrame <= totalFrames) {
-        // Clear the canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-        const animationProgress = currentFrame / totalFrames
-        const endAngle = Math.PI * 2 * animationProgress
-
-        let startAngle = 0
-        let legendY = 20
-
-        // Draw pie slices
-        data.forEach((item, index) => {
-          const sliceAngle = (item.value / total) * endAngle
-
-          ctx.beginPath()
-          ctx.moveTo(centerX, centerY)
-          ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle)
-          ctx.closePath()
-
-          ctx.fillStyle = colors[index % colors.length]
-          ctx.fill()
-
-          // Draw legend
-          if (currentFrame === totalFrames) {
-            ctx.fillRect(20, legendY, 15, 15)
-            ctx.fillStyle = "#000"
-            ctx.font = "12px sans-serif"
-            ctx.textAlign = "left"
-            ctx.fillText(
-              `${item.name}: ${formatPrice(item.value)} (${Math.round((item.value / total) * 100)}%)`,
-              45,
-              legendY + 12,
-            )
-            legendY += 25
-          }
-
-          startAngle += sliceAngle
-        })
-
-        currentFrame++
-        requestAnimationFrame(animate)
-      }
-    }
-
-    // Start animation
-    animate()
-  }, [data, formatPrice])
-
-  return <canvas ref={canvasRef} width={400} height={300} className="w-full h-full" />
 }
