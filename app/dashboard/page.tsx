@@ -8,8 +8,7 @@ import {
   BarChart2,
   PieChart,
   ArrowRight,
-  FileText,
-  FileIcon as FilePdf,
+  Download,
 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 
@@ -67,7 +66,6 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [animateCharts, setAnimateCharts] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [exportFormat, setExportFormat] = useState<"html" | "pdf">("html")
 
   // Load data from localStorage
   useEffect(() => {
@@ -379,17 +377,8 @@ export default function DashboardPage() {
     }).format(price)
   }
 
-  // Función para exportar reporte
-  const exportReport = () => {
-    if (exportFormat === "html") {
-      exportToHTML()
-    } else {
-      exportToPDF()
-    }
-  }
-
-  // Función para exportar reporte HTML visual
-  const exportToHTML = () => {
+  // Función para descargar PDF usando window.print() optimizado
+  const downloadPDF = () => {
     try {
       setIsExporting(true)
 
@@ -402,547 +391,334 @@ export default function DashboardPage() {
       const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
       const date = new Date().toLocaleString("es-CO")
 
-      // Crear contenido HTML
-      const htmlContent = `
+      // Crear contenido HTML optimizado para PDF
+      const printContent = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte Financiero - ${storeName}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #6366f1;
-            padding-bottom: 20px;
-        }
-        .header h1 {
-            color: #6366f1;
-            margin: 0;
-            font-size: 2.5em;
-        }
-        .header p {
-            color: #666;
-            margin: 10px 0;
-            font-size: 1.1em;
-        }
-        .summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .summary-card {
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .summary-card.income {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-        }
-        .summary-card.expense {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-        }
-        .summary-card.balance {
-            background: linear-gradient(135deg, ${balance >= 0 ? "#6366f1, #4f46e5" : "#ef4444, #dc2626"});
-            color: white;
-        }
-        .summary-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 1.2em;
-        }
-        .summary-card .amount {
-            font-size: 2em;
-            font-weight: bold;
-            margin: 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        th {
-            background: #6366f1;
-            color: white;
-            font-weight: bold;
-        }
-        tr:hover {
-            background-color: #f9fafb;
-        }
-        .section {
-            margin: 40px 0;
-        }
-        .section h2 {
-            color: #374151;
-            border-left: 4px solid #6366f1;
-            padding-left: 15px;
-            margin-bottom: 20px;
-        }
-        .no-data {
-            text-align: center;
-            color: #6b7280;
-            font-style: italic;
-            padding: 40px;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            color: #6b7280;
-            font-size: 0.9em;
-        }
-        @media print {
-            body { margin: 0; }
-            .container { box-shadow: none; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 Reporte Financiero</h1>
-            <p><strong>${storeName}</strong></p>
-            <p>Período: ${getPeriodText()} | Generado: ${date}</p>
-        </div>
-
-        <div class="summary">
-            <div class="summary-card income">
-                <h3>💰 Total Ingresos</h3>
-                <p class="amount">${formatPrice(totalSales)}</p>
-                <p>${filteredSales.length} ventas</p>
-            </div>
-            <div class="summary-card expense">
-                <h3>💸 Total Gastos</h3>
-                <p class="amount">${formatPrice(totalExpenses)}</p>
-                <p>${filteredExpenses.length} gastos</p>
-            </div>
-            <div class="summary-card balance">
-                <h3>${balance >= 0 ? "📈" : "📉"} Balance</h3>
-                <p class="amount">${formatPrice(balance)}</p>
-                <p>${balance >= 0 ? "Ganancia" : "Pérdida"}</p>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>🛒 Ventas Detalladas</h2>
-            ${
-              filteredSales.length > 0
-                ? `
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>Productos</th>
-                        <th>Método de Pago</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filteredSales
-                      .map(
-                        (sale) => `
-                    <tr>
-                        <td>${sale.id}</td>
-                        <td>${new Date(sale.date).toLocaleString("es-CO")}</td>
-                        <td>${sale.customerInfo?.name || "Cliente general"}</td>
-                        <td>
-                            ${sale.items
-                              .map((item) => `${item.product.name || item.product.nombre} (${item.quantity})`)
-                              .join(", ")}
-                        </td>
-                        <td>${sale.paymentMethod || "No especificado"}</td>
-                        <td><strong>${formatPrice(sale.total)}</strong></td>
-                    </tr>
-                    `,
-                      )
-                      .join("")}
-                </tbody>
-            </table>
-            `
-                : '<div class="no-data">No hay ventas en este período</div>'
-            }
-        </div>
-
-        <div class="section">
-            <h2>💳 Gastos Detallados</h2>
-            ${
-              filteredExpenses.length > 0
-                ? `
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Fecha</th>
-                        <th>Categoría</th>
-                        <th>Descripción</th>
-                        <th>Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filteredExpenses
-                      .map(
-                        (expense) => `
-                    <tr>
-                        <td>${expense.id}</td>
-                        <td>${new Date(expense.date).toLocaleDateString("es-CO")}</td>
-                        <td>${expense.categoria || "Sin categoría"}</td>
-                        <td>${expense.descripcion || "-"}</td>
-                        <td><strong>${formatPrice(expense.amount)}</strong></td>
-                    </tr>
-                    `,
-                      )
-                      .join("")}
-                </tbody>
-            </table>
-            `
-                : '<div class="no-data">No hay gastos en este período</div>'
-            }
-        </div>
-        
-        <div class="footer">
-            <p>© ${new Date().getFullYear()} ${storeName} - Todos los derechos reservados</p>
-            <p>Este reporte fue generado automáticamente y no requiere firma.</p>
-        </div>
-    </div>
-</body>
-</html>`
-
-      // Crear y descargar archivo HTML
-      const blob = new Blob([htmlContent], { type: "text/html" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      const fileName = `Reporte_${storeName}_${new Date().toISOString().split("T")[0]}.html`
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-
-      toast({
-        title: "Reporte exportado",
-        description: `Reporte HTML visual exportado como ${fileName}`,
-      })
-    } catch (error) {
-      console.error("Error al exportar HTML:", error)
-      toast({
-        title: "Error al exportar",
-        description: "No se pudo exportar el reporte. Intente nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsExporting(false)
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporte Financiero - ${storeName}</title>
+  <style>
+    @media print {
+      @page {
+        size: A4;
+        margin: 15mm;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
     }
-  }
-
-  // Función para exportar a PDF
-  const exportToPDF = () => {
-    try {
-      setIsExporting(true)
-
-      const filteredSales = getFilteredSales()
-      const filteredExpenses = getFilteredExpenses()
-      const totalSales = calculateTotalSales(filteredSales)
-      const totalExpenses = calculateTotalExpenses(filteredExpenses)
-      const balance = totalSales - totalExpenses
-
-      const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
-      const date = new Date().toLocaleString("es-CO")
-
-      // Crear contenido HTML para convertir a PDF
-      const htmlContent = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte Financiero - ${storeName}</title>
-    <style>
-        body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-            background-color: white;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #6366f1;
-            padding-bottom: 20px;
-        }
-        .header h1 {
-            color: #6366f1;
-            margin: 0;
-            font-size: 24px;
-        }
-        .header p {
-            color: #666;
-            margin: 10px 0;
-            font-size: 14px;
-        }
-        .summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-bottom: 30px;
-            justify-content: space-between;
-        }
-        .summary-card {
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            width: 30%;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .summary-card.income {
-            background-color: #d1fae5;
-            border-left: 4px solid #10b981;
-        }
-        .summary-card.expense {
-            background-color: #fee2e2;
-            border-left: 4px solid #ef4444;
-        }
-        .summary-card.balance {
-            background-color: ${balance >= 0 ? "#e0e7ff" : "#fee2e2"};
-            border-left: 4px solid ${balance >= 0 ? "#6366f1" : "#ef4444"};
-        }
-        .summary-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-        }
-        .summary-card .amount {
-            font-size: 20px;
-            font-weight: bold;
-            margin: 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 12px;
-        }
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        th {
-            background-color: #6366f1;
-            color: white;
-            font-weight: bold;
-        }
-        .section {
-            margin: 30px 0;
-        }
-        .section h2 {
-            color: #374151;
-            border-left: 4px solid #6366f1;
-            padding-left: 10px;
-            font-size: 18px;
-            margin-bottom: 15px;
-        }
-        .no-data {
-            text-align: center;
-            color: #6b7280;
-            font-style: italic;
-            padding: 20px;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px solid #e5e7eb;
-            color: #6b7280;
-            font-size: 12px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>📊 Reporte Financiero</h1>
-        <p><strong>${storeName}</strong></p>
-        <p>Período: ${getPeriodText()} | Generado: ${date}</p>
-    </div>
-
-    <div class="summary">
-        <div class="summary-card income">
-            <h3>💰 Total Ingresos</h3>
-            <p class="amount">${formatPrice(totalSales)}</p>
-            <p>${filteredSales.length} ventas</p>
-        </div>
-        <div class="summary-card expense">
-            <h3>💸 Total Gastos</h3>
-            <p class="amount">${formatPrice(totalExpenses)}</p>
-            <p>${filteredExpenses.length} gastos</p>
-        </div>
-        <div class="summary-card balance">
-            <h3>${balance >= 0 ? "📈" : "📉"} Balance</h3>
-            <p class="amount">${formatPrice(balance)}</p>
-            <p>${balance >= 0 ? "Ganancia" : "Pérdida"}</p>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>🛒 Ventas Detalladas</h2>
-        ${
-          filteredSales.length > 0
-            ? `
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Productos</th>
-                    <th>Método de Pago</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filteredSales
-                  .map(
-                    (sale) => `
-                <tr>
-                    <td>${sale.id}</td>
-                    <td>${new Date(sale.date).toLocaleString("es-CO")}</td>
-                    <td>${sale.customerInfo?.name || "Cliente general"}</td>
-                    <td>
-                        ${sale.items
-                          .map((item) => `${item.product.name || item.product.nombre} (${item.quantity})`)
-                          .join(", ")}
-                    </td>
-                    <td>${sale.paymentMethod || "No especificado"}</td>
-                    <td><strong>${formatPrice(sale.total)}</strong></td>
-                </tr>
-                `,
-                  )
-                  .join("")}
-            </tbody>
-        </table>
-        `
-            : '<div class="no-data">No hay ventas en este período</div>'
-        }
-    </div>
-
-    <div class="section">
-        <h2>💳 Gastos Detallados</h2>
-        ${
-          filteredExpenses.length > 0
-            ? `
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Categoría</th>
-                    <th>Descripción</th>
-                    <th>Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filteredExpenses
-                  .map(
-                    (expense) => `
-                <tr>
-                    <td>${expense.id}</td>
-                    <td>${new Date(expense.date).toLocaleDateString("es-CO")}</td>
-                    <td>${expense.categoria || "Sin categoría"}</td>
-                    <td>${expense.descripcion || "-"}</td>
-                    <td><strong>${formatPrice(expense.amount)}</strong></td>
-                </tr>
-                `,
-                  )
-                  .join("")}
-            </tbody>
-        </table>
-        `
-            : '<div class="no-data">No hay gastos en este período</div>'
-        }
-    </div>
     
-    <div class="footer">
-        <p>© ${new Date().getFullYear()} ${storeName} - Todos los derechos reservados</p>
-        <p>Este reporte fue generado automáticamente y no requiere firma.</p>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 15px;
+      color: #333;
+      background-color: white;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 3px solid #6366f1;
+      padding-bottom: 15px;
+    }
+    
+    .header h1 {
+      color: #6366f1;
+      margin: 0;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    
+    .header p {
+      color: #666;
+      margin: 6px 0;
+      font-size: 13px;
+    }
+    
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+    
+    .summary-card {
+      padding: 12px;
+      border-radius: 6px;
+      text-align: center;
+      border: 2px solid;
+      flex: 1;
+    }
+    
+    .summary-card.income {
+      background-color: #d1fae5 !important;
+      border-color: #10b981 !important;
+      color: #065f46 !important;
+    }
+    
+    .summary-card.expense {
+      background-color: #fee2e2 !important;
+      border-color: #ef4444 !important;
+      color: #7f1d1d !important;
+    }
+    
+    .summary-card.balance {
+      background-color: ${balance >= 0 ? "#e0e7ff" : "#fee2e2"} !important;
+      border-color: ${balance >= 0 ? "#6366f1" : "#ef4444"} !important;
+      color: ${balance >= 0 ? "#312e81" : "#7f1d1d"} !important;
+    }
+    
+    .summary-card h3 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    
+    .summary-card .amount {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 4px 0;
+    }
+    
+    .summary-card .count {
+      font-size: 10px;
+      opacity: 0.8;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 10px;
+      page-break-inside: avoid;
+    }
+    
+    th, td {
+      padding: 6px 4px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    
+    th {
+      background-color: #6366f1 !important;
+      color: white !important;
+      font-weight: bold;
+      font-size: 11px;
+    }
+    
+    tr:nth-child(even) {
+      background-color: #f9fafb !important;
+    }
+    
+    .section {
+      margin: 20px 0;
+      page-break-inside: avoid;
+    }
+    
+    .section h2 {
+      color: #374151;
+      border-left: 4px solid #6366f1;
+      padding-left: 8px;
+      font-size: 15px;
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+    
+    .no-data {
+      text-align: center;
+      color: #6b7280;
+      font-style: italic;
+      padding: 15px;
+      background-color: #f9fafb;
+      border-radius: 6px;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      color: #6b7280;
+      font-size: 9px;
+      page-break-inside: avoid;
+    }
+    
+    .truncate {
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .currency {
+      font-weight: bold;
+      color: #059669 !important;
+    }
+    
+    .expense-amount {
+      font-weight: bold;
+      color: #dc2626 !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Reporte Financiero</h1>
+    <p><strong>${storeName}</strong></p>
+    <p>Período: ${getPeriodText()} | Generado: ${date}</p>
+  </div>
+
+  <div class="summary">
+    <div class="summary-card income">
+      <h3>💰 Total Ingresos</h3>
+      <div class="amount">${formatPrice(totalSales)}</div>
+      <div class="count">${filteredSales.length} ventas</div>
     </div>
+    <div class="summary-card expense">
+      <h3>💸 Total Gastos</h3>
+      <div class="amount">${formatPrice(totalExpenses)}</div>
+      <div class="count">${filteredExpenses.length} gastos</div>
+    </div>
+    <div class="summary-card balance">
+      <h3>${balance >= 0 ? "📈" : "📉"} Balance</h3>
+      <div class="amount">${formatPrice(balance)}</div>
+      <div class="count">${balance >= 0 ? "Ganancia" : "Pérdida"}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🛒 Ventas Detalladas</h2>
+    ${
+      filteredSales.length > 0
+        ? `
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 15%;">ID</th>
+          <th style="width: 18%;">Fecha</th>
+          <th style="width: 20%;">Cliente</th>
+          <th style="width: 27%;">Productos</th>
+          <th style="width: 20%;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredSales
+          .slice(0, 25) // Limitar a 25 ventas
+          .map(
+            (sale, index) => `
+        <tr>
+          <td class="truncate">${sale.id.substring(0, 8)}...</td>
+          <td>${new Date(sale.date).toLocaleDateString("es-CO")}</td>
+          <td class="truncate">${sale.customerInfo?.name || "Cliente general"}</td>
+          <td class="truncate">
+            ${sale.items
+              .slice(0, 2)
+              .map((item) => `${item.product.name || item.product.nombre} (${item.quantity})`)
+              .join(", ")}${sale.items.length > 2 ? "..." : ""}
+          </td>
+          <td class="currency">${formatPrice(sale.total)}</td>
+        </tr>
+        `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+    ${filteredSales.length > 25 ? `<p style="text-align: center; color: #6b7280; font-style: italic;">... y ${filteredSales.length - 25} ventas más</p>` : ""}
+    `
+        : '<div class="no-data">No hay ventas en este período</div>'
+    }
+  </div>
+
+  <div class="section">
+    <h2>💳 Gastos Detallados</h2>
+    ${
+      filteredExpenses.length > 0
+        ? `
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 20%;">Fecha</th>
+          <th style="width: 25%;">Categoría</th>
+          <th style="width: 35%;">Descripción</th>
+          <th style="width: 20%;">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredExpenses
+          .slice(0, 25) // Limitar a 25 gastos
+          .map(
+            (expense, index) => `
+        <tr>
+          <td>${new Date(expense.date).toLocaleDateString("es-CO")}</td>
+          <td class="truncate">${expense.categoria || "Sin categoría"}</td>
+          <td class="truncate">${expense.descripcion || "-"}</td>
+          <td class="expense-amount">${formatPrice(expense.amount)}</td>
+        </tr>
+        `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+    ${filteredExpenses.length > 25 ? `<p style="text-align: center; color: #6b7280; font-style: italic;">... y ${filteredExpenses.length - 25} gastos más</p>` : ""}
+    `
+        : '<div class="no-data">No hay gastos en este período</div>'
+    }
+  </div>
+  
+  <div class="footer">
+    <p>© ${new Date().getFullYear()} ${storeName} - Todos los derechos reservados</p>
+    <p>Este reporte fue generado automáticamente el ${date}</p>
+  </div>
 </body>
 </html>`
 
-      // Crear un iframe oculto para imprimir a PDF
-      const iframe = document.createElement("iframe")
-      iframe.style.visibility = "hidden"
-      iframe.style.position = "fixed"
-      iframe.style.right = "0"
-      iframe.style.bottom = "0"
-      document.body.appendChild(iframe)
+      // Crear ventana de descarga
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) {
+        throw new Error("No se pudo abrir la ventana de descarga")
+      }
 
-      iframe.contentWindow!.document.open()
-      iframe.contentWindow!.document.write(htmlContent)
-      iframe.contentWindow!.document.close()
+      printWindow.document.write(printContent)
+      printWindow.document.close()
 
-      // Esperar a que se cargue el contenido
-      setTimeout(() => {
-        try {
-          // Imprimir a PDF
-          iframe.contentWindow!.print()
+      // Configurar para descarga automática
+      printWindow.onload = () => {
+        setTimeout(() => {
+          // Configurar el título del documento para la descarga
+          printWindow.document.title = `Reporte_${storeName}_${new Date().toISOString().split("T")[0]}`
 
-          // Eliminar el iframe después de un tiempo
+          // Ejecutar la descarga
+          printWindow.print()
+
+          // Cerrar la ventana después de un momento
           setTimeout(() => {
-            document.body.removeChild(iframe)
+            printWindow.close()
             setIsExporting(false)
           }, 1000)
+        }, 500)
+      }
 
-          toast({
-            title: "Reporte generado",
-            description: "El reporte PDF se ha generado correctamente",
-          })
-        } catch (error) {
-          console.error("Error al generar PDF:", error)
-          document.body.removeChild(iframe)
-          setIsExporting(false)
-
-          toast({
-            title: "Error al exportar",
-            description: "No se pudo generar el PDF. Intente nuevamente.",
-            variant: "destructive",
-          })
-        }
-      }, 1000)
-    } catch (error) {
-      console.error("Error al exportar PDF:", error)
       toast({
-        title: "Error al exportar",
-        description: "No se pudo exportar el reporte. Intente nuevamente.",
+        title: "Descarga iniciada",
+        description: "En el diálogo que aparece, selecciona 'Guardar como PDF' y elige la ubicación.",
+      })
+    } catch (error) {
+      console.error("Error al descargar PDF:", error)
+      toast({
+        title: "Error al descargar",
+        description: "No se pudo generar el PDF. Intente nuevamente.",
         variant: "destructive",
       })
       setIsExporting(false)
@@ -996,18 +772,16 @@ export default function DashboardPage() {
             variant="secondary"
             size="sm"
             className="flex items-center gap-1 relative overflow-hidden group"
-            onClick={exportReport}
+            onClick={downloadPDF}
             disabled={isExporting}
           >
-            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
             {isExporting ? (
               <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            ) : exportFormat === "html" ? (
-              <FileText className="h-4 w-4" />
             ) : (
-              <FilePdf className="h-4 w-4" />
+              <Download className="h-4 w-4" />
             )}
-            <span>Exportar {exportFormat.toUpperCase()}</span>
+            <span>Descargar PDF</span>
             <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-white group-hover:w-full transition-all duration-300"></div>
           </Button>
         </div>
@@ -1061,26 +835,20 @@ export default function DashboardPage() {
                 <DollarSign className="h-5 w-5 mr-2 text-primary" />
                 Resumen Financiero
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-8 w-8 p-0 ${exportFormat === "html" ? "bg-gray-100" : ""}`}
-                  onClick={() => setExportFormat("html")}
-                  title="Exportar como HTML"
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-8 w-8 p-0 ${exportFormat === "pdf" ? "bg-gray-100" : ""}`}
-                  onClick={() => setExportFormat("pdf")}
-                  title="Exportar como PDF"
-                >
-                  <FilePdf className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={downloadPDF}
+                disabled={isExporting}
+                title="Descargar reporte PDF"
+              >
+                {isExporting ? (
+                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4">

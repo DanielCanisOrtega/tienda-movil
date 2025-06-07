@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, Plus, Edit, Trash2, Search, Loader2 } from "lucide-react"
+import { ChevronLeft, Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react'
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -361,7 +361,7 @@ export default function ExpensesPage() {
         {categories.length > 0 && (
           <div className="flex overflow-x-auto py-2 gap-2 no-scrollbar">
             <Badge
-              key="all-categories"
+              key="all-categories-filter"
               variant={activeCategory === null ? "default" : "outline"}
               className={`cursor-pointer px-3 py-1 ${
                 activeCategory === null ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -370,9 +370,9 @@ export default function ExpensesPage() {
             >
               Todos
             </Badge>
-            {categories.map((category) => (
+            {categories.map((category, index) => (
               <Badge
-                key={category}
+                key={`category-filter-${category}-${index}`}
                 variant={activeCategory === category ? "default" : "outline"}
                 className={`cursor-pointer px-3 py-1 whitespace-nowrap ${
                   activeCategory === category ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -388,7 +388,7 @@ export default function ExpensesPage() {
         {/* Filtro de período */}
         <div className="flex justify-between mt-4 mb-2">
           <Badge
-            key="period-today"
+            key="period-filter-today"
             variant={timePeriod === "today" ? "default" : "outline"}
             className={`cursor-pointer px-3 py-1 flex-1 text-center ${
               timePeriod === "today" ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -398,7 +398,7 @@ export default function ExpensesPage() {
             Hoy
           </Badge>
           <Badge
-            key="period-week"
+            key="period-filter-week"
             variant={timePeriod === "week" ? "default" : "outline"}
             className={`cursor-pointer px-3 py-1 flex-1 text-center ${
               timePeriod === "week" ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -408,7 +408,7 @@ export default function ExpensesPage() {
             Semana
           </Badge>
           <Badge
-            key="period-month"
+            key="period-filter-month"
             variant={timePeriod === "month" ? "default" : "outline"}
             className={`cursor-pointer px-3 py-1 flex-1 text-center ${
               timePeriod === "month" ? "bg-primary text-white" : "bg-background text-text-secondary"
@@ -430,8 +430,8 @@ export default function ExpensesPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredExpenses.map((expense) => (
-              <Card key={expense.id} className="overflow-hidden">
+            {filteredExpenses.map((expense, index) => (
+              <Card key={`expense-card-${expense.id}-${index}`} className="overflow-hidden">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -451,13 +451,14 @@ export default function ExpensesPage() {
                   {expense.notes && <p className="text-sm text-text-secondary mt-2 line-clamp-2">{expense.notes}</p>}
 
                   <div className="flex justify-end space-x-2 mt-3">
-                    <Link href={`/edit-expense/${expense.id}`}>
+                    <Link href={`/edit-expense/${expense.id}`} key={`edit-link-${expense.id}`}>
                       <Button variant="outline" size="sm" className="h-9 px-3">
                         <Edit className="h-4 w-4 mr-1" />
                         Editar
                       </Button>
                     </Link>
                     <Button
+                      key={`delete-button-${expense.id}`}
                       variant="outline"
                       size="sm"
                       className="h-9 px-3 text-red-500 border-red-200 hover:bg-red-50"
