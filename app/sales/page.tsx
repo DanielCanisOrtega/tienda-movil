@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, Plus } from "lucide-react"
 import Link from "next/link"
-import BottomNavigation from "@/components/BottomNavigation"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -193,8 +192,8 @@ export default function SalesPage() {
   const periodTotal = calculateTotal(filteredSales)
 
   return (
-    <main className="flex min-h-screen flex-col bg-background-light android-safe-top has-bottom-nav">
-      <div className="bg-white p-4 flex items-center">
+    <main className="flex min-h-screen flex-col bg-background android-safe-top">
+      <div className="bg-white dark:bg-gray-800 p-4 flex items-center">
         <Link href="/home" className="mr-4">
           <ChevronLeft className="h-6 w-6" />
         </Link>
@@ -280,8 +279,6 @@ export default function SalesPage() {
           </CardContent>
         </Card>
       </div>
-
-      <BottomNavigation />
     </main>
   )
 }

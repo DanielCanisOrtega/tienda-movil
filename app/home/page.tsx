@@ -19,7 +19,6 @@ import {
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { VendorNavigation } from "@/components/vendor-navigation"
 import { toast } from "@/hooks/use-toast"
 
 export default function HomePage() {
@@ -331,12 +330,12 @@ export default function HomePage() {
         </div>
 
         <div className="container max-w-md mx-auto p-4 text-center">
-          <div className="bg-card rounded-lg p-8 shadow-soft">
+          <div className="bg-card rounded-lg p-8">
             <p className="text-muted-foreground mb-4">No has seleccionado ninguna tienda</p>
             <Link href="/stores">
-              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                 Ir a gestión de tiendas
-              </button>
+              </Button>
             </Link>
           </div>
         </div>
@@ -445,12 +444,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Botón de voz en la parte inferior */}
+      {/* Botón de voz en la parte inferior - VISIBLE */}
       <div className="fixed bottom-20 right-4 z-10">
         <Button
-          variant="default"
-          size="lg"
-          className={`rounded-full shadow-large bg-primary hover:bg-primary/90 ${isListening ? "animate-pulse" : ""}`}
+          className={`rounded-full w-14 h-14 bg-primary hover:bg-primary/90 text-white shadow-lg ${
+            isListening ? "animate-pulse" : ""
+          }`}
           onClick={handleVoiceCommand}
           disabled={isListening}
         >
@@ -458,7 +457,8 @@ export default function HomePage() {
         </Button>
       </div>
 
-      {userType === "vendor" ? <VendorNavigation /> : <BottomNavigation />}
+      {/* Solo mostrar navegación en la página de inicio */}
+      <BottomNavigation />
     </main>
   )
 }
@@ -476,7 +476,7 @@ function MenuCard({
 }) {
   return (
     <Link href={href}>
-      <div className="bg-card rounded-lg p-4 shadow-soft h-full flex flex-col android-ripple hover:shadow-medium transition-all duration-200 border border-border">
+      <div className="bg-card rounded-lg p-4 h-full flex flex-col android-ripple hover:opacity-90 transition-all duration-200 border border-border">
         <div className="mb-3">{icon}</div>
         <h2 className="font-medium text-lg text-card-foreground">{title}</h2>
         <p className="text-sm text-muted-foreground mt-1">{description}</p>

@@ -1,12 +1,11 @@
 "use client"
 
-// Inspired by react-hot-toast library
 import * as React from "react"
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 3 // Reduced limit to avoid clutter
-const TOAST_REMOVE_DELAY = 1200 // 1.2 seconds - much faster!
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 1500
 
 type ToasterToast = ToastProps & {
   id: string
@@ -25,7 +24,7 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  count = (count + 1) % Number.MAX_VALUE
   return count.toString()
 }
 
@@ -42,11 +41,11 @@ type Action =
     }
   | {
       type: ActionType["DISMISS_TOAST"]
-      toastId?: string
+      toastId?: ToasterToast["id"]
     }
   | {
       type: ActionType["REMOVE_TOAST"]
-      toastId?: string
+      toastId?: ToasterToast["id"]
     }
 
 interface State {
@@ -54,56 +53,6 @@ interface State {
 }
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
-
-// Function to speak toast messages
-const speakToastMessage = (message: string) => {
-  // Check if browser supports speech synthesis
-  if ("speechSynthesis" in window) {
-    // Create a new speech synthesis utterance
-    const utterance = new SpeechSynthesisUtterance(message)
-
-    // Set language to Spanish
-    utterance.lang = "es-ES"
-
-    // Set voice properties
-    utterance.volume = 1 // 0 to 1
-    utterance.rate = 1.0 // 0.1 to 10
-    utterance.pitch = 1.0 // 0 to 2
-
-    // Speak the message
-    window.speechSynthesis.speak(utterance)
-  }
-}
-
-// Extract text content from React nodes
-const extractTextFromReactNode = (node: React.ReactNode): string => {
-  if (typeof node === "string") {
-    return node
-  }
-
-  if (typeof node === "number" || typeof node === "boolean") {
-    return String(node)
-  }
-
-  if (node === null || node === undefined) {
-    return ""
-  }
-
-  if (Array.isArray(node)) {
-    return node.map(extractTextFromReactNode).join(" ")
-  }
-
-  if (typeof node === "object") {
-    // Handle React elements
-    if ("props" in node && node.props) {
-      if ("children" in node.props) {
-        return extractTextFromReactNode(node.props.children)
-      }
-    }
-  }
-
-  return ""
-}
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
@@ -124,24 +73,9 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
-      // Auto-dismiss the toast immediately when added
-      const newToast = action.toast
-      addToRemoveQueue(newToast.id)
-
-      // Speak the toast message
-      const titleText = extractTextFromReactNode(newToast.title)
-      const descriptionText = extractTextFromReactNode(newToast.description)
-      const messageToSpeak = titleText
-        ? descriptionText
-          ? `${titleText}: ${descriptionText}`
-          : titleText
-        : descriptionText || "Notificación"
-
-      speakToastMessage(messageToSpeak)
-
       return {
         ...state,
-        toasts: [newToast, ...state.toasts].slice(0, TOAST_LIMIT),
+        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
       }
 
     case "UPDATE_TOAST":
@@ -153,6 +87,8 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
+      // ! Side effects ! - This could be extracted into a dismissToast() action,
+      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -203,11 +139,36 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
+  // Speak the toast message using Web Speech API
+  const speakToast = () => {
+    if ("speechSynthesis" in window) {
+      // Extract text content from React nodes
+      let toastText = ""
+
+      if (typeof props.title === "string") {
+        toastText += props.title + ". "
+      }
+
+      if (typeof props.description === "string") {
+        toastText += props.description
+      }
+
+      if (toastText) {
+        const utterance = new SpeechSynthesisUtterance(toastText)
+        utterance.lang = "es-ES"
+        utterance.rate = 1.0
+        utterance.pitch = 1.0
+        window.speechSynthesis.speak(utterance)
+      }
+    }
+  }
+
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
+
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
@@ -221,6 +182,12 @@ function toast({ ...props }: Toast) {
       },
     },
   })
+
+  // Automatically dismiss after a delay
+  setTimeout(dismiss, TOAST_REMOVE_DELAY)
+
+  // Speak the toast message
+  speakToast()
 
   return {
     id: id,

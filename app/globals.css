@@ -27,24 +27,24 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%; /* Rich dark background with subtle blue tint */
-    --foreground: 0 0% 98%; /* Soft white text */
-    --card: 240 10% 6%; /* Slightly lighter than background */
-    --card-foreground: 0 0% 98%; /* Soft white text */
-    --popover: 240 10% 6%; /* Slightly lighter than background */
-    --popover-foreground: 0 0% 98%; /* Soft white text */
+    --background: 0 0% 10%; /* Dark gray background */
+    --foreground: 0 0% 100%; /* Pure white text */
+    --card: 0 0% 15%; /* Slightly lighter card background */
+    --card-foreground: 0 0% 100%; /* Pure white text */
+    --popover: 0 0% 15%; /* Slightly lighter popover */
+    --popover-foreground: 0 0% 100%; /* Pure white text */
     --primary: 262 83% 58%; /* Same purple as light mode */
-    --primary-foreground: 0 0% 98%; /* Soft white text on primary */
-    --secondary: 240 10% 8%; /* Dark gray with blue tint */
-    --secondary-foreground: 0 0% 98%; /* Soft white text */
-    --muted: 240 10% 8%; /* Dark gray with blue tint */
-    --muted-foreground: 0 0% 65%; /* Muted text */
-    --accent: 240 10% 10%; /* Slightly lighter accent */
-    --accent-foreground: 0 0% 98%; /* Soft white text */
+    --primary-foreground: 0 0% 100%; /* Pure white text on primary */
+    --secondary: 0 0% 20%; /* Lighter secondary for contrast */
+    --secondary-foreground: 0 0% 100%; /* Pure white text */
+    --muted: 0 0% 20%; /* Lighter muted for contrast */
+    --muted-foreground: 0 0% 70%; /* Light gray muted text */
+    --accent: 0 0% 25%; /* Lighter accent for contrast */
+    --accent-foreground: 0 0% 100%; /* Pure white text */
     --destructive: 0 84% 60%; /* Same red */
-    --destructive-foreground: 0 0% 98%; /* Soft white text */
-    --border: 240 10% 12%; /* Subtle border */
-    --input: 240 10% 8%; /* Dark input background */
+    --destructive-foreground: 0 0% 100%; /* Pure white text */
+    --border: 0 0% 25%; /* Visible border */
+    --input: 0 0% 15%; /* Lighter input background */
     --ring: 262 83% 58%; /* Same purple as light mode */
   }
 }
@@ -116,36 +116,11 @@
 
 /* Dark mode gradients - elegant and sophisticated */
 .dark .gradient-primary {
-  background: linear-gradient(135deg, hsl(240 10% 3.9%) 0%, hsl(240 10% 8%) 50%, hsl(262 83% 58%) 100%);
+  background: linear-gradient(135deg, hsl(262 83% 58%) 0%, hsl(270 95% 75%) 100%);
 }
 
 .dark .gradient-accent {
-  background: linear-gradient(135deg, hsl(240 10% 3.9%) 0%, hsl(240 10% 6%) 100%);
-}
-
-/* Improved shadows for dark mode */
-.shadow-soft {
-  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
-}
-
-.dark .shadow-soft {
-  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.5), 0 10px 20px -2px rgba(0, 0, 0, 0.3);
-}
-
-.shadow-medium {
-  box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
-.dark .shadow-medium {
-  box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
-}
-
-.shadow-large {
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.dark .shadow-large {
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8), 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(330 81% 60%) 100%);
 }
 
 /* Toast animations */
@@ -189,7 +164,7 @@
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: hsl(240 10% 6%);
+  background: hsl(0 0% 10%);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -214,56 +189,85 @@
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* AGGRESSIVE DARK MODE OVERRIDES - Force all backgrounds to dark */
-.dark * {
-  background-color: hsl(240 10% 3.9%);
+/* DARK MODE - MEJORADO CON FONDOS TRANSPARENTES */
+
+/* Fondo principal para el body y html */
+.dark,
+.dark body,
+.dark html {
+  background-color: #1a1a1a !important;
 }
 
-.dark div,
-.dark section,
+/* Contenedores principales */
 .dark main,
+.dark section,
 .dark aside,
 .dark header,
 .dark footer,
-.dark nav {
-  background-color: hsl(240 10% 3.9%) !important;
+.dark nav,
+.dark article {
+  background-color: #1a1a1a !important;
 }
 
-.dark .bg-white,
+/* Divs principales que actúan como contenedores */
+.dark div[class*="container"],
+.dark div[class*="wrapper"],
+.dark div[class*="layout"],
+.dark div[class*="page"],
+.dark div[class*="content"],
+.dark div[class*="main"],
+.dark div[class*="app"] {
+  background-color: #1a1a1a !important;
+}
+
+/* Clases específicas de fondo que necesitan ser oscuras */
+.dark .bg-background,
 .dark .bg-gray-50,
 .dark .bg-gray-100,
 .dark .bg-gray-200,
-.dark [class*="bg-white"],
-.dark [class*="bg-gray"] {
-  background-color: hsl(240 10% 3.9%) !important;
+.dark .bg-white {
+  background-color: #1a1a1a !important;
 }
 
-/* Exceptions for specific elements */
-.dark .bg-primary,
-.dark .bg-primary-light,
-.dark .bg-primary-dark,
-.dark [class*="bg-primary"] {
-  background-color: hsl(262 83% 58%) !important;
-}
-
+/* Cards y contenedores específicos */
 .dark .card,
-.dark [class*="card"] {
-  background-color: hsl(240 10% 6%) !important;
+.dark [class*="card"],
+.dark .bg-card {
+  background-color: #262626 !important;
+  border-color: #333333 !important;
 }
 
+/* Form elements */
 .dark input,
 .dark select,
-.dark textarea {
-  background-color: hsl(240 10% 6%) !important;
-  color: hsl(0 0% 98%) !important;
-  border-color: hsl(240 10% 12%) !important;
+.dark textarea,
+.dark .input {
+  background-color: #262626 !important;
+  color: #ffffff !important;
+  border-color: #333333 !important;
 }
 
-/* Force text colors */
-.dark * {
-  color: hsl(0 0% 98%);
+/* Buttons - IMPORTANT: Make sure they're visible */
+.dark button {
+  color: #ffffff !important;
+  border-color: #333333 !important;
 }
 
+/* Primary buttons - MUST be visible */
+.dark button.bg-primary,
+.dark button[class*="bg-primary"],
+.dark .bg-primary {
+  background-color: hsl(262 83% 58%) !important;
+  color: #ffffff !important;
+  border-color: hsl(262 83% 58%) !important;
+}
+
+/* Secondary buttons */
+.dark button:not(.bg-primary):not([class*="bg-primary"]) {
+  background-color: #262626 !important;
+}
+
+/* IMPORTANTE: Texto e iconos con fondo transparente */
 .dark h1,
 .dark h2,
 .dark h3,
@@ -273,67 +277,153 @@
 .dark p,
 .dark span,
 .dark label,
-.dark a {
-  color: hsl(0 0% 98%) !important;
+.dark a,
+.dark svg,
+.dark i {
+  background-color: transparent !important;
+  color: #ffffff !important;
 }
 
-/* Exceptions for text */
+/* Colores de texto específicos */
+.dark .text-gray-500,
+.dark .text-gray-600,
+.dark .text-gray-700 {
+  color: #b3b3b3 !important;
+  background-color: transparent !important;
+}
+
 .dark .text-primary,
 .dark [class*="text-primary"] {
   color: hsl(262 83% 58%) !important;
+  background-color: transparent !important;
 }
 
-.dark .text-muted,
-.dark .text-muted-foreground,
-.dark [class*="text-muted"] {
-  color: hsl(0 0% 65%) !important;
+/* Navigation bottom - styled properly */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 64px;
+  padding: 0 16px;
 }
 
-/* Navigation bottom dark mode - elegant */
 .dark .bottom-nav {
-  background-color: rgba(15, 23, 42, 0.95) !important;
-  border-top-color: hsl(240 10% 12%) !important;
-  backdrop-filter: blur(20px);
+  background-color: rgba(38, 38, 38, 0.95) !important;
+  border-top-color: #333333 !important;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  border-radius: 12px;
+  transition: all 0.2s;
+  color: #6b7280;
+  text-decoration: none;
+  margin: 0 8px;
 }
 
 .dark .bottom-nav-item {
-  color: hsl(0 0% 70%) !important;
+  color: #9ca3af !important;
+  background-color: transparent !important;
+}
+
+.bottom-nav-item:hover {
+  color: hsl(262 83% 58%);
+  background-color: rgba(166, 123, 255, 0.1);
+  transform: scale(1.02);
 }
 
 .dark .bottom-nav-item:hover {
-  background-color: rgba(166, 123, 255, 0.1) !important;
   color: hsl(262 83% 58%) !important;
+  background-color: rgba(166, 123, 255, 0.1) !important;
+}
+
+.bottom-nav-item.active {
+  color: hsl(262 83% 58%);
+  background-color: rgba(166, 123, 255, 0.1);
+  transform: scale(1.05);
 }
 
 .dark .bottom-nav-item.active {
   color: hsl(262 83% 58%) !important;
-  background-color: rgba(166, 123, 255, 0.15) !important;
+  background-color: rgba(166, 123, 255, 0.1) !important;
 }
 
-/* Beautiful dark mode card effects */
-.dark .card-hover {
-  transition: all 0.3s ease;
+/* Borders */
+.dark .border,
+.dark [class*="border"] {
+  border-color: #333333 !important;
 }
 
-.dark .card-hover:hover {
-  background-color: hsl(240 10% 8%) !important;
-  box-shadow: 0 8px 32px -8px rgba(166, 123, 255, 0.2);
+/* Toast styling */
+.dark .toast {
+  background-color: #262626 !important;
+  border-color: #333333 !important;
+  color: #ffffff !important;
 }
 
-/* Input focus effects in dark mode */
+/* Focus states */
+.dark *:focus {
+  outline-color: hsl(262 83% 58%) !important;
+}
+
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus {
   border-color: hsl(262 83% 58%) !important;
-  box-shadow: 0 0 0 3px rgba(166, 123, 255, 0.1) !important;
 }
 
-/* Button hover effects in dark mode */
-.dark .btn-hover {
-  transition: all 0.3s ease;
+/* Hover states */
+.dark button:hover:not([disabled]) {
+  opacity: 0.9;
 }
 
-.dark .btn-hover:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 25px -8px rgba(166, 123, 255, 0.3);
+.dark button.bg-primary:hover:not([disabled]),
+.dark button[class*="bg-primary"]:hover:not([disabled]) {
+  background-color: hsl(262 83% 65%) !important;
+}
+
+/* Asegurar que los elementos dentro de las cards tengan fondo transparente */
+.dark .card *:not(input):not(select):not(textarea):not(button):not(.card):not([class*="card"]) {
+  background-color: transparent !important;
+}
+
+/* Asegurar que los elementos dentro de los botones tengan fondo transparente */
+.dark button * {
+  background-color: transparent !important;
+}
+
+/* Asegurar que los elementos dentro de los inputs tengan fondo transparente */
+.dark input *,
+.dark select *,
+.dark textarea * {
+  background-color: transparent !important;
+}
+
+/* Fondo específico para la página de ventas */
+.dark [class*="sales"],
+.dark [class*="ventas"] {
+  background-color: #1a1a1a !important;
+}
+
+/* Asegurar que los divs que no son contenedores tengan fondo transparente */
+.dark
+  div:not([class*="container"]):not([class*="wrapper"]):not([class*="layout"]):not([class*="page"]):not(
+    [class*="content"]
+  ):not([class*="main"]):not([class*="app"]):not(.card):not([class*="card"]):not(.bottom-nav):not(.toast):not(
+    input
+  ):not(select):not(textarea):not(button) {
+  background-color: transparent !important;
 }
