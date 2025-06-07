@@ -91,7 +91,7 @@ const formatDate = (dateString: string) => {
   }
 }
 
-// Filtrar gastos por fecha
+// Mejorar el filtrado por fecha en la función filterExpensesByDate
 const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] => {
   // Obtener la fecha actual y resetear la hora a 00:00:00
   const now = new Date()
@@ -106,17 +106,22 @@ const filterExpensesByDate = (expenses: Expense[], period: string): Expense[] =>
 
   return expenses.filter((expense) => {
     // Convertir la fecha del gasto a un objeto Date para comparación correcta
-    const parts = expense.date.split("-")
-    // Asegurarse de que la fecha tenga el formato correcto (YYYY-MM-DD)
-    if (parts.length !== 3) {
-      return false
-    }
+    let expenseDate: Date
 
-    const expenseDate = new Date(
-      Number.parseInt(parts[0]), // año
-      Number.parseInt(parts[1]) - 1, // mes (0-11)
-      Number.parseInt(parts[2]), // día
-    )
+    if (typeof expense.date === "string") {
+      // Si la fecha es una cadena, intentamos convertirla a Date
+      // Primero verificamos si es formato ISO (YYYY-MM-DD)
+      if (expense.date.includes("-")) {
+        const [year, month, day] = expense.date.split("-").map(Number)
+        expenseDate = new Date(year, month - 1, day)
+      } else {
+        // Si no es formato ISO, intentamos parsear directamente
+        expenseDate = new Date(expense.date)
+      }
+    } else {
+      // Si ya es un objeto Date, lo usamos directamente
+      expenseDate = new Date(expense.date)
+    }
 
     // Resetear la hora a 00:00:00 para comparar solo fechas
     expenseDate.setHours(0, 0, 0, 0)

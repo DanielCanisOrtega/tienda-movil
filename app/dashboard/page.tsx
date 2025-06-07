@@ -8,9 +8,8 @@ import {
   BarChart2,
   PieChart,
   ArrowRight,
-  Download,
-  FileSpreadsheet,
   FileText,
+  FileIcon as FilePdf,
 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 
@@ -59,12 +58,6 @@ interface ChartDataItem {
   value: number
 }
 
-interface BalanceChartDataItem {
-  name: string
-  ingresos: number
-  gastos: number
-}
-
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("daily")
   const [salesData, setSalesData] = useState<Sale[]>([])
@@ -74,6 +67,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [animateCharts, setAnimateCharts] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState<"html" | "pdf">("html")
 
   // Load data from localStorage
   useEffect(() => {
@@ -385,94 +379,12 @@ export default function DashboardPage() {
     }).format(price)
   }
 
-  // Función para exportar a CSV (más simple y confiable)
-  const exportToCSV = () => {
-    try {
-      setIsExporting(true)
-
-      const filteredSales = getFilteredSales()
-      const filteredExpenses = getFilteredExpenses()
-      const totalSales = calculateTotalSales(filteredSales)
-      const totalExpenses = calculateTotalExpenses(filteredExpenses)
-      const balance = totalSales - totalExpenses
-
-      // Crear contenido CSV
-      let csvContent = "data:text/csv;charset=utf-8,"
-
-      // Resumen
-      csvContent += "RESUMEN FINANCIERO\n"
-      csvContent += `Período,${getPeriodText()}\n`
-      csvContent += `Tienda,${localStorage.getItem("selectedStoreName") || "Tienda"}\n`
-      csvContent += `Fecha de reporte,${new Date().toLocaleString("es-CO")}\n`
-      csvContent += `Total Ingresos,${totalSales}\n`
-      csvContent += `Total Gastos,${totalExpenses}\n`
-      csvContent += `Balance,${balance}\n`
-      csvContent += `Número de ventas,${filteredSales.length}\n`
-      csvContent += `Número de gastos,${filteredExpenses.length}\n\n`
-
-      // Ventas detalladas
-      csvContent += "VENTAS DETALLADAS\n"
-      csvContent +=
-        "ID Venta,Fecha,Hora,Cliente,Método de Pago,Producto,Categoría,Cantidad,Precio Unitario,Subtotal,Total Venta\n"
-
-      filteredSales.forEach((sale) => {
-        const saleDate = new Date(sale.date)
-        const formattedDate = saleDate.toLocaleDateString("es-CO")
-        const formattedTime = saleDate.toLocaleTimeString("es-CO")
-
-        sale.items.forEach((item, index) => {
-          csvContent += `${index === 0 ? sale.id : ""},`
-          csvContent += `${index === 0 ? formattedDate : ""},`
-          csvContent += `${index === 0 ? formattedTime : ""},`
-          csvContent += `${index === 0 ? sale.customerInfo?.name || "Cliente general" : ""},`
-          csvContent += `${index === 0 ? sale.paymentMethod || "No especificado" : ""},`
-          csvContent += `${item.product.name || item.product.nombre || "Producto"},`
-          csvContent += `${item.product.category || item.product.categoria || "Sin categoría"},`
-          csvContent += `${item.quantity},`
-          csvContent += `${item.product.price || item.product.precio || 0},`
-          csvContent += `${(item.product.price || item.product.precio || 0) * item.quantity},`
-          csvContent += `${index === 0 ? sale.total : ""}\n`
-        })
-      })
-
-      csvContent += "\nGASTOS DETALLADOS\n"
-      csvContent += "ID,Fecha,Categoría,Descripción,Monto\n"
-
-      filteredExpenses.forEach((expense) => {
-        const expenseDate = new Date(expense.date)
-        const formattedDate = expenseDate.toLocaleDateString("es-CO")
-
-        csvContent += `${expense.id},`
-        csvContent += `${formattedDate},`
-        csvContent += `${expense.categoria || "Sin categoría"},`
-        csvContent += `${expense.descripcion || ""},`
-        csvContent += `${expense.amount}\n`
-      })
-
-      // Descargar archivo
-      const encodedUri = encodeURI(csvContent)
-      const link = document.createElement("a")
-      link.setAttribute("href", encodedUri)
-      const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
-      const date = new Date().toISOString().split("T")[0]
-      link.setAttribute("download", `Reporte_${storeName}_${date}.csv`)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      toast({
-        title: "Reporte exportado",
-        description: "El reporte ha sido exportado como archivo CSV",
-      })
-    } catch (error) {
-      console.error("Error al exportar CSV:", error)
-      toast({
-        title: "Error al exportar",
-        description: "No se pudo exportar el reporte. Intente nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsExporting(false)
+  // Función para exportar reporte
+  const exportReport = () => {
+    if (exportFormat === "html") {
+      exportToHTML()
+    } else {
+      exportToPDF()
     }
   }
 
@@ -503,6 +415,7 @@ export default function DashboardPage() {
             font-family: Arial, sans-serif;
             margin: 20px;
             background-color: #f5f5f5;
+            color: #333;
         }
         .container {
             max-width: 1200px;
@@ -597,6 +510,14 @@ export default function DashboardPage() {
             color: #6b7280;
             font-style: italic;
             padding: 40px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 0.9em;
         }
         @media print {
             body { margin: 0; }
@@ -707,6 +628,11 @@ export default function DashboardPage() {
                 : '<div class="no-data">No hay gastos en este período</div>'
             }
         </div>
+        
+        <div class="footer">
+            <p>© ${new Date().getFullYear()} ${storeName} - Todos los derechos reservados</p>
+            <p>Este reporte fue generado automáticamente y no requiere firma.</p>
+        </div>
     </div>
 </body>
 </html>`
@@ -735,6 +661,290 @@ export default function DashboardPage() {
         variant: "destructive",
       })
     } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Función para exportar a PDF
+  const exportToPDF = () => {
+    try {
+      setIsExporting(true)
+
+      const filteredSales = getFilteredSales()
+      const filteredExpenses = getFilteredExpenses()
+      const totalSales = calculateTotalSales(filteredSales)
+      const totalExpenses = calculateTotalExpenses(filteredExpenses)
+      const balance = totalSales - totalExpenses
+
+      const storeName = localStorage.getItem("selectedStoreName") || "Tienda"
+      const date = new Date().toLocaleString("es-CO")
+
+      // Crear contenido HTML para convertir a PDF
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Financiero - ${storeName}</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            background-color: white;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #6366f1;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            color: #6366f1;
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p {
+            color: #666;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+            justify-content: space-between;
+        }
+        .summary-card {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            width: 30%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .summary-card.income {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+        }
+        .summary-card.expense {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+        }
+        .summary-card.balance {
+            background-color: ${balance >= 0 ? "#e0e7ff" : "#fee2e2"};
+            border-left: 4px solid ${balance >= 0 ? "#6366f1" : "#ef4444"};
+        }
+        .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        .summary-card .amount {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #6366f1;
+            color: white;
+            font-weight: bold;
+        }
+        .section {
+            margin: 30px 0;
+        }
+        .section h2 {
+            color: #374151;
+            border-left: 4px solid #6366f1;
+            padding-left: 10px;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .no-data {
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+            padding: 20px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Reporte Financiero</h1>
+        <p><strong>${storeName}</strong></p>
+        <p>Período: ${getPeriodText()} | Generado: ${date}</p>
+    </div>
+
+    <div class="summary">
+        <div class="summary-card income">
+            <h3>💰 Total Ingresos</h3>
+            <p class="amount">${formatPrice(totalSales)}</p>
+            <p>${filteredSales.length} ventas</p>
+        </div>
+        <div class="summary-card expense">
+            <h3>💸 Total Gastos</h3>
+            <p class="amount">${formatPrice(totalExpenses)}</p>
+            <p>${filteredExpenses.length} gastos</p>
+        </div>
+        <div class="summary-card balance">
+            <h3>${balance >= 0 ? "📈" : "📉"} Balance</h3>
+            <p class="amount">${formatPrice(balance)}</p>
+            <p>${balance >= 0 ? "Ganancia" : "Pérdida"}</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🛒 Ventas Detalladas</h2>
+        ${
+          filteredSales.length > 0
+            ? `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Productos</th>
+                    <th>Método de Pago</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filteredSales
+                  .map(
+                    (sale) => `
+                <tr>
+                    <td>${sale.id}</td>
+                    <td>${new Date(sale.date).toLocaleString("es-CO")}</td>
+                    <td>${sale.customerInfo?.name || "Cliente general"}</td>
+                    <td>
+                        ${sale.items
+                          .map((item) => `${item.product.name || item.product.nombre} (${item.quantity})`)
+                          .join(", ")}
+                    </td>
+                    <td>${sale.paymentMethod || "No especificado"}</td>
+                    <td><strong>${formatPrice(sale.total)}</strong></td>
+                </tr>
+                `,
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+        `
+            : '<div class="no-data">No hay ventas en este período</div>'
+        }
+    </div>
+
+    <div class="section">
+        <h2>💳 Gastos Detallados</h2>
+        ${
+          filteredExpenses.length > 0
+            ? `
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Categoría</th>
+                    <th>Descripción</th>
+                    <th>Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filteredExpenses
+                  .map(
+                    (expense) => `
+                <tr>
+                    <td>${expense.id}</td>
+                    <td>${new Date(expense.date).toLocaleDateString("es-CO")}</td>
+                    <td>${expense.categoria || "Sin categoría"}</td>
+                    <td>${expense.descripcion || "-"}</td>
+                    <td><strong>${formatPrice(expense.amount)}</strong></td>
+                </tr>
+                `,
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+        `
+            : '<div class="no-data">No hay gastos en este período</div>'
+        }
+    </div>
+    
+    <div class="footer">
+        <p>© ${new Date().getFullYear()} ${storeName} - Todos los derechos reservados</p>
+        <p>Este reporte fue generado automáticamente y no requiere firma.</p>
+    </div>
+</body>
+</html>`
+
+      // Crear un iframe oculto para imprimir a PDF
+      const iframe = document.createElement("iframe")
+      iframe.style.visibility = "hidden"
+      iframe.style.position = "fixed"
+      iframe.style.right = "0"
+      iframe.style.bottom = "0"
+      document.body.appendChild(iframe)
+
+      iframe.contentWindow!.document.open()
+      iframe.contentWindow!.document.write(htmlContent)
+      iframe.contentWindow!.document.close()
+
+      // Esperar a que se cargue el contenido
+      setTimeout(() => {
+        try {
+          // Imprimir a PDF
+          iframe.contentWindow!.print()
+
+          // Eliminar el iframe después de un tiempo
+          setTimeout(() => {
+            document.body.removeChild(iframe)
+            setIsExporting(false)
+          }, 1000)
+
+          toast({
+            title: "Reporte generado",
+            description: "El reporte PDF se ha generado correctamente",
+          })
+        } catch (error) {
+          console.error("Error al generar PDF:", error)
+          document.body.removeChild(iframe)
+          setIsExporting(false)
+
+          toast({
+            title: "Error al exportar",
+            description: "No se pudo generar el PDF. Intente nuevamente.",
+            variant: "destructive",
+          })
+        }
+      }, 1000)
+    } catch (error) {
+      console.error("Error al exportar PDF:", error)
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo exportar el reporte. Intente nuevamente.",
+        variant: "destructive",
+      })
       setIsExporting(false)
     }
   }
@@ -781,34 +991,24 @@ export default function DashboardPage() {
           </Link>
           <h1 className="text-xl font-semibold">Reportes</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="secondary"
             size="sm"
-            className="flex items-center gap-1"
-            onClick={exportToHTML}
+            className="flex items-center gap-1 relative overflow-hidden group"
+            onClick={exportReport}
             disabled={isExporting}
           >
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
             {isExporting ? (
               <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            ) : (
+            ) : exportFormat === "html" ? (
               <FileText className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">HTML</span>
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="flex items-center gap-1"
-            onClick={exportToCSV}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <FileSpreadsheet className="h-4 w-4" />
+              <FilePdf className="h-4 w-4" />
             )}
-            <span>CSV</span>
+            <span>Exportar {exportFormat.toUpperCase()}</span>
+            <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-white group-hover:w-full transition-all duration-300"></div>
           </Button>
         </div>
       </div>
@@ -861,362 +1061,148 @@ export default function DashboardPage() {
                 <DollarSign className="h-5 w-5 mr-2 text-primary" />
                 Resumen Financiero
               </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={exportToHTML}
-                disabled={isExporting}
-                title="Exportar resumen visual"
-              >
-                {isExporting ? (
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-8 w-8 p-0 ${exportFormat === "html" ? "bg-gray-100" : ""}`}
+                  onClick={() => setExportFormat("html")}
+                  title="Exportar como HTML"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-8 w-8 p-0 ${exportFormat === "pdf" ? "bg-gray-100" : ""}`}
+                  onClick={() => setExportFormat("pdf")}
+                  title="Exportar como PDF"
+                >
+                  <FilePdf className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                  <p className="text-sm text-muted-foreground flex items-center">
-                    <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
-                    Ingresos
-                  </p>
-                  <p className="text-xl font-bold text-green-600">{formatPrice(totalSales)}</p>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center">
+                    <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
+                    <span className="text-sm font-medium">Ingresos</span>
+                  </div>
+                  <span className="font-bold text-green-600">{formatPrice(totalSales)}</span>
                 </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                  <p className="text-sm text-muted-foreground flex items-center">
-                    <TrendingDown className="h-4 w-4 mr-1 text-red-500" />
-                    Gastos
-                  </p>
-                  <p className="text-xl font-bold text-red-600">{formatPrice(totalExpenses)}</p>
+
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                  <div className="flex items-center">
+                    <TrendingDown className="h-5 w-5 text-red-600 mr-2" />
+                    <span className="text-sm font-medium">Gastos</span>
+                  </div>
+                  <span className="font-bold text-red-600">{formatPrice(totalExpenses)}</span>
                 </div>
-              </div>
-              <Separator className="my-4" />
-              <div
-                className={`p-3 rounded-lg ${balance >= 0 ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"}`}
-              >
-                <p className="text-sm text-muted-foreground">Balance</p>
-                <div className="flex items-center">
-                  <p className={`text-2xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+
+                <Separator />
+
+                <div
+                  className={`flex justify-between items-center p-3 rounded-lg ${balance >= 0 ? "bg-blue-50" : "bg-red-50"}`}
+                >
+                  <div className="flex items-center">
+                    <DollarSign className={`h-5 w-5 mr-2 ${balance >= 0 ? "text-blue-600" : "text-red-600"}`} />
+                    <span className="text-sm font-medium">Balance</span>
+                  </div>
+                  <span className={`font-bold ${balance >= 0 ? "text-blue-600" : "text-red-600"}`}>
                     {formatPrice(balance)}
-                  </p>
-                  {balance >= 0 ? (
-                    <TrendingUp className="h-5 w-5 ml-2 text-green-500" />
-                  ) : (
-                    <TrendingDown className="h-5 w-5 ml-2 text-red-500" />
-                  )}
+                  </span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Tabs
-            defaultValue="sales"
-            value={reportView}
-            onValueChange={(value) => {
-              setReportView(value as any)
-              setAnimateCharts(false)
-              setTimeout(() => setAnimateCharts(true), 300)
-            }}
-          >
-            <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="sales" className="relative overflow-hidden">
-                <div className="flex items-center gap-2">
-                  <BarChart2 className="h-4 w-4" />
-                  <span>Ventas</span>
-                </div>
-                {reportView === "sales" && (
-                  <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="expenses" className="relative overflow-hidden">
-                <div className="flex items-center gap-2">
-                  <BarChart2 className="h-4 w-4" />
-                  <span>Gastos</span>
-                </div>
-                {reportView === "expenses" && (
-                  <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="balance" className="relative overflow-hidden">
-                <div className="flex items-center gap-2">
-                  <PieChart className="h-4 w-4" />
-                  <span>Balance</span>
-                </div>
-                {reportView === "balance" && (
-                  <div className="absolute bottom-0 left-0 h-0.5 w-full bg-primary animate-slide-in-right"></div>
-                )}
-              </TabsTrigger>
-            </TabsList>
+          <TabsContent value={activeTab} className="space-y-4">
+            <Card
+              className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <BarChart2 className="h-5 w-5 mr-2 text-primary" />
+                  Ventas por {activeTab === "daily" ? "Hora" : activeTab === "weekly" ? "Día" : "Día del Mes"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarChart data={salesBarChartData} />
+              </CardContent>
+            </Card>
 
-            <TabsContent value="sales" className="space-y-4">
-              <ReportContent
-                title="Reporte de Ventas"
-                sales={filteredSales}
-                expenses={[]}
-                total={totalSales}
-                barChartData={salesBarChartData}
-                lineChartData={lineChartData}
-                formatPrice={formatPrice}
-                period={getPeriodText()}
-                type="sales"
-                animateCharts={animateCharts}
-                onExport={exportToHTML}
-                isExporting={isExporting}
-              />
-            </TabsContent>
+            <Card
+              className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <PieChart className="h-5 w-5 mr-2 text-primary" />
+                  Tendencia de Ventas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LineChart data={lineChartData} />
+              </CardContent>
+            </Card>
 
-            <TabsContent value="expenses" className="space-y-4">
-              <ReportContent
-                title="Reporte de Gastos"
-                sales={[]}
-                expenses={filteredExpenses}
-                total={totalExpenses}
-                barChartData={expensesBarChartData}
-                lineChartData={[]}
-                formatPrice={formatPrice}
-                period={getPeriodText()}
-                type="expenses"
-                animateCharts={animateCharts}
-                onExport={exportToHTML}
-                isExporting={isExporting}
-              />
-            </TabsContent>
+            <Card
+              className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <BarChart2 className="h-5 w-5 mr-2 text-red-500" />
+                  Gastos por {activeTab === "daily" ? "Hora" : activeTab === "weekly" ? "Día" : "Día del Mes"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarChart data={expensesBarChartData} />
+              </CardContent>
+            </Card>
 
-            <TabsContent value="balance" className="space-y-4">
-              <Card
-                className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-              >
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg flex items-center">
-                    <PieChart className="h-5 w-5 mr-2 text-primary" />
-                    Balance Financiero
-                  </CardTitle>
+            <Card
+              className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            >
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">Detalles</CardTitle>
+                <div className="flex gap-2">
                   <Button
-                    variant="ghost"
+                    variant={reportView === "sales" ? "default" : "outline"}
                     size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={exportToHTML}
-                    disabled={isExporting}
-                    title="Exportar balance visual"
+                    onClick={() => setReportView("sales")}
                   >
-                    {isExporting ? (
-                      <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
+                    Ventas
                   </Button>
-                </CardHeader>
-                <CardContent>
-                  <div
-                    className={`text-3xl font-bold flex items-center ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
+                  <Button
+                    variant={reportView === "expenses" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setReportView("expenses")}
                   >
-                    {formatPrice(balance)}
-                    {balance >= 0 ? <TrendingUp className="h-6 w-6 ml-2" /> : <TrendingDown className="h-6 w-6 ml-2" />}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Balance {getPeriodText()}</p>
-
-                  <Separator className="my-6" />
-
-                  <div className="grid grid-cols-1 gap-6">
-                    <div>
-                      <h3 className="font-medium mb-3 flex items-center">
-                        <TrendingUp className="h-4 w-4 mr-2 text-green-500" />
-                        Detalle de Ventas
-                      </h3>
-                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                        <SalesList sales={filteredSales.slice(0, 3)} formatPrice={formatPrice} />
-                        {filteredSales.length > 3 && (
-                          <Link href="/sales" className="text-sm text-primary flex items-center mt-2 hover:underline">
-                            Ver todas las ventas
-                            <ArrowRight className="h-3 w-3 ml-1" />
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-3 flex items-center">
-                        <TrendingDown className="h-4 w-4 mr-2 text-red-500" />
-                        Detalle de Gastos
-                      </h3>
-                      <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-                        <ExpensesList expenses={filteredExpenses.slice(0, 3)} formatPrice={formatPrice} />
-                        {filteredExpenses.length > 3 && (
-                          <Link
-                            href="/expenses"
-                            className="text-sm text-primary flex items-center mt-2 hover:underline"
-                          >
-                            Ver todos los gastos
-                            <ArrowRight className="h-3 w-3 ml-1" />
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                    Gastos
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {reportView === "sales" ? (
+                  <SalesList sales={filteredSales} formatPrice={formatPrice} />
+                ) : (
+                  <ExpensesList expenses={filteredExpenses} formatPrice={formatPrice} />
+                )}
+              </CardContent>
+              <CardFooter className="pt-0">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <ArrowRight className="h-4 w-4 mr-1" />
+                  <span>
+                    {reportView === "sales"
+                      ? `${filteredSales.length} ventas encontradas`
+                      : `${filteredExpenses.length} gastos encontrados`}
+                  </span>
+                </div>
+              </CardFooter>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </main>
-  )
-}
-
-interface ReportContentProps {
-  title: string
-  sales: Sale[]
-  expenses: Expense[]
-  total: number
-  barChartData: ChartDataItem[]
-  lineChartData: ChartDataItem[]
-  formatPrice: (price: number) => string
-  period: string
-  type: "sales" | "expenses"
-  animateCharts: boolean
-  onExport: () => void
-  isExporting: boolean
-}
-
-function ReportContent({
-  title,
-  sales,
-  expenses,
-  total,
-  barChartData,
-  lineChartData,
-  formatPrice,
-  period,
-  type,
-  animateCharts,
-  onExport,
-  isExporting,
-}: ReportContentProps) {
-  return (
-    <>
-      <Card
-        className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-      >
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center">
-            {type === "sales" ? (
-              <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-            ) : (
-              <TrendingDown className="h-5 w-5 mr-2 text-red-500" />
-            )}
-            {title}
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={onExport}
-            disabled={isExporting}
-            title={`Exportar ${type === "sales" ? "ventas" : "gastos"}`}
-          >
-            {isExporting ? (
-              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={`text-3xl font-bold ${type === "sales" ? "text-green-600" : "text-red-600"} flex items-center`}
-          >
-            {formatPrice(total)}
-            {type === "sales" ? <TrendingUp className="h-6 w-6 ml-2" /> : <TrendingDown className="h-6 w-6 ml-2" />}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Total de {type === "sales" ? "ventas" : "gastos"} {period}
-          </p>
-
-          <div className="mt-6">
-            <h3 className="font-medium mb-2 flex items-center">
-              <BarChart2 className="h-4 w-4 mr-2 text-primary" />
-              {type === "sales" ? "Ventas" : "Gastos"} por período
-            </h3>
-            <div className="h-64 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800 p-2">
-              <BarChart data={barChartData} />
-            </div>
-          </div>
-
-          {type === "sales" && lineChartData.length > 0 && (
-            <>
-              <Separator className="my-6" />
-              <div>
-                <h3 className="font-medium mb-2 flex items-center">
-                  <TrendingUp className="h-4 w-4 mr-2 text-primary" />
-                  Tendencia de ventas
-                </h3>
-                <div className="h-48 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800 p-2">
-                  <LineChart data={lineChartData} />
-                </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" className="flex-1 mr-2" asChild>
-            <Link href={type === "sales" ? "/sales" : "/expenses"}>
-              Ver todos
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Link>
-          </Button>
-          <Button variant="default" className="flex-1 ml-2" onClick={onExport} disabled={isExporting}>
-            {isExporting ? (
-              <>
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                Exportando...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-2" />
-                Exportar HTML
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <Card
-        className={`transition-all duration-300 ${animateCharts ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-      >
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center">
-            <DollarSign className="h-5 w-5 mr-2 text-primary" />
-            {type === "sales" ? "Detalle de Ventas" : "Detalle de Gastos"}
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={onExport}
-            disabled={isExporting}
-            title={`Exportar detalle de ${type === "sales" ? "ventas" : "gastos"}`}
-          >
-            {isExporting ? (
-              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {type === "sales" ? (
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-              <SalesList sales={sales} formatPrice={formatPrice} />
-            </div>
-          ) : (
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-              <ExpensesList expenses={expenses} formatPrice={formatPrice} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </>
   )
 }
